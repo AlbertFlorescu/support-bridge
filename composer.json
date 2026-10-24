@@ -1,0 +1,7 @@
+{
+  "name": "albert-florescu/support-bridge",
+  "description": "Framework-free PHP reconciliation of linked GitHub issues and Zendesk tickets",
+  "type": "project",
+  "require": {"php": ">=8.2", "ext-pdo": "*", "ext-pdo_sqlite": "*", "ext-curl": "*"},
+  "scripts": {"test": "php bin/check.php", "demo": "php bin/demo.php"}
+}

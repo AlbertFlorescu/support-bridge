@@ -1,0 +1,11 @@
+/var/*
+!/var/.gitkeep
+.env
+.env.*
+!.env.example
+/vendor/
+node_modules/
+*.sqlite*
+*.lock
+.DS_Store
+Thumbs.db
