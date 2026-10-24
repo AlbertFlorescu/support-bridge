@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: Support Bridge
+    orgId: 1
+    folder: Support Bridge
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 10
+    allowUiUpdates: false
+    options:
+      path: $BRIDGE_MONITORING_DASHBOARDS

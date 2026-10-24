@@ -1,0 +1,37 @@
+# Example thresholds for a small local pilot, not agreed service objectives.
+# Prometheus evaluates these locally. No Alertmanager or recipient is configured.
+groups:
+  - name: supportbridge
+    rules:
+      - alert: SupportBridgeScrapeUnavailable
+        expr: up{job="support_bridge"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Support Bridge metrics cannot be scraped
+          description: Check the application, separate metrics token and local scrape configuration.
+      - alert: SupportBridgeOperatorAttention
+        expr: sum(support_bridge_pairs{status=~"conflict|dead|awaiting_approval"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Linked work requires an operator decision
+          description: Inspect authenticated operator state; metric labels intentionally contain no pair IDs or titles.
+      - alert: SupportBridgePendingRecovery
+        expr: sum(support_bridge_pending_plans) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Durable reconciliation plans remain pending
+          description: Check approval waits, retries, worker scheduling and quarantined work before taking action.
+      - alert: SupportBridgeNoRecentConvergence
+        expr: (sum(support_bridge_pairs) > 0) and ((time() - max(support_bridge_last_success_timestamp_seconds) > 600) or (max(support_bridge_last_success_timestamp_seconds) == 0))
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: No recent observed convergence for a nonempty link set
+          description: This is an example polling-health threshold, not a customer SLA. Confirm scheduler and state.

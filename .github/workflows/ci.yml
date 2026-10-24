@@ -1,0 +1,19 @@
+name: Verify
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  php:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP CLI extensions
+        run: sudo apt-get update -qq && sudo apt-get install -y php-cli php-sqlite3 php-curl
+      - name: Lint, test, and run offline demo
+        run: php bin/check.php
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate OpenAPI and actual HTTP response fixtures
+        working-directory: tools/api-docs
+        run: npm ci --ignore-scripts --no-fund && node validate.cjs

@@ -1,0 +1,1640 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Support Bridge Operator API",
+    "version": "1.3.0",
+    "description": "Single-operator internal prototype for linked GitHub Issues and Zendesk Tickets. Local mode is the default. All /api operations require a process-configured bearer token of at least 32 non-whitespace characters. Never expose the built-in PHP development server publicly. No remote base URL, credentials, mode or state path can be supplied through this API. GET /metrics uses a separate strong read-only scrape token; tokens must be different. Deterministic governance policy escalation-state-v1 allows title-only updates for explicitly linked records and requires an operator attestation for any planned outbound open/closed transition before any effects of that plan. Never rely on AI in compliance: AI output cannot authorize an effect, override policy, or certify compliance. The shared operator credential does not prove a human identity or separation of duties."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Same origin; localhost for the demonstration."
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health"
+    },
+    {
+      "name": "Pairs"
+    },
+    {
+      "name": "Operations"
+    },
+    {
+      "name": "Documentation"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "summary": "Liveness only; does not read SQLite or call a provider.",
+        "tags": [
+          "Health"
+        ],
+        "responses": {
+          "200": {
+            "description": "PHP handler is reachable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/pairs": {
+      "get": {
+        "operationId": "listPairs",
+        "summary": "List linked pair metadata (without title snapshots).",
+        "tags": [
+          "Pairs"
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairPage"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "linkPair",
+        "summary": "Opt two existing records into reconciliation.",
+        "tags": [
+          "Pairs"
+        ],
+        "responses": {
+          "201": {
+            "description": "Link created. No vendor API is called.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Queued"
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Inspection URL of the new link."
+              },
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "description": "IDs are strings. Links must be unique on both sides. This creates no remote records. Repeating the same POST returns 409; do not blindly replay mutations.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "github_id",
+                  "zendesk_id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "github_id": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]{0,15}$"
+                  },
+                  "zendesk_id": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]{0,15}$"
+                  }
+                }
+              },
+              "example": {
+                "id": "escalation-2",
+                "github_id": "102",
+                "zendesk_id": "502"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pairs/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "inspectPair",
+        "summary": "Inspect snapshots, pending intent, governance evidence, approval and recent audit.",
+        "tags": [
+          "Pairs"
+        ],
+        "responses": {
+          "200": {
+            "description": "Operator-only data; may include sensitive ticket titles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Inspection"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        }
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "operationId": "metrics",
+        "summary": "Read local status counters and Prometheus storage status.",
+        "tags": [
+          "Operations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Local state counts and telemetry registry availability; not proof of scrape health.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Metrics"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        }
+      }
+    },
+    "/api/sync": {
+      "post": {
+        "operationId": "reconcile",
+        "summary": "Run one synchronous reconciliation sweep.",
+        "tags": [
+          "Operations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Sweep completed. Counts may include retry/conflict/dead/awaiting_approval outcomes that need operator attention.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Counts"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "description": "Reads/writes the configured provider accounts in live mode. Polling remains the repair path. A second worker receives 409. The sweep is synchronous and may outlive a client timeout: inspect state before retrying. No client idempotency key or async queue is implemented. A newly planned outbound state transition is persisted as awaiting_approval with no remote writes. Already pending approvals are skipped; inspect pair/status counts for the outstanding queue.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              },
+              "example": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/pairs/{id}/resolve": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "resolvePair",
+        "summary": "Choose one fresh observed side for a quarantined pair.",
+        "tags": [
+          "Operations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Source choice queued; the next sweep still enforces the state-change approval gate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Queued"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "description": "Reads both providers but performs no remote write. Both canonical fields and versions must still match the saved conflict snapshot. A 409 may refresh conflict evidence; inspect again before choosing. The choice selects the entire source record. A source choice does not authorize a consequential state transition; the next sweep may enter awaiting_approval.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "github",
+                      "zendesk"
+                    ]
+                  }
+                }
+              },
+              "example": {
+                "source": "github"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pairs/{id}/retry": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "retryPair",
+        "summary": "Requeue retry/dead work after its cause is fixed.",
+        "tags": [
+          "Operations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Work requeued; no remote call.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Queued"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "description": "Cannot bypass conflict review. Resetting the retry budget does not discard the durable write plan. Does not grant approval or bypass awaiting_approval; governance is rechecked before effects.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              },
+              "example": {}
+            }
+          }
+        }
+      }
+    },
+    "/docs": {
+      "get": {
+        "operationId": "swaggerUi",
+        "summary": "Read the locally vendored Swagger UI reference.",
+        "tags": [
+          "Documentation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Swagger UI HTML. Read-only: Try it out and the remote validator are disabled.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          }
+        },
+        "security": []
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "openapi",
+        "summary": "Read this OpenAPI document.",
+        "tags": [
+          "Documentation"
+        ],
+        "responses": {
+          "200": {
+            "description": "OpenAPI JSON, served locally without account data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          }
+        },
+        "security": []
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "prometheusMetrics",
+        "summary": "Scrape aggregate Prometheus metrics using the separate read-only token.",
+        "tags": [
+          "Operations"
+        ],
+        "security": [
+          {
+            "metricsBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prometheus text format 0.0.4, newline terminated. Counters/histogram persist across PHP processes; state values are gauges. No record identifiers or title snapshots.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\n$"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        }
+      }
+    },
+    "/api/pairs/{id}/approve": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "approvePlan",
+        "summary": "Attest to review of an exact pending state-change plan.",
+        "tags": [
+          "Operations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Approval recorded; execution deferred until a subsequent sweep.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Queued"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "description": "Requires awaiting_approval and the plan_hash shown by inspection. Reads both records under the canonical worker lock and rejects stale fields or versions with 409. Records the policy version, plan hash, rationale and shared-operator principal; the next sync applies the plan only after governance and recovery checks. Performs no remote write. Approval is an operator attestation, not verified human identity or legal/regulatory compliance. AI-generated reasons have no authorization effect without this explicit command; do not grant this capability to an autonomous agent. Repeated approvals return 409; inspect state after any client timeout.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "plan_hash",
+                  "reason"
+                ],
+                "properties": {
+                  "plan_hash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$",
+                    "description": "Exact current governance.plan_hash from authenticated inspection. This is an evidence identifier, not a credential."
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "description": "UTF-8 operator rationale; trim-nonempty and at most 500 bytes (runtime enforces bytes). Avoid sensitive content; stored in local audit."
+                  }
+                }
+              },
+              "example": {
+                "plan_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "reason": "Reviewed the linked escalation and confirmed that this resolution state should propagate."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "BRIDGE_API_TOKEN; one operator identity, no per-user roles."
+      },
+      "metricsBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "BRIDGE_METRICS_TOKEN: at least 32 non-whitespace characters, different from the operator token; authorizes only GET /metrics."
+      }
+    },
+    "schemas": {
+      "Fields": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "state"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Nonempty, at most 500 UTF-8 bytes (the runtime enforces bytes)."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          }
+        }
+      },
+      "PairSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "github_id",
+          "zendesk_id",
+          "status",
+          "attempts",
+          "next_run",
+          "error",
+          "last_success"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+          },
+          "github_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,15}$"
+          },
+          "zendesk_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,15}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "new",
+              "synced",
+              "retry",
+              "conflict",
+              "dead",
+              "awaiting_approval"
+            ]
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "next_run": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Unix seconds; 0 means no scheduled retry."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_success": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      },
+      "Plan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target",
+          "before",
+          "versions"
+        ],
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/Fields"
+          },
+          "before": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "github",
+              "zendesk"
+            ],
+            "properties": {
+              "github": {
+                "$ref": "#/components/schemas/Fields"
+              },
+              "zendesk": {
+                "$ref": "#/components/schemas/Fields"
+              }
+            }
+          },
+          "versions": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "github",
+              "zendesk"
+            ],
+            "properties": {
+              "github": {
+                "type": "string"
+              },
+              "zendesk": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reason",
+          "fields",
+          "observed",
+          "versions"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "title",
+                "state"
+              ]
+            }
+          },
+          "observed": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "github",
+              "zendesk"
+            ],
+            "properties": {
+              "github": {
+                "$ref": "#/components/schemas/Fields"
+              },
+              "zendesk": {
+                "$ref": "#/components/schemas/Fields"
+              }
+            }
+          },
+          "versions": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "github",
+              "zendesk"
+            ],
+            "properties": {
+              "github": {
+                "type": "string"
+              },
+              "zendesk": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message",
+              "requestId"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "requestId": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{24}$"
+              }
+            }
+          }
+        }
+      },
+      "Queued": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "const": "new"
+          }
+        }
+      },
+      "Counts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "synced",
+          "retry",
+          "conflict",
+          "dead",
+          "skipped",
+          "awaiting_approval"
+        ],
+        "properties": {
+          "synced": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "retry": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "conflict": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "dead": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "awaiting_approval": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "Observability": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enabled",
+          "vendor",
+          "storage_available",
+          "status"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "const": true
+          },
+          "vendor": {
+            "type": "string",
+            "const": "prometheus"
+          },
+          "storage_available": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "storage_unavailable"
+            ]
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "service",
+          "version"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          },
+          "service": {
+            "type": "string",
+            "const": "support-bridge"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "Pair": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "github_id",
+          "zendesk_id",
+          "status",
+          "attempts",
+          "next_run",
+          "error",
+          "last_success",
+          "baseline",
+          "plan",
+          "conflict",
+          "approval"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+          },
+          "github_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,15}$"
+          },
+          "zendesk_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,15}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "new",
+              "synced",
+              "retry",
+              "conflict",
+              "dead",
+              "awaiting_approval"
+            ]
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "next_run": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Unix seconds; 0 means no scheduled retry."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_success": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Fields"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Plan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conflict": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Conflict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Approval"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Inspection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pair",
+          "recent_events",
+          "governance"
+        ],
+        "properties": {
+          "pair": {
+            "$ref": "#/components/schemas/Pair"
+          },
+          "recent_events": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "type",
+                "details",
+                "created_at"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "details": {
+                  "type": "string",
+                  "description": "JSON-encoded metadata, not raw vendor data."
+                },
+                "created_at": {
+                  "type": "string",
+                  "description": "SQLite UTC timestamp text."
+                }
+              }
+            }
+          },
+          "governance": {
+            "$ref": "#/components/schemas/Governance"
+          }
+        }
+      },
+      "PairPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/PairSummary"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "Metrics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pairs",
+          "pending_plans",
+          "last_success",
+          "observability"
+        ],
+        "properties": {
+          "pairs": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "new",
+              "synced",
+              "retry",
+              "conflict",
+              "dead",
+              "awaiting_approval"
+            ],
+            "properties": {
+              "new": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "synced": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "retry": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "conflict": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "dead": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "awaiting_approval": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "pending_plans": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "last_success": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "observability": {
+            "$ref": "#/components/schemas/Observability"
+          }
+        }
+      },
+      "Approval": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "policy_version",
+          "plan_hash",
+          "reason",
+          "principal",
+          "approved_at"
+        ],
+        "properties": {
+          "policy_version": {
+            "type": "string"
+          },
+          "plan_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "UTF-8 rationale, at most 500 bytes; local operator attestation, not a compliance decision."
+          },
+          "principal": {
+            "type": "string",
+            "const": "shared-operator"
+          },
+          "approved_at": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "Governance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "policy_version",
+          "plan_hash",
+          "requires_approval",
+          "approved"
+        ],
+        "properties": {
+          "policy_version": {
+            "type": "string",
+            "const": "escalation-state-v1"
+          },
+          "plan_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "requires_approval": {
+            "type": "boolean",
+            "description": "True when the persisted plan contains any outbound open/closed transition."
+          },
+          "approved": {
+            "type": "boolean",
+            "description": "Persisted attestation matches this exact plan and current policy; no assertion of verified human identity."
+          }
+        }
+      }
+    },
+    "responses": {
+      "Error400": {
+        "description": "Malformed JSON or a non-object body.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Error401": {
+        "description": "Missing or invalid bearer token.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "WWW-Authenticate": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Error404": {
+        "description": "Route or linked pair not found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Error405": {
+        "description": "Method not allowed.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Allow": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Error409": {
+        "description": "Duplicate link, invalid state, stale source choice or approval, concurrent update or worker busy.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "schema": {
+              "type": "string"
+            }
+          },
+          "Retry-After": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Present for worker_busy only."
+          }
+        }
+      },
+      "Error413": {
+        "description": "Request JSON exceeds 16 KiB.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Error415": {
+        "description": "Content-Type must be application/json.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Error422": {
+        "description": "Fields, types, query values or operation values do not match the contract.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Error500": {
+        "description": "Unexpected storage or internal error; no raw exception data is exposed.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Error502": {
+        "description": "A permanent provider request failure prevented the operator command.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Error503": {
+        "description": "API token/service configuration is missing, or a transient provider failure occurred.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
