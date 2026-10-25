@@ -1,29 +1,61 @@
 name: Verify
-on: [push, pull_request]
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
 permissions:
   contents: read
+
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   php:
+    name: PHP checks
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Install PHP CLI extensions
         run: sudo apt-get update -qq && sudo apt-get install -y php-cli php-sqlite3 php-curl
       - name: Lint, test, and run offline demo
         run: php bin/check.php
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: tools/api-docs/package-lock.json
       - name: Validate OpenAPI and actual HTTP response fixtures
         working-directory: tools/api-docs
-        run: npm ci --ignore-scripts --no-fund && node validate.cjs
+        run: npm ci --ignore-scripts --no-audit --no-fund && node validate.cjs
+      - name: Retain synthetic API response fixtures
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: api-response-fixtures
+          path: var/api-contract-fixtures.json
+          if-no-files-found: ignore
+          retention-days: 7
+
   containers:
+    name: Container checks
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       COMPOSE_PROJECT_NAME: support-bridge-ci
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Run PHP and OpenAPI verification inside Docker
         run: docker compose --profile test run --build --rm verify
       - name: Start the complete local stack
@@ -38,3 +70,22 @@ jobs:
       - name: Remove disposable CI services and volumes
         if: always()
         run: docker compose down --volumes --remove-orphans
+
+  required:
+    name: Required checks
+    if: ${{ always() }}
+    needs: [php, containers]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    env:
+      PHP_RESULT: ${{ needs.php.result }}
+      CONTAINER_RESULT: ${{ needs.containers.result }}
+    steps:
+      - name: Require every verification job to succeed
+        run: |
+          printf '| Check | Result |\n| --- | --- |\n| PHP | %s |\n| Containers | %s |\n' "$PHP_RESULT" "$CONTAINER_RESULT" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$PHP_RESULT" != success ] || [ "$CONTAINER_RESULT" != success ]; then
+            echo 'Every verification job must succeed; failed, cancelled and skipped jobs cannot pass this gate.' >&2
+            exit 1
+          fi
+          echo 'All required verification jobs succeeded.'

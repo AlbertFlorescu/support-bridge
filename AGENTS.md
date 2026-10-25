@@ -2,6 +2,8 @@
 
 Start with our customer problem, `docs/ASSUMPTIONS.md` and `docs/GOVERNANCE.md`. Support Bridge is our headless escalation workflow for explicitly linked GitHub issues and Zendesk tickets. Keep documentation in our product voice: describe our decisions, implementation, evidence and operating limits directly. Keep private discussions and unrelated material outside the repository.
 
+Use product-focused branch names under `feature/`, `fix/`, `chore/`, `docs/` or `ci/`, and the configured maintainer identity for commits. Keep assistant/tool branding out of repository text, branch names and commit metadata. Keep the generic AI-use disclosure honest. GitHub Actions is our CI; changes go through pull requests and its named required-check gate. A workflow passing does not itself prove that server-side branch protection is enabled.
+
 - Keep plain PHP, shared CLI/API application logic, and pure merge/retry/governance policies. Add adaptive behavior only for a demonstrated need; keep deterministic execution free of runtime model decisions.
 - Never rely on AI in compliance. AI output cannot decide policy satisfaction, authorize a write, choose a conflicting source or supply operator approval. Document policy ownership and missing controls explicitly.
 - Preserve the review boundary: title-only plans use the explicit link's opt-in; any outbound state change holds the whole plan for explicit approval. Approval binds pair, exact durable plan and governance policy version, is checked against fresh evidence, and cannot be granted by retry or source resolution.
