@@ -20,6 +20,8 @@ Actions report test results. An active GitHub branch rule must enforce them befo
 
 Private-repository branch protection requires a GitHub plan that includes that capability. On a plan without it, CI still runs but cannot prevent a direct or forced push. We do not treat a workflow file or a passing check as proof that the branch is protected. [GitHub's protected-branch availability and settings](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) define that boundary.
 
+As verified on 2026-10-25, our current private-repository plan does not support branch-rule enforcement, and `main` has no enforced rule. We retain this plan and follow the PR/check workflow as maintainer practice. The prepared configuration below is not an active server-side control.
+
 The importable [main ruleset](../.github/rulesets/main.json) records this configuration with no bypass actors. Its expected status-check source is the GitHub Actions app, verified from our check-run metadata. Import it through **Settings → Rules → Rulesets → New ruleset → Import a ruleset**, once the account supports private-repository rules. The JSON requests active enforcement, but storing this file does not create or activate a GitHub rule. Verify the server-side rule after import. A classic branch rule with equivalent settings is an alternative; do not maintain two conflicting configurations.
 
 ## Permissions, dependencies and artifacts
@@ -29,6 +31,14 @@ Workflow tokens have read-only repository contents access. Checkout does not ret
 We retain only the synthetic API response-fixture JSON as an Actions artifact for seven days. It contains controlled test responses, not vendor records, bearer tokens or deployment configuration. Failed container jobs print bounded service diagnostics; CI credentials and state stay in the disposable runner's volumes, which are removed after the job. We never upload credential volumes, Compose environment dumps or a whole state directory as artifacts.
 
 [Dependabot configuration](../.github/dependabot.yml) checks GitHub actions, npm API tooling and the four upstream Docker images weekly. The Docker allowlist excludes our locally built image names. Updates still need review and passing checks; dependency automation does not establish compatibility or compliance. [Dependabot's configuration reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference) describes the supported options.
+
+## Dependency maintenance policy
+
+We retain the PHP 8.3, Node 24 and Prometheus 3.13 lines while they meet our needs and receive upstream support. Dependabot may propose patch and digest refreshes within those lines. Its Docker ignore rules suppress PHP and Prometheus minor/major version updates and Node major version updates; image digests remain pinned and changes still require review. Grafana's existing update policy is unchanged. Official GitHub Actions also continue to receive reviewed updates, including major releases.
+
+As reviewed on 2026-10-25, PHP 8.3 has security support through 2027-12-31, Node 24 remains LTS and keeps native/container API validation aligned, and Prometheus 3.13 is our maintained LTS line. [PHP support](https://www.php.net/supported-versions.php), the [Node release schedule](https://github.com/nodejs/Release/blob/main/schedule.json) and [Prometheus release policy](https://prometheus.io/docs/introduction/release-cycle/) provide the upstream support context.
+
+We trade immediate access to new version features for a smaller migration scope. A change of line needs an explicit reason, upstream migration review, documentation and the appropriate CI evidence. We must revisit this choice before support ends or when a required fix is unavailable in the selected line. The ignore rules filter update proposals; they do not monitor support deadlines or prove that an image is free of vulnerabilities. [Dependency review evidence](REVIEW.md#dependency-review-2026-10-25) records the current decisions and remaining migration work.
 
 ## Local reproduction and limits
 

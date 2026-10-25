@@ -48,6 +48,18 @@ Image sources are pinned by verified manifest digests: official PHP8.3 and Node2
 
 A separate AI-assisted container review checked secret-volume readers, non-root ownership, read-only filesystems, startup, file-secret failure behavior and worker termination. Its two offline probes confirmed missing secret files and conflicting direct/file values fail with sanitized output. [Docker operation](DOCKER.md) records commands, persistence and deployment limits. CI additionally builds the images and runs the container suite, smoke and lifecycle checks.
 
+## Dependency review: 2026-10-25
+
+We reviewed three candidate image updates. Each candidate passed PHP, container and aggregate checks on GitHub Actions; passing those checks does not itself require adoption.
+
+| Candidate | Evidence and decision |
+| --- | --- |
+| PHP 8.3 → 8.5 | [Candidate CI passed](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40176435376). We retain PHP 8.3.36; registry inspection confirmed our checked-in digest is current for the selected tag. PHP 8.3 remains security-supported through 2027-12-31. PHP 8.5 deprecates `curl_close()`, which we call in `src/HttpClient.php` and `docker/verify-stack.php`. A later migration needs that cleanup and a deprecation-free verification run; the passing candidate suite does not establish that property. [PHP support](https://www.php.net/supported-versions.php), [cURL change](https://www.php.net/manual/en/function.curl-close.php). |
+| Node 24 → 26 | [Candidate CI passed](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40176440617). We retain Node 24 in both native CI and the verification image; registry inspection confirmed its digest is current. Node 26 is Current until its scheduled LTS transition on 2026-10-28. We have no demonstrated requirement to split our verification runtimes or adopt that line now. [Official schedule](https://github.com/nodejs/Release/blob/main/schedule.json). |
+| Prometheus 3.13.5 → 3.15.1 | [Candidate CI passed](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40176444749), including authenticated scrapes/queries, four rules, Grafana provisioning and container recreation. We found no relevant configuration or API blocker, but retain the 3.13 LTS line without a demonstrated need for newer minor features. Both releases include the October 21 security fixes. The candidate used fresh monitoring storage; it does not verify an existing 3.13.5 TSDB upgrade. [3.13.5 release](https://github.com/prometheus/prometheus/releases/tag/v3.13.5), [3.15.1 release](https://github.com/prometheus/prometheus/releases/tag/v3.15.1). |
+
+These are maintenance decisions, not runtime upgrades or vendor/production validation. The existing container and native monitoring evidence remains separate and unchanged. Our [dependency maintenance policy](CI.md#dependency-maintenance-policy) keeps patch/digest proposals available and reserves line changes for a deliberate migration.
+
 ## Local monitoring verification
 
 ```bash

@@ -39,3 +39,10 @@ updates:
       - dependency-name: node
       - dependency-name: prom/prometheus
       - dependency-name: grafana/grafana
+    ignore:
+      - dependency-name: php
+        update-types: [version-update:semver-minor, version-update:semver-major]
+      - dependency-name: node
+        update-types: [version-update:semver-major]
+      - dependency-name: prom/prometheus
+        update-types: [version-update:semver-minor, version-update:semver-major]
