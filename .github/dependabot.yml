@@ -1,0 +1,41 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '08:00'
+      timezone: UTC
+    open-pull-requests-limit: 3
+    groups:
+      github-actions:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /tools/api-docs
+    schedule:
+      interval: weekly
+      day: monday
+      time: '08:00'
+      timezone: UTC
+    open-pull-requests-limit: 3
+    groups:
+      api-tooling:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories: ['/', '/docker']
+    schedule:
+      interval: weekly
+      day: monday
+      time: '08:00'
+      timezone: UTC
+    open-pull-requests-limit: 3
+    allow:
+      - dependency-name: php
+      - dependency-name: node
+      - dependency-name: prom/prometheus
+      - dependency-name: grafana/grafana

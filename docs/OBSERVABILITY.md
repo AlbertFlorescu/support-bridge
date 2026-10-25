@@ -15,7 +15,7 @@ Support Bridge exposes Prometheus text metrics from framework-free PHP. Promethe
 | `support_bridge_last_success_timestamp_seconds` | Latest observed convergence as Unix seconds; zero when none exists |
 | `support_bridge_telemetry_storage_available` | One when this successful scrape read valid durable metric storage |
 
-The histogram exports cumulative `_bucket` samples with inclusive boundaries `0.005`, `0.01`, `0.025`, `0.05`, `0.1`, `0.25`, `0.5`, `1`, `2.5`, `5`, `10`, `+Inf`, plus `_sum` and `_count`. The `+Inf` bucket equals `_count`. This follows the [Prometheus exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/) and [metric type conventions](https://prometheus.io/docs/concepts/metric_types/). Classic buckets are a deliberate small, inspectable implementation for this exercise; their boundaries are not customer service objectives.
+The histogram exports cumulative `_bucket` samples with inclusive boundaries `0.005`, `0.01`, `0.025`, `0.05`, `0.1`, `0.25`, `0.5`, `1`, `2.5`, `5`, `10`, `+Inf`, plus `_sum` and `_count`. The `+Inf` bucket equals `_count`. This follows the [Prometheus exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/) and [metric type conventions](https://prometheus.io/docs/concepts/metric_types/). We use classic buckets as a small, inspectable implementation; their boundaries are not customer service objectives.
 
 An observation is an attempted reconciliation, including successful polls that require no writes. These counters do not count business edits or prove remote effects. Ineligible pairs skipped by the engine appear in sweep counts; they do not currently emit individual reconciliation observations, so the initialized `skipped` telemetry series normally stays zero. The input's current `attempts` field is not accumulated as a misleading retry total; retry outcomes have their own counter.
 
@@ -35,7 +35,20 @@ Metric delivery is best effort. The business update and telemetry update are in 
 
 The exporter reads all aggregate values in one SQLite snapshot and checks histogram/counter consistency. Only first creation initializes zero series. An existing registry with a missing row or incompatible schema fails visibly instead of silently rebuilding values; restore it from a consistent backup or deliberately reset it after reviewing the loss. If metric storage cannot be opened or read, `/metrics` returns a sanitized failure rather than fabricated zero counters. Prometheus then reports its own scrape metric `up{job="support_bridge"}=0`. The storage gauge is not a provider-health check. Business gauges and telemetry totals come from separate local snapshots, and no vendor is contacted during a scrape.
 
-## Local stack
+## Docker Compose stack
+
+Our primary local stack packages the API, reconciliation worker, Prometheus and Grafana in containers. See [Docker operation](DOCKER.md) for setup, ports, credentials, volumes and the complete container verification gate.
+
+```bash
+docker compose up --build -d --wait
+docker compose --profile test run --build --rm smoke
+```
+
+Prometheus scrapes `api:8080` through Compose DNS with its own read-only credential file; Grafana queries `prometheus:9090`. Host ports are bound to loopback. The initializer creates synthetic local application state and distinct credentials in dedicated named volumes, while API and worker share the same state directory and canonical database lock. The worker does not receive monitoring or operator credentials and never grants approval.
+
+Container restart preserves the business database, aggregate metrics, monitoring data and credentials. An ordinary `docker compose down` retains the volumes. Credentials are not baked into images or included in committed configuration. The volume-backed files are not encrypted Docker Secrets; Docker administrators can read them. The isolated smoke verifier reads the credentials needed to check actual authentication, scrapes, queries, rules and Grafana provisioning, and makes no business writes.
+
+## Optional native stack
 
 The repository includes pinned, checksum-verified user-local binaries, provisioning, a dashboard and example alert rules under [`monitoring/`](../monitoring/). From the repository root in Ubuntu/WSL:
 
@@ -90,7 +103,7 @@ sum(rate(support_bridge_reconciliation_duration_seconds_count[5m]))
 Current work requiring attention and scrape health:
 
 ```promql
-sum(support_bridge_pairs{status=~"conflict|dead"})
+sum(support_bridge_pairs{status=~"conflict|dead|awaiting_approval"})
 up{job="support_bridge"}
 ```
 
@@ -102,6 +115,6 @@ Rates require several scrapes and observations; a fresh or inactive demo may hav
 php tests/observability.php
 ```
 
-The offline suite checks initialized series, real cross-process durability, concurrent updates, inclusive bucket units, atomic rollback, bounded lock failure, corruption handling, fixed cardinality and text formatting. API/server checks cover authentication, response media type and scrape failures. The monitoring helper verifies the actual local Prometheus/Grafana connections separately.
+The offline suite checks initialized series, real cross-process durability, concurrent updates, inclusive bucket units, atomic rollback, bounded lock failure, corruption handling, fixed cardinality and text formatting. API/server checks cover authentication, response media type and scrape failures. The Compose smoke verifier and optional native monitoring helper verify actual Prometheus/Grafana connections separately. Neither passing PHP checks nor healthy containers alone prove an authenticated scrape and datasource query.
 
-The Agency backend/AppSec recommendations are applied through durable user-impact counters, explicit trust boundaries, fixed labels and independent telemetry failures. No generic scale, availability, compliance or delivery guarantee from those profiles is claimed. Current decisions and limitations should be revisited with actual customer traffic before a pilot.
+We use backend and security review guidance to challenge metric meaning, trust boundaries, cardinality and failure isolation. Reconciliation observations are operational counts, not measured customer impact. Review profiles establish no scale, availability, compliance or delivery guarantee. We need to revisit the decisions and limitations with actual customer traffic before a pilot.

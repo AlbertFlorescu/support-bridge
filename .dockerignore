@@ -1,0 +1,35 @@
+# Send only application, verification and container source to the builder.
+**
+!Dockerfile
+!bootstrap.php
+!src/
+!src/**
+!bin/
+!bin/**
+!public/
+!public/**
+!tests/
+!tests/**
+!docs/
+!docs/api/
+!docs/api/openapi.json
+!tools/
+!tools/api-docs/
+!tools/api-docs/package.json
+!tools/api-docs/package-lock.json
+!tools/api-docs/*.cjs
+!docker/
+!docker/**
+!monitoring/
+!monitoring/alerts.yml
+!monitoring/grafana/
+!monitoring/grafana/dashboards/
+!monitoring/grafana/dashboards/*.json
+# Never copy private overrides or credentials, even below an allowed directory.
+**/.env
+**/.env.*
+**/*secret*
+**/*.sqlite*
+**/node_modules
+**/__pycache__
+**/*.log

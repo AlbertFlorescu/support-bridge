@@ -32,7 +32,26 @@ The complete [assumptions register](docs/ASSUMPTIONS.md) states each assumption,
 
 We need to validate these defaults before a pilot, especially field ownership, sensitive titles, workflow transitions, conflict responsibility and freshness expectations.
 
-## Run in two commands
+## Run everything with Docker
+
+```bash
+docker compose up --build -d --wait
+```
+
+This starts the API/Swagger, a scheduled reconciliation worker, Prometheus and Grafana. A one-shot initializer creates synthetic local records and separate persistent credentials. Only Docker with Linux containers and Compose is needed on the host. The default stack makes no vendor calls and publishes ports only on host loopback.
+
+Open [Swagger](http://127.0.0.1:8080/docs), [Prometheus](http://127.0.0.1:9090) and [Grafana](http://127.0.0.1:3000/d/supportbridge-overview). The [Docker guide](docs/DOCKER.md) covers generated credentials, alternate ports, persistent volumes, shutdown and operating the workflow.
+
+```bash
+docker compose run --rm cli status
+docker compose run --rm cli inspect escalation-1
+docker compose --profile test run --build --rm verify
+docker compose --profile test run --rm smoke
+```
+
+`verify` runs the complete PHP and OpenAPI checks with isolated temporary state and no runtime network access. `smoke` checks the actual service network, authenticated scrape and provisioned Grafana dashboard. Neither grants approval. Named volumes preserve data and credentials across restarts and ordinary `docker compose down`; keep them when stopping the stack.
+
+## Native PHP demonstration
 
 Requirements: PHP **8.2 or later**, `pdo_sqlite` and `curl`. No Composer installation, accounts, API tokens, Docker, Node or database server are needed for the core local demonstration. Swagger's browser assets are vendored; Node is a separate development tool for refreshing/validating them. Prometheus and Grafana are separate local monitoring processes installed by the optional monitoring setup.
 
@@ -148,7 +167,7 @@ Before any remote write, persist a plan containing the merged target, both preim
 
 Zendesk writes use its documented `safe_update` / `updated_stamp` guard. GitHub's issue update endpoint does not document an equivalent atomic precondition: a version-checked preflight read and minimal PATCH reduce the risk, but a human edit between the read and PATCH can still be overwritten. Verification cannot detect every such overwritten edit. Timestamp granularity also limits edit-and-revert detection. These are material limitations of this two-way prototype. [Zendesk safe updates](https://developer.zendesk.com/documentation/ticketing/managing-tickets/creating-and-updating-tickets/), [GitHub issue updates](https://docs.github.com/en/rest/issues/issues#update-an-issue).
 
-The worker uses one nonblocking process lock for the canonical database path. Do not run it across multiple hosts or on networked storage. SQLite WAL with `synchronous=FULL` persists state; no database transaction is held during HTTP. A crash between either remote effect and local acknowledgement leaves the plan available for recovery.
+The worker uses one nonblocking process lock for the canonical database path. The Compose API, CLI and worker share the same local named volume and lock; do not scale them across hosts or networked storage. SQLite WAL with `synchronous=FULL` persists state; no database transaction is held during HTTP. A crash between either remote effect and local acknowledgement leaves the plan available for recovery. The container worker runs an immediate sweep, then waits between bounded sweeps; its heartbeat measures loop progress, not business convergence.
 
 ### Clean code principles applied
 
@@ -183,6 +202,7 @@ Read [the architecture and trade-offs](docs/ARCHITECTURE.md) for the complete st
 | Read-only vendored Swagger | Exact local reference, no CDN/validator dependency or accidental live operation from the documentation UI. | Larger repository assets and manual refresh; Try it out is unavailable. |
 | Prometheus pull metrics and Grafana provisioning | Open aggregate telemetry with a reproducible local dashboard and no cloud license. | Separate services and a durable metric store; telemetry can miss an observation around a crash and is not a business audit ledger. |
 | REA/Agency as scoped development aids | Real artifact analysis and specialist review prompts add evidence and challenge assumptions. | REA does not review PHP architecture, and partial artifact coverage/personas are not proof of correctness. |
+| Compose with separate services and local volumes | Packages runtime, scheduling, monitoring and verification without host language/tool installs. | More images and volume ownership to maintain; local Docker credentials are not encrypted secrets, and containers do not make the development HTTP server production-ready. |
 
 We accept the maintenance cost of the operator API, vendored documentation and local monitoring because they make the service inspectable and operable. They remain separate from the reconciliation core and do not add runtime framework dependencies.
 
@@ -193,6 +213,7 @@ We accept the maintenance cost of the operator API, vendored documentation and l
 - **Live compatibility:** GitHub/Zendesk sandbox permissions, required fields, triggers and custom workflows have not been exercised with credentials. Post-write transformations may quarantine a pair.
 - **Scale:** one local worker, synchronous requests/sweeps, in-memory list pagination and unbounded audit history. No distributed locks, provider-wide rate budget, async queue, ingress rate limiter or production benchmark.
 - **API security scope:** one shared operator token, no roles/tenant isolation. The PHP server is a loopback development server, with production TLS/ingress/secret management left to deployment.
+- **Container scope:** the default stack uses synthetic local providers and a Compose bridge network with outbound connectivity. The API listens inside its container and publishes only on host loopback. Docker administrators can read credential/data volumes; image digest pins do not replace vulnerability review, and package repositories used at build time can change. Multi-host scheduling, backups, credential rotation and a production PHP server remain deployment work.
 - **Governance scope:** state-change approval is a narrow operational control, with no verified human identity, independent approver, content/DLP policy or compliance certification. An agent must not receive the broad operator token. Skill capability restrictions are instructions until a separately authorized facade enforces them.
 - **Data operations:** title snapshots are not application-encrypted; retention, consistent backups and recovery rehearsals are not complete operational features. Only narrow additive approval/telemetry migrations are implemented, without a general migration/rollback system.
 - **Telemetry:** metric updates are best effort and separate from business transactions. A crash/storage failure can lose an observation; deleting/resetting metric storage resets counters. Metrics are operational evidence, not an exactly-once audit. Local scrape/dashboard checks do not establish production capacity or alert notification delivery.
@@ -214,6 +235,8 @@ php -S 127.0.0.1:8080 -t public public/router.php
 Open [Swagger UI](http://127.0.0.1:8080/docs). All `/api` routes require the token; the documentation is read-only and contains no credential or account data. Local mode remains the default. No API input can select provider hosts, credentials, state paths or live mode.
 
 ## Prometheus and Grafana observability
+
+Compose is our default all-service setup. It provisions the same dashboard and alert rules, addressing the API and Prometheus by service name. The commands below describe the optional native Linux alternative; use one stack at a time on the default ports.
 
 The application exposes authenticated **Prometheus text format 0.0.4** at `GET /metrics`. Its separate `BRIDGE_METRICS_TOKEN` is read-only and cannot authorize operator commands; the operator API token cannot scrape the exporter. The tokens must be strong and different. `/api/metrics` remains an operator-only JSON inspection endpoint.
 
@@ -284,7 +307,7 @@ The CLI creates local state with a restrictive umask. SQLite stores titles and s
 
 The test suite covers normal convergence, per-field merge, initial mismatch, conflicting edits, stale resolution, interrupted writes, after-commit timeouts, partial success, changed destinations, edit-and-revert recovery, retry timing/exhaustion, immutable records, worker exclusion and per-pair failure isolation. HTTP provider tests cover payload mapping, safe updates, rate limits, malformed records and host restrictions. API tests check authentication before side effects, exact JSON contracts, body limits, pagination, routing/headers, private-file denial and real loopback HTTP. Observability tests verify persistent counters, cumulative histogram units/buckets, concurrent-process increments, rollback, bounded storage waits and fail-open recording versus failed scrapes.
 
-Run `php bin/check.php` for the complete accountless gate. Run the locked OpenAPI validator separately from `tools/api-docs` with `npm ci --ignore-scripts` and `node validate.cjs`; it does not use an online validator. See [review evidence](docs/REVIEW.md) for executed counts, tooling findings and remaining live checks. CI runs the PHP gate and API validation on pushes and pull requests. [Verification evidence](docs/REVIEW.md) records test coverage and remaining validation.
+Run `php bin/check.php` for the complete accountless gate. Run the locked OpenAPI validator separately from `tools/api-docs` with `npm ci --ignore-scripts` and `node validate.cjs`; it does not use an online validator. [Verification evidence](docs/REVIEW.md) records executed counts, coverage and remaining live checks. Our [GitHub Actions CI](docs/CI.md) runs native PHP/API checks and the complete container and persistence checks for changes to `main`, with a single `Required checks` merge-status gate. Enforcing that gate requires an active GitHub branch rule and a plan that supports private-repository protection.
 
 ## AI use
 
