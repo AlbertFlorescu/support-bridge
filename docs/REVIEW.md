@@ -8,7 +8,7 @@ We verify the service with synthetic local data on Ubuntu/WSL and PHP 8.3. The r
 php bin/check.php
 ```
 
-The gate passes **136 tests**, **nine demo assertions** and syntax checks for **43 PHP files**:
+The gate passes **136 tests**, **nine demo assertions** and syntax checks for **49 PHP files**, including container helpers:
 
 | Suite | Checks | Coverage |
 | --- | ---: | --- |
@@ -35,6 +35,18 @@ node validate.cjs
 We validated **11 OpenAPI paths** and **27 actual HTTP response fixtures** with JSON Schema 2020-12. Required approval fixtures cover success, authentication, stale evidence, invalid input and pending/approved inspection. We do not submit specs or fixtures to an online validator.
 
 The repository's Verify workflow runs the PHP gate and schema validation on pushes and pull requests. [GitHub Actions](https://github.com/AlbertFlorescu/support-bridge/actions) records hosted results for the published revision.
+
+## Container verification
+
+We built and started the complete Compose stack on Docker Desktop's Linux engine. The application image runs PHP 8.3.36 as UID10001 without Node, tests, credentials or host state embedded in its runtime layers. The separate verification target includes Node and the locked API tooling, and passed the same 136 tests, nine assertions, 49 lint checks and 27 response fixtures with runtime networking disabled.
+
+`docker compose --profile test run --rm smoke` passed nine read-only groups against the actual API, Prometheus and Grafana service network. The checks include separate credential authority, local Swagger, private-path denial, metric consistency, authenticated scrapes, query results, all four rules and the provisioned eight-panel dashboard. We also verified API liveness, Grafana health and Prometheus readiness through their published host-loopback ports.
+
+The disposable lifecycle check stopped the worker with exit0, prepared a synthetic state-change plan without approving it, recreated every container while retaining named volumes, and confirmed the identical pending plan and operator/scrape credentials. Grafana authentication and monitoring still passed afterwards. The test removed only its uniquely named synthetic project's volumes; the normal local stack retained its state.
+
+Image sources are pinned by verified manifest digests: official PHP8.3 and Node24 images, Prometheus3.13.5 and Grafana13.2.4. Builds still use package repositories for runtime libraries, so those pins do not imply a fully reproducible dependency build or vulnerability certification. Default Compose uses a standard bridge with outbound access and host ports on loopback. An internal-only network did not publish reachable host ports on the tested Docker Desktop engine; the bridge configuration was checked through real host requests.
+
+A separate AI-assisted container review checked secret-volume readers, non-root ownership, read-only filesystems, startup, file-secret failure behavior and worker termination. Its two offline probes confirmed missing secret files and conflicting direct/file values fail with sanitized output. [Docker operation](DOCKER.md) records commands, persistence and deployment limits. CI additionally builds the images and runs the container suite, smoke and lifecycle checks.
 
 ## Local monitoring verification
 

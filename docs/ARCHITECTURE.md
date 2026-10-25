@@ -14,6 +14,10 @@ We use a headless deterministic workflow behind both CLI and HTTP. Our [governan
 
 ## Architecture overview
 
+We package local operation in Compose services for initialization, API, a scheduled worker, Prometheus and Grafana. Optional CLI, verification and smoke-check containers use the same application image or its development stage. The API, CLI and worker share one local data volume and canonical lock; monitoring and credentials use separate volumes. [Docker operation](DOCKER.md) documents startup, persistence, credential readers and the single-host boundary.
+
+The default deployment selects synthetic providers explicitly. Runtime containers use non-root users, read-only root filesystems and temporary writable paths; monitoring configuration is built into images rather than mounted from the host source tree. The verification stage adds Node only for locked OpenAPI validation. Compose does not add an alternate merge/approval path or make the PHP development server a production server.
+
 The application runs on PHP 8.2 or later with PDO SQLite and cURL, without a PHP framework or Composer packages. A bounded CLI sweep and a JSON operator API share the same application composition and reconciliation engine. A process lock for the canonical database path permits one worker; SQLite holds durable reconciliation state and retry timing. The database is bound to its configured repository and Zendesk tenant, preventing old baselines from being retargeted by an environment change.
 
 ```mermaid

@@ -17,3 +17,24 @@ jobs:
       - name: Validate OpenAPI and actual HTTP response fixtures
         working-directory: tools/api-docs
         run: npm ci --ignore-scripts --no-fund && node validate.cjs
+  containers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      COMPOSE_PROJECT_NAME: support-bridge-ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run PHP and OpenAPI verification inside Docker
+        run: docker compose --profile test run --build --rm verify
+      - name: Start the complete local stack
+        run: docker compose up --build -d --wait --wait-timeout 120
+      - name: Verify actual API, scrape and dashboard behavior
+        run: docker compose --profile test run --rm smoke
+      - name: Verify pending approvals and credentials survive recreation
+        run: sh docker/check-lifecycle.sh
+      - name: Show container diagnostics
+        if: failure()
+        run: docker compose ps -a && docker compose logs --no-color --tail=100
+      - name: Remove disposable CI services and volumes
+        if: always()
+        run: docker compose down --volumes --remove-orphans

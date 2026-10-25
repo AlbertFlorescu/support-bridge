@@ -1,8 +1,17 @@
 # Local Prometheus and Grafana
 
-This is a reproducible, accountless monitoring stack for the PHP application's authenticated `/metrics` exporter. It uses official standalone Linux x86_64 binaries, including on Ubuntu WSL. Docker, sudo, a cloud account and a PHP monitoring extension are not needed.
+We normally run the application, worker and monitoring together with [Docker Compose](../docs/DOCKER.md):
 
-## Start and verify
+```bash
+docker compose up --build -d --wait
+docker compose --profile test run --build --rm smoke
+```
+
+The container stack uses separate persistent data/credential volumes, an authenticated `api:8080` scrape and a provisioned datasource at `prometheus:9090`. The host ports remain loopback-only. Compose's smoke verifier checks actual scrapes, queries, dashboard provisioning and loaded rules; configuration alone is not verification.
+
+The rest of this guide describes our optional native alternative. It is a reproducible, accountless monitoring stack for the PHP application's authenticated `/metrics` exporter, using official standalone Linux x86_64 binaries, including on Ubuntu WSL. Docker, sudo, a cloud account and a PHP monitoring extension are not needed for that alternative. Its state and credentials are separate from Compose volumes; do not start both stacks on the same host ports.
+
+## Start and verify the native stack
 
 From the repository root in Ubuntu/WSL:
 
