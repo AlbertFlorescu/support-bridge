@@ -6,7 +6,7 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 chdir($root);
 $files = [__DIR__ . '/../bootstrap.php'];
-foreach (['src', 'bin', 'tests', 'public'] as $directory) {
+foreach (['src', 'bin', 'tests', 'public', 'docker'] as $directory) {
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $directory, FilesystemIterator::SKIP_DOTS));
     foreach ($iterator as $file) {
         if ($file->getExtension() === 'php') {
