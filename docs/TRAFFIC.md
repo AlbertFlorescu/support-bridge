@@ -81,12 +81,13 @@ docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml
 docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli inspect traffic-1
 ```
 
-For manual review, inspect the pending pair and its current evidence before selecting a source or approving its current hash:
+In manual mode, `traffic-5` generates title conflicts and `traffic-4` generates state-change reviews. Once each reaches the corresponding pending status, inspect its evidence before acting:
 
 ```bash
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli resolve traffic-1 github
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli inspect traffic-1
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli approve traffic-1 PLAN_HASH 'Reviewed this synthetic plan'
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli inspect traffic-5
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli resolve traffic-5 github
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli inspect traffic-4
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli approve traffic-4 PLAN_HASH 'Reviewed this synthetic plan'
 ```
 
 Run only the command appropriate to the stored status; source selection does not grant approval. Replace `PLAN_HASH` with the inspected `governance.plan_hash`. The independent worker applies eligible work on a later sweep.
