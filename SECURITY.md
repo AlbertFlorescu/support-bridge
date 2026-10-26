@@ -6,7 +6,7 @@ Dependabot proposes dependency updates; GitHub Actions scans our images and publ
 
 | Component | Responsibility |
 | --- | --- |
-| Dependabot alerts | Match supported npm and Composer manifests against GitHub-reviewed advisories. Dependency graph and automatic security updates are enabled for this private repository. |
+| Dependabot alerts | Match supported npm and Composer manifests against GitHub-reviewed advisories. Dependency graph and automatic security updates are enabled for this repository. |
 | Dependabot security updates | Propose supported npm/Composer fixes, including development dependencies. Swagger UI is development-classified, but its browser files ship with the application. PHP_CodeSniffer is development-only and absent from runtime images. Security updates respond to alerts independently of the version-update schedule. |
 | Locked Composer audit | Verify checks the root development lockfile, including PHP_CodeSniffer. This is a CI package audit, not a separate custom tracker source. |
 | Vulnerability inventory | Build and scan the application, verification, Prometheus and Grafana images; audit all locked npm dependencies; read native Dependabot alerts. |
@@ -91,7 +91,7 @@ Trivy's PHP package scanning covers Composer manifests, but the runtime has no C
 
 External databases can lag, disagree or omit analysis. Database freshness does not prove completeness, and a vendor fixed version may not yet exist in a supported distribution or image.
 
-Our current private-repository plan does not enforce the prepared branch rule. CI and reports do not block direct pushes. Workflow permissions and the file allowlist do not establish separation of duties or human review. Maintainers remain responsible for risk acceptance and deployment; AI output cannot make those decisions.
+As checked on 2026-10-26, the source repository is public, `main` is unprotected and no repository ruleset is installed. CI and reports do not block direct pushes; the prepared rule is not enforced. See [CI controls](docs/CI.md#branch-protection-is-a-separate-setting). Workflow permissions and the file allowlist do not establish separation of duties or human review. Maintainers remain responsible for risk acceptance and deployment; AI output cannot make those decisions.
 
 ## Reporting a vulnerability
 

@@ -6,39 +6,44 @@ Keep the title and resolution state of linked GitHub issues and Zendesk tickets 
 
 Our assumed customer is a support team that tracks tickets in Zendesk and engineering escalations in GitHub. Copying updates between them takes time and leaves stale records. Support Bridge merges independent edits, stops on conflicts and recovers interrupted writes. We expect it to reduce copying and follow-ups; we have not measured that benefit with a customer.
 
-## Run everything with Docker
-
-```bash
-docker compose up --build -d --wait
-```
-
-This starts four services with synthetic local records:
-
-| Service | Address or role |
-| --- | --- |
-| API and Swagger | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
-| Worker | Reconciles immediately, then once per minute |
-| Prometheus | [127.0.0.1:9090](http://127.0.0.1:9090) |
-| Grafana | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
-
-The initializer creates separate credentials for the API, metrics and Grafana. Ports bind to host loopback. The default stack makes no vendor calls.
-
-```bash
-docker compose run --rm cli status
-docker compose run --rm cli inspect escalation-1
-docker compose --profile test run --build --rm verify
-docker compose --profile test run --rm smoke
-```
-
-Named volumes retain data and credentials across restarts and ordinary `docker compose down`. See [Docker operation](docs/DOCKER.md) for credentials, alternate ports and volume handling.
-
-### Generate synthetic traffic
+## Run with Docker
 
 ```bash
 docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml up --build -d --wait
 ```
 
-This starts a separate stack on ports 8081, 9091 and 3001, with a traffic container that changes synthetic records every five seconds. It exercises the authenticated API, conflicts, approval waits and interrupted-write recovery. Choose one-second or random intervals and manual or scripted reviews in the [traffic guide](docs/TRAFFIC.md). Its data and credentials are separate from the default stack.
+For continuous synthetic activity, use this traffic stack. It runs the API, worker, traffic generator, Prometheus and Grafana. The generator changes synthetic records every five seconds and exercises conflicts, approval waits and interrupted-write recovery. Compose 2.24.4 or later is required. Choose one-second or random delays and manual or scripted reviews in the [traffic guide](docs/TRAFFIC.md).
+
+Choose links from the same column. Each project has separate records, credentials and monitoring history:
+
+| Service | Traffic stack (`support-bridge-traffic`) | Default stack (`support-bridge`) |
+| --- | --- | --- |
+| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
+| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) |
+| Grafana dashboard | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
+| Worker | Immediate sweep, then every five seconds | Immediate sweep, then every minute |
+| Traffic generator | Every five seconds by default | Absent |
+
+These are default host ports, all bound to loopback. The initializer creates separate API, metrics and Grafana bootstrap credentials for each project. Use that project's [credential instructions](docs/DOCKER.md#credentials-and-isolation); an existing Grafana account may have been renamed or its password changed. Neither stack makes vendor calls.
+
+Inspect the running traffic stack with its full command prefix:
+
+```bash
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml ps
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm --no-deps cli status
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm --no-deps cli inspect escalation-1
+```
+
+### Default stack without generated traffic
+
+To run the API, worker and monitoring without the generator, use the default project instead:
+
+```bash
+docker compose -p support-bridge -f compose.yaml up --build -d --wait
+docker compose -p support-bridge -f compose.yaml run --rm --no-deps cli status
+```
+
+Keep the project name and Compose files with every operation. Changing only a URL or host port does not select another project's data. Named volumes retain data and credentials across restarts and ordinary `down`. See [Docker operation](docs/DOCKER.md) for both port sets, overrides, credential handling and verification.
 
 ## Run with PHP
 
@@ -51,7 +56,7 @@ php bin/demo.php
 php bin/check.php
 ```
 
-The demo makes no network calls and retains its state under `var/demo-*`. The test runner checks PHP syntax, merge and retry policies, reconciliation, providers, governance, metrics and the HTTP API. Server tests use loopback and synthetic records. Node 24 is needed separately for Swagger asset and OpenAPI checks.
+These native commands use filesystem state outside the Compose volumes. The demo makes no network calls and retains its state under `var/demo-*`. The test runner checks PHP syntax, merge and retry policies, reconciliation, providers, governance, metrics and the HTTP API. Server tests use loopback and synthetic records. Node 24 is needed separately for Swagger asset and OpenAPI checks.
 
 For development, Composer installs the locked PHP_CodeSniffer tool; it adds no runtime package:
 
@@ -66,7 +71,7 @@ Classes follow the [PSR-4](https://www.php-fig.org/psr/psr-4/) `Bridge\` → `sr
 
 ## Review a state change
 
-Local mode is the default. The sample links issue `101` and ticket `501`:
+The following native CLI example uses `var/local`, separate from both Docker projects. Use the [Docker workflow commands](docs/DOCKER.md#operate-the-workflow) to operate container state. Local mode is the default; the sample links issue `101` and ticket `501`:
 
 ```bash
 php bin/bridge.php init

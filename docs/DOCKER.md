@@ -2,38 +2,58 @@
 
 We run the application, its reconciliation worker, Prometheus and Grafana with Docker Compose. The default stack uses synthetic local records and makes no GitHub or Zendesk requests. It needs Docker Engine with Linux containers and the Compose plugin. The runtime image contains PHP and application classes; the verification image adds Composer development tools and Node for style and API checks. Monitoring runs in its own images.
 
-## Start the stack
+## Choose a stack and its ports
 
-Run from the repository root:
+The traffic stack generates continuous synthetic activity. The default stack runs the API, worker and monitoring without a generator. They are separate Compose projects with separate data, credentials and monitoring history; both can run at once.
+
+| Service | Traffic stack (`support-bridge-traffic`) | Default stack (`support-bridge`) | Inside either project's network |
+| --- | --- | --- | --- |
+| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) | `api:8080` |
+| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) | `prometheus:9090` |
+| Grafana | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) | `grafana:3000` |
+| Worker | Immediate sweep, then every five seconds | Immediate sweep, then every minute | No published port |
+| Traffic generator | Every five seconds by default | Absent | No published port |
+
+These are the checked-in host-port defaults, not interchangeable addresses for one deployment. Use links and credentials from the same project. Grafana on port 3001 belongs to the traffic project; port 3000 belongs to the default project. Container port 3000 remains correct inside both Grafana containers. Prometheus scrapes `api:8080`, and Grafana queries `prometheus:9090` through their own project's network.
+
+### Start the traffic stack
+
+From the repository root, with Compose 2.24.4 or later:
 
 ```bash
-docker compose up --build -d --wait
-docker compose ps
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml up --build -d --wait
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml ps
 ```
 
-The one-shot initializer creates the local fixture and generates credentials only when they are absent. Successful initialization precedes API/worker startup. Health dependencies wait for the services required by monitoring. Later starts retain the existing data and credentials.
+Keep this full prefix for traffic commands. [Traffic operation](TRAFFIC.md) covers cadence, scripted/manual review and stopping the generator.
 
-| Service | Host address | Role |
-| --- | --- | --- |
-| API and Swagger | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) | Operator HTTP surface and separate authenticated exporter |
-| Prometheus | [127.0.0.1:9090](http://127.0.0.1:9090/) | Scrapes `api:8080` using its metrics credential; retains local time series |
-| Grafana | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) | Queries `prometheus:9090`; provisions the existing eight-panel dashboard |
-| Worker | No published port | Runs an immediate bounded sweep, then repeats at the configured interval |
+### Start the default stack
 
-Published ports bind to host loopback. Services use Compose DNS names inside the network; `localhost` inside Grafana is not the Prometheus container. API service health is liveness, not proof of vendor compatibility or readiness of every pair. The PHP development server listens on `0.0.0.0` inside its container, with only the documented loopback port exposed on the host. It remains a development server.
+```bash
+docker compose -p support-bridge -f compose.yaml up --build -d --wait
+docker compose -p support-bridge -f compose.yaml ps
+```
+
+The one-shot initializer creates the local fixture and generates credentials only when they are absent. Successful initialization precedes API/worker startup. Health dependencies wait for the services required by monitoring. Later starts retain existing data and credentials.
+
+The commands below use the default project unless a traffic prefix is shown. Do not omit `-p` and rely on a shell's `COMPOSE_PROJECT_NAME` when selecting an existing deployment. The native PHP CLI and [native monitoring helper](../monitoring/README.md) use filesystem state outside these Compose volumes.
+
+Published ports bind to host loopback. `localhost` inside Grafana is not the Prometheus container. API service health is liveness, not proof of vendor compatibility or readiness of every pair. The PHP development server listens on `0.0.0.0:8080` inside its container, with only the selected loopback host port published. It remains a development server.
 
 The stack uses a standard bridge network, which permits outbound connections. Local mode and the absence of provider credentials prevent default vendor operations; the network is not an egress firewall. An internal-only Docker network can prevent host port publishing on Docker Desktop, so we enforce the host access boundary with explicit loopback port bindings.
 
-Worker health checks a recent loop heartbeat, including an iteration that encountered lock contention. Conflicts, approval waits and dead work remain business outcomes to inspect; a healthy worker does not mean every pair converged. `BRIDGE_SWEEP_INTERVAL` defaults to 60 seconds and accepts 1–3600. Set it before startup if a different local polling cadence is needed.
+Worker health checks a recent loop heartbeat, including an iteration that encountered lock contention. Conflicts, approval waits and dead work remain business outcomes to inspect; a healthy worker does not mean every pair converged. `BRIDGE_SWEEP_INTERVAL` defaults to 60 seconds in the default stack and accepts 1–3600. The traffic overlay fixes its worker interval at five seconds. Set `BRIDGE_SWEEP_INTERVAL` before starting the default project if a different local polling cadence is needed; it does not change the traffic overlay's worker interval.
 
 Do not run another application or the native monitoring helper on these ports. Stop only an owned native stack with `python3 monitoring/stack.py down`, or choose other host ports. In PowerShell:
 
 ```powershell
-$env:BRIDGE_HTTP_PORT = '8081'
-$env:BRIDGE_PROMETHEUS_PORT = '9091'
-$env:BRIDGE_GRAFANA_PORT = '3001'
-docker compose up --build -d --wait
+$env:BRIDGE_HTTP_PORT = '8082'
+$env:BRIDGE_PROMETHEUS_PORT = '9092'
+$env:BRIDGE_GRAFANA_PORT = '3002'
+docker compose -p support-bridge -f compose.yaml up --build -d --wait
 ```
+
+This example changes only the default project. Traffic uses `BRIDGE_TRAFFIC_HTTP_PORT`, `BRIDGE_TRAFFIC_PROMETHEUS_PORT` and `BRIDGE_TRAFFIC_GRAFANA_PORT` instead. Choose unused ports; traffic defaults already occupy 8081, 9091 and 3001 when that project is running. Confirm an actual binding with `docker compose -p support-bridge -f compose.yaml port grafana 3000`, or the full traffic prefix for that project.
 
 In bash, export the same variables before running Compose. They change published host ports, not internal service addresses. Docker Desktop must use its Linux-container engine. On Windows, run these commands from a shell where `docker version` and `docker compose version` can contact that engine; a WSL distro also needs Docker Desktop integration if it is to use the Linux `docker` command directly.
 
@@ -42,10 +62,10 @@ In bash, export the same variables before running Compose. They change published
 The CLI service uses the same application image, named state volume and canonical lock as the API and scheduled worker:
 
 ```bash
-docker compose run --rm cli status
-docker compose run --rm cli inspect escalation-1
-docker compose run --rm cli local-edit zendesk 501 title 'Export fails above 100k rows'
-docker compose run --rm cli sync
+docker compose -p support-bridge -f compose.yaml run --rm --no-deps cli status
+docker compose -p support-bridge -f compose.yaml run --rm --no-deps cli inspect escalation-1
+docker compose -p support-bridge -f compose.yaml run --rm --no-deps cli local-edit zendesk 501 title 'Export fails above 100k rows'
+docker compose -p support-bridge -f compose.yaml run --rm --no-deps cli sync
 ```
 
 The background worker discovers edits on its next sweep. A manual sweep can return worker contention if another operation holds the lock; inspect status after it completes. Never scale the worker or API against this SQLite volume across hosts. The worker interval is a scheduler delay, not a convergence service-level objective.
@@ -53,11 +73,11 @@ The background worker discovers edits on its next sweep. A manual sweep can retu
 State changes keep the same approval boundary:
 
 ```bash
-docker compose run --rm cli local-edit zendesk 501 state closed
-docker compose run --rm cli sync
-docker compose run --rm cli inspect escalation-1
-docker compose run --rm cli approve escalation-1 PLAN_HASH 'Reviewed the escalation and agreed this resolution'
-docker compose run --rm cli sync
+docker compose -p support-bridge -f compose.yaml run --rm --no-deps cli local-edit zendesk 501 state closed
+docker compose -p support-bridge -f compose.yaml run --rm --no-deps cli sync
+docker compose -p support-bridge -f compose.yaml run --rm --no-deps cli inspect escalation-1
+docker compose -p support-bridge -f compose.yaml run --rm --no-deps cli approve escalation-1 PLAN_HASH 'Reviewed the escalation and agreed this resolution'
+docker compose -p support-bridge -f compose.yaml run --rm --no-deps cli sync
 ```
 
 Replace `PLAN_HASH` with the inspected hash after reviewing the entire plan. An approval wait is an operator-attention result; CLI exit code 2 is expected. The next eligible sweep applies an approved plan only if its evidence remains valid. Neither startup nor the worker grants approval. Never rely on AI in compliance; containerization does not expand the workflow's authority or establish verified human approval.
@@ -86,10 +106,16 @@ The initializer writes each volume, and the explicit smoke verifier reads all th
 
 The traffic generator receives only its isolated project's operator credential. Its scripted mode calls the normal review endpoints for its synthetic pairs; it does not provide human review. It refuses live mode. This is a deterministic simulation, not an AI agent or permission to share a live operator credential.
 
-Grafana login is `admin`. View its generated password locally when signing in:
+A fresh Grafana database starts with username `admin`. Read the bootstrap password from the project matching the browser URL. For the default stack on port 3000:
 
 ```bash
-docker compose exec grafana cat /run/secrets/grafana/password
+docker compose -p support-bridge -f compose.yaml exec grafana cat /run/secrets/grafana/password
+```
+
+For the traffic stack on port 3001:
+
+```bash
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml exec grafana cat /run/secrets/grafana/password
 ```
 
 Do not paste that value into logs, screenshots or source. The password file initializes a new Grafana database; changing a file alone does not rotate an existing account. Operator and scrape credentials must remain different. An agent must not receive the broad operator credential.
@@ -100,13 +126,13 @@ Runtime containers use non-root users, read-only root filesystems where supporte
 
 ## Data and lifecycle
 
-The Compose project is named `support-bridge`. Its named volumes retain application state, separate aggregate metrics, credentials, Prometheus time series and Grafana state. These are distinct from the native helper's directory and the bare PHP CLI's `var/local`; startup does not import either automatically.
+The default project is named `support-bridge`; the traffic project is `support-bridge-traffic`. Its named volumes retain application state, separate aggregate metrics, credentials, Prometheus time series and Grafana state. These are distinct from the native helper's directory and the bare PHP CLI's `var/local`; startup does not import either automatically.
 
 ```bash
-docker compose logs --tail=100 api worker prometheus grafana
-docker compose stop
-docker compose start
-docker compose down
+docker compose -p support-bridge -f compose.yaml logs --tail=100 api worker prometheus grafana
+docker compose -p support-bridge -f compose.yaml stop
+docker compose -p support-bridge -f compose.yaml start
+docker compose -p support-bridge -f compose.yaml down
 ```
 
 `stop`, `start` and ordinary `down` preserve named volumes. Do not request volume removal as a routine stop: it discards baselines, pending plans, approvals, audit history, metrics, credentials and monitoring data. Rebuilding an image also does not reset the state. Keep the same project name when reusing volumes.
@@ -118,22 +144,30 @@ Back up SQLite consistently with its WAL, or stop all application writers before
 Run the complete PHP and OpenAPI gate inside the verification image:
 
 ```bash
-docker compose --profile test run --build --rm verify
+docker compose -p support-bridge -f compose.yaml --profile test run --build --rm verify
 ```
 
 This uses isolated temporary synthetic state, not the running application's volume. The verification image contains Composer, locked PHP_CodeSniffer dependencies, the style ruleset, PHP tests and the locked Node/OpenAPI tooling. Composer installs development dependencies with scripts and plugins disabled. The runtime image contains none of that development `vendor/` tree, Composer or Node/npm; application autoloading remains independent of it.
 
 Entry scripts delegate to CLI, HTTP or runtime objects. Those objects use the same typed command/query handlers and per-context injected repository connection. The existing shared application volume and file lock still coordinate API, CLI and worker; object-level connection reuse does not add support for multiple hosts.
 
-With the stack running, exercise the actual service network:
+With the default stack already running, exercise its actual service network:
 
 ```bash
-docker compose --profile test run --build --rm smoke
+docker compose -p support-bridge -f compose.yaml --profile test run --rm --no-deps smoke
 ```
+
+For an already-running traffic stack, use:
+
+```bash
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml --profile test run --rm --no-deps smoke
+```
+
+`--no-deps` checks existing services without starting or recreating their dependencies. Both commands assume the bootstrap Grafana account; a renamed account or changed password needs a check using the current credentials, without resetting its database.
 
 The smoke verifier has a shared 45-second deadline. Its nine read-only check groups cover API liveness, local Swagger assets/OpenAPI, operator-versus-scrape authentication, inspection, private-path denial, exporter histogram/label consistency, real Prometheus scrapes/queries, four loaded rules and Grafana datasource/dashboard provisioning. It performs no operator or provider writes and prints no credential values or record snapshots. A successful HTTP sweep alone would not establish that every pair converged; inspect the business outcomes separately.
 
-Use `docker compose ps` and service logs to diagnose failed health dependencies. The smoke command requires the initialized local fixture, while legitimate pair statuses such as `awaiting_approval` remain visible rather than being treated as an infrastructure failure. Passing container checks does not validate vendor accounts, customer policies, production throughput, notification delivery or backup recovery.
+Use the selected project's `ps` command and service logs to diagnose failed health dependencies. The smoke command requires the initialized local fixture, while legitimate pair statuses such as `awaiting_approval` remain visible rather than being treated as an infrastructure failure. Passing container checks does not validate vendor accounts, customer policies, production throughput, notification delivery or backup recovery.
 
 On a shell with `sh` and the Docker CLI, `sh docker/check-lifecycle.sh` checks graceful worker shutdown and pending-plan/credential persistence through complete container recreation. It creates a separate, uniquely named synthetic project on ports 18080/19090/13000 and removes only that project's disposable volumes when finished. It never approves the pending plan or touches the normal stack's data. Override `BRIDGE_LIFECYCLE_HTTP_PORT`, `BRIDGE_LIFECYCLE_PROMETHEUS_PORT` and `BRIDGE_LIFECYCLE_GRAFANA_PORT` if those test ports are occupied. CI runs this check as well as the full suite and read-only smoke checks.
 

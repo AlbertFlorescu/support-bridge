@@ -1,15 +1,25 @@
 # Local Prometheus and Grafana
 
-We normally run the application, worker and monitoring together with [Docker Compose](../docs/DOCKER.md):
+We run the application, worker and monitoring together with Docker Compose. Choose one deployment's links and credentials:
+
+| Service | Continuous traffic: `support-bridge-traffic` | Default Compose: `support-bridge` |
+| --- | --- | --- |
+| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
+| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) |
+| Grafana dashboard | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
+
+The traffic project's Grafana is on **3001**. Start it from the repository root with both Compose files and the explicit project:
 
 ```bash
-docker compose up --build -d --wait
-docker compose --profile test run --build --rm smoke
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml up --build -d --wait
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml ps
 ```
 
-The container stack uses separate persistent data/credential volumes, an authenticated `api:8080` scrape and a provisioned datasource at `prometheus:9090`. The host ports remain loopback-only. Compose's smoke verifier checks actual scrapes, queries, dashboard provisioning and loaded rules; configuration alone is not verification.
+For the default stack, use `docker compose -p support-bridge -f compose.yaml up --build -d --wait`. Environment overrides can change published ports; check that project's `ps` output before opening a URL. See the [canonical stack/port guide](../docs/DOCKER.md#choose-a-stack-and-its-ports) and [traffic operation](../docs/TRAFFIC.md) for credentials and verification commands. Accounts and data belong to each project: a login on port 3000 need not work on port 3001. Account changes persist in that Grafana database, so a bootstrap password file may no longer match the current login.
 
-The rest of this guide describes our optional native alternative. It is a reproducible, accountless monitoring stack for the PHP application's authenticated `/metrics` exporter, using official standalone Linux x86_64 binaries, including on Ubuntu WSL. Docker, sudo, a cloud account and a PHP monitoring extension are not needed for that alternative. Its state and credentials are separate from Compose volumes; do not start both stacks on the same host ports.
+Both container stacks use separate persistent data/credential volumes, an authenticated `api:8080` scrape and a provisioned datasource at `prometheus:9090`. These internal service addresses stay the same in each project's network; host-port overrides do not change them. Host ports remain loopback-only. The smoke verifier checks actual scrapes, queries, dashboard provisioning and loaded rules, assuming Grafana's bootstrap account; configuration alone is not verification.
+
+The rest of this guide describes our optional native alternative. It is a reproducible, accountless monitoring stack for the PHP application's authenticated `/metrics` exporter, using official standalone Linux x86_64 binaries, including on Ubuntu WSL. Docker, sudo, a cloud account and a PHP monitoring extension are not needed for that alternative. Its state and credentials are separate from Compose volumes; do not start it on ports occupied by either Compose deployment.
 
 ## Start and verify the native stack
 
@@ -31,7 +41,7 @@ The installer downloads and verifies pinned archives before extracting them. It 
 
 The helper refuses to replace an existing service on these ports. `--demo` explicitly forces local mode and uses separate synthetic application state; it does not call GitHub or Zendesk. It initializes the fixture and runs two sweeps. Those initial events populate persisted counters, not a production benchmark.
 
-Open [the dashboard](http://127.0.0.1:3000/d/supportbridge-overview). The login is `admin`; its generated password is in the private file printed by `status`, rather than in this repository or terminal logs. Read that file locally when logging in. Anonymous access and signup are disabled. Initial p95/rate panels need observations after at least two scrapes; a quiet new fixture may legitimately show an empty duration rate.
+For this native helper, open [the native dashboard](http://127.0.0.1:3000/d/supportbridge-overview). Its initial login is `admin`; its generated password is in the private file printed by `status`, rather than in this repository or terminal logs. Read that file locally for the initial login. After account rotation, use the credentials saved in that native Grafana database. Anonymous access and signup are disabled. Initial p95/rate panels need observations after at least two scrapes; a quiet new fixture may legitimately show an empty duration rate.
 
 ```bash
 python3 monitoring/stack.py status

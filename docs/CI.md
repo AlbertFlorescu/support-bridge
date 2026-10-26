@@ -16,7 +16,7 @@ Verify runs for PRs targeting `main`, pushes to `main`, manual dispatch and merg
 
 ## Branch protection is a separate setting
 
-As checked on 2026-10-25, our private-repository plan does not support branch-rule enforcement. We retain that plan. `main` has no enforced rule, and PRs with passing checks are maintainer practice rather than a server-side restriction. [GitHub's availability and settings](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) explain the plan limit.
+As checked on 2026-10-26, this source repository is public, `main` is unprotected, and no repository ruleset is installed. PRs with passing checks are maintainer practice rather than a server-side restriction. The checked-in JSON does not enforce that practice. [GitHub's availability and settings](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) describe the separate repository controls.
 
 The prepared [main ruleset](../.github/rulesets/main.json) requires:
 
@@ -24,7 +24,7 @@ The prepared [main ruleset](../.github/rulesets/main.json) requires:
 - `Required checks`, with GitHub Actions as the expected source.
 - No force pushes, deletion or administrator bypass.
 
-It has no bypass actors and requires zero peer approvals while a separate reviewer is unavailable; a maintainer cannot approve their own PR. Once the plan supports private rules, import it through **Settings → Rules → Rulesets → New ruleset → Import a ruleset** and verify enforcement. The JSON requests active enforcement but has no effect until imported. An equivalent classic rule is an alternative; avoid conflicting duplicate rules.
+It has no bypass actors and requires zero peer approvals while a separate reviewer is unavailable; a maintainer cannot approve their own PR. To enable the prepared rule, import it through **Settings → Rules → Rulesets → New ruleset → Import a ruleset** and verify enforcement. The JSON requests active enforcement but has no effect until imported. An equivalent classic rule is an alternative; avoid conflicting duplicate rules.
 
 ## Permissions, dependencies and artifacts
 
