@@ -94,6 +94,8 @@ docker compose exec grafana cat /run/secrets/grafana/password
 
 Do not paste that value into logs, screenshots or source. The password file initializes a new Grafana database; changing a file alone does not rotate an existing account. Operator and scrape credentials must remain different. An agent must not receive the broad operator credential.
 
+Account changes persist in Grafana's database and can differ from the bootstrap username/password file. Verify login in the browser against the intended stack and port after rotation. The standard smoke verifier uses `admin` and the bootstrap password, so it does not validate rotated accounts. Preserve the existing account and data when adapting deployment checks.
+
 Runtime containers use non-root users, read-only root filesystems where supported, dropped capabilities and no-new-privileges. Writable paths are named data volumes or temporary filesystems. The stack mounts neither the Docker socket nor the host source tree. Prometheus has no separate user login in this local configuration, so host users able to reach its published port can query aggregate metrics. Grafana signup, anonymous access, analytics and automatic update/plugin checks are disabled.
 
 ## Data and lifecycle
