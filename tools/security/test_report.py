@@ -418,6 +418,20 @@ class ReportTests(unittest.TestCase):
         self.assertFalse(second["changed"])
         self.assertEqual(issues.patches, 0)
 
+    def test_summary_format_change_refreshes_tracker_without_changed_findings(self):
+        original = self.build()
+        issues = Issues()
+        report.publish_report(original, REPO, issues, "test-only-token")
+        issues.issues[0]["body"] += "\nKeep the maintainer's update decision.\n"
+        with patch.object(report, "SUMMARY_FORMAT_VERSION", report.SUMMARY_FORMAT_VERSION + 1):
+            updated = self.build()
+        self.assertEqual(original["findings"], updated["findings"])
+        result = report.publish_report(updated, REPO, issues, "test-only-token")
+        self.assertTrue(result["changed"])
+        self.assertEqual(issues.posts, 1)
+        self.assertEqual(issues.patches, 1)
+        self.assertIn("Keep the maintainer's update decision.", issues.issues[0]["body"])
+
     def test_incomplete_runs_retain_earlier_findings_and_human_notes(self):
         self.add_vulnerability()
         issues = Issues()

@@ -4,11 +4,13 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: daily
       time: '08:00'
       timezone: UTC
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 1
+      exclude: ['*']
     groups:
       github-actions:
         patterns: ['*']
@@ -16,11 +18,13 @@ updates:
   - package-ecosystem: npm
     directory: /tools/api-docs
     schedule:
-      interval: weekly
-      day: monday
+      interval: daily
       time: '08:00'
       timezone: UTC
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 1
+      exclude: ['*']
     groups:
       api-security:
         applies-to: security-updates
@@ -33,21 +37,16 @@ updates:
   - package-ecosystem: docker
     directories: ['/', '/docker', '/tools/security']
     schedule:
-      interval: weekly
-      day: monday
+      interval: daily
       time: '08:00'
       timezone: UTC
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 1
+      exclude: ['*']
     allow:
       - dependency-name: php
       - dependency-name: node
       - dependency-name: prom/prometheus
       - dependency-name: grafana/grafana
       - dependency-name: ghcr.io/aquasecurity/trivy
-    ignore:
-      - dependency-name: php
-        update-types: [version-update:semver-minor, version-update:semver-major]
-      - dependency-name: node
-        update-types: [version-update:semver-major]
-      - dependency-name: prom/prometheus
-        update-types: [version-update:semver-minor, version-update:semver-major]
