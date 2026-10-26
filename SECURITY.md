@@ -1,91 +1,93 @@
 # Dependency vulnerability management
 
-We use Dependabot and GitHub Actions to detect dependency vulnerabilities, retain evidence and prepare reviewed fixes. This is repository maintenance. It does not authorize escalation writes or establish compliance. Never rely on AI in compliance.
+Dependabot proposes dependency updates; GitHub Actions scans our images and publishes a vulnerability tracker. Maintainers review fixes before merging or deploying them. This workflow has no authority over escalation writes. **Never rely on AI in compliance.**
 
 ## Architecture overview
 
 | Component | Responsibility |
 | --- | --- |
-| Dependabot alerts | Match supported dependency manifests against GitHub-reviewed advisories. Dependency graph and automatic security updates are enabled for this private repository. |
-| Dependabot security updates | Open npm fix PRs, including development dependencies. Swagger UI is development-classified but its browser files ship with the application. Security updates run in response to alerts rather than waiting for the weekly version-update schedule. |
-| Vulnerability inventory workflow | Build and scan the application, verification, Prometheus and Grafana images, audit all locked npm dependencies, and read native Dependabot alerts. |
-| CVE enrichment | Fetch exact detected CVE IDs from the official CVE List and NVD. Preserve source status, missing metadata and enrichment limits. |
-| Vulnerability tracker | Update one managed GitHub issue from trusted default-branch runs. Retain raw JSON and a readable report as Actions artifacts for 14 days. |
-| Dependency asset repair | Regenerate the allowlisted Swagger files on eligible dependency PRs, commit against the exact observed head and explicitly dispatch CI. No automatic approval or merge is performed. |
+| Dependabot alerts | Match supported manifests against GitHub-reviewed advisories. Dependency graph and automatic security updates are enabled for this private repository. |
+| Dependabot security updates | Open npm fix PRs, including development dependencies. Swagger UI is development-classified, but its browser files ship with the application. Security updates respond to alerts independently of the version-update schedule. |
+| Vulnerability inventory | Build and scan the application, verification, Prometheus and Grafana images; audit all locked npm dependencies; read native Dependabot alerts. |
+| CVE enrichment | Retrieve exact detected CVE IDs from the official CVE List and NVD, recording missing data and source failures. |
+| Vulnerability tracker | Update one managed issue from trusted default-branch runs. Keep JSON reports and a readable summary as Actions artifacts for 14 days. |
+| Dependency asset repair | Regenerate allowlisted Swagger files, commit against the observed PR head and dispatch CI. Repairs do not approve or merge PRs. |
 
-The workflows live in [`.github/workflows/vulnerabilities.yml`](.github/workflows/vulnerabilities.yml) and [`.github/workflows/dependency-assets.yml`](.github/workflows/dependency-assets.yml). [Our CI policy](docs/CI.md) defines the normal checks, dependency lines and current branch-rule limitation.
+See the [inventory workflow](.github/workflows/vulnerabilities.yml), [repair workflow](.github/workflows/dependency-assets.yml) and [CI policy](docs/CI.md).
 
 ## Sources and matching
 
-Dependabot uses the [GitHub Advisory Database](https://docs.github.com/en/code-security/concepts/vulnerability-reporting-and-management/github-advisory-database). It cannot use an arbitrary NVD or CVE List URL as its advisory feed. Docker version PRs are separate from dependency-graph vulnerability detection. SHA-pinned Actions continue to receive reviewed version updates; native Actions vulnerability alerts do not cover those SHA references. [GitHub's ecosystem coverage](https://docs.github.com/en/code-security/reference/supply-chain-security/dependency-graph-supported-package-ecosystems) describes these boundaries.
+Dependabot uses the [GitHub Advisory Database](https://docs.github.com/en/code-security/concepts/vulnerability-reporting-and-management/github-advisory-database), not a custom NVD or CVE List feed. Docker version PRs do not scan image contents. SHA-pinned Actions receive version updates but fall outside native Actions vulnerability alerts. See [GitHub's ecosystem coverage](https://docs.github.com/en/code-security/reference/supply-chain-security/dependency-graph-supported-package-ecosystems).
 
-We therefore also scan built image archives with a digest-pinned official Trivy image. The scanner receives no Docker socket, application credentials or running data volumes. It uses a newly downloaded vulnerability database, validates its timestamp, and retains findings with no available fix. npm auditing includes development dependencies and records the lockfile used for matching.
+Our supplementary scanner uses a digest-pinned official Trivy image and scans built image archives. It receives no Docker socket, application credentials or running data volumes. Each run downloads a fresh vulnerability database, checks its timestamp and retains findings without fixes. npm auditing includes development dependencies and saves the lockfile used for matching.
 
-[CVEProject/cvelistV5](https://github.com/CVEProject/cvelistV5) supplies official CVE records. [NVD](https://nvd.nist.gov/developers/vulnerabilities) supplies additional analysis when available. Our integration enriches exact CVE identifiers already detected by the ecosystem-aware tools. It does not search product names and assume a CPE match, infer that a vendor backport is vulnerable from an upstream version string, or treat a CVE record as an executable fix instruction.
+[CVEProject/cvelistV5](https://github.com/CVEProject/cvelistV5) provides official CVE records; [NVD](https://nvd.nist.gov/developers/vulnerabilities) adds analysis where available. We enrich IDs detected by the matching tools. We do not infer CPE matches from product names, judge vendor backports by upstream version strings or execute instructions from CVE records.
 
-Requests are bounded, timed out and rate-limited. We enrich up to 20 severity-ordered CVE IDs within a 180-second source-request budget, with six-second NVD request spacing. No NVD key is needed for the default workflow. Missing records, rejected identifiers, absent CVSS scores, rate limits and service failures remain explicit report states. An NVD batch failure leaves that batch's enrichment partial rather than requesting every ID separately. A rejected record does not silently dismiss a scanner finding. GHSA-only findings remain visible even without a CVE alias. Enrichment can be truncated without truncating the underlying finding inventory.
+Enrichment is limited to 20 severity-ordered CVE IDs and a 180-second request budget, with six seconds between NVD requests. The default workflow needs no NVD key. Missing records, rejected IDs, absent CVSS scores, rate limits and service failures remain visible. A failed NVD batch stays partial; we do not retry each ID separately. Rejection does not dismiss the original scanner finding. GHSA-only findings are retained, and the metadata limit does not truncate the finding inventory.
 
 This product uses data from the NVD API but is not endorsed or certified by the NVD.
 
 ## Tracking and operating policy
 
-The inventory runs on pull requests, pushes to `main`, a daily 05:23 UTC schedule and manual dispatch. GitHub scheduling is best effort. The report records the revision, component reports, scanner/database information, findings and source coverage. A successful collection job means the inventory completed; it is not a declaration that no vulnerabilities exist or an acceptance of the remaining risk.
+The inventory runs on pull requests, pushes to `main`, daily at 05:23 UTC and by manual dispatch. Scheduled runs are best effort. Reports include the revision, component results, scanner/database details, findings and source coverage. A successful job means collection completed; unresolved findings still require review.
 
-Findings retain component, package identity, observed version, advisory ID, severity and vendor-provided fixed-version information. Native Dependabot observations describe its default-branch graph, so their installed version remains unknown; we do not apply a PR's lockfile version to an older native alert. Unknown severity is not treated as zero. Fixed-version strings remain vendor data; we do not apply a generic version comparator to every package ecosystem.
+Findings record component, package, observed version, advisory, severity and vendor fixed versions. Native Dependabot alerts describe its default-branch graph, so their installed versions remain unknown. We never substitute a PR lockfile version for an older native alert. Unknown severity stays unknown; vendor version strings are not compared using a generic version rule.
 
-Only trusted default-branch runs publish the tracker. A separate job has `issues: write`; scan jobs cannot edit issues. The publisher uses a managed marker, expected bot authorship and a stable finding fingerprint to avoid duplicate issues and repeated unchanged updates. Operator text outside the managed section is preserved. An incomplete inventory cannot clear prior findings. We do not automatically dismiss alerts, close a tracker as resolved, accept risk or claim a customer deployment has been repaired.
+Only trusted default-branch runs publish the tracker. A separate job has `issues: write`; scan jobs cannot edit issues. The publisher finds its bot-owned issue by a managed marker and updates it when the finding fingerprint changes. It preserves operator notes outside the managed section and earlier findings when collection is incomplete. It does not dismiss alerts or change issue state. A manually closed tracker still receives body updates; a maintainer must reopen it to restore open-issue visibility.
 
-The issue links to the evidence that changed its findings; the workflow's run history contains subsequent inventories. Artifacts expire after 14 days, so they are an operational aid rather than a permanent audit archive. Missing inventory artifacts produce a fallback incomplete report that retains earlier findings. A failed inventory, missing database, malformed source report or unreadable native alert source is visible as incomplete coverage. Publisher/GitHub outages can still prevent an issue update; check failed workflow runs. Metadata service failures never turn findings into a clean result. If a maintainer closes the managed issue, later runs update its body without reopening it; reopen it manually to restore open-issue visibility.
+The issue links to the run that last changed its findings; run history contains later inventories. Artifacts expire after 14 days. Missing artifacts produce a fallback incomplete report. Failed scans, missing databases, malformed source reports and unreadable native alerts also mark coverage incomplete. Metadata failures retain the findings. Publisher or GitHub outages can prevent an issue update, so check failed runs as well as the issue.
 
 ## Fix workflow
 
-For supported npm advisories, Dependabot proposes the package and lockfile changes. We group security fixes separately from routine version updates and keep development dependencies in scope. Every proposal still needs review and passing CI.
+Dependabot groups npm security fixes separately from routine updates and includes development dependencies. Each proposal needs review and passing CI.
 
-The application serves committed Swagger browser assets. A lockfile-only update can leave those assets stale. Native and container CI therefore compare the four served files with the installed `swagger-ui-dist` package. A stale asset fails verification with a regeneration instruction.
+A Swagger lockfile update can leave the committed browser assets stale. Native and container CI compare all four served files with the installed `swagger-ui-dist` package and fail with a regeneration instruction when they differ.
 
-After a dependency PR's Verify run, the repair workflow uses trusted default-branch code to select an open, same-repository Dependabot PR targeting `main`. It rejects changes outside the two npm manifests and four Swagger asset paths. It reads exact-head manifests through GitHub's API, installs registry dependencies in isolated temporary storage with scripts disabled, and copies static bytes without executing PR scripts or package code. Integrity, path, symlink and size checks constrain the prepared artifact.
+The repair workflow runs after a dependency PR's Verify run:
 
-An isolated publisher rechecks the PR and its head, validates the artifact, and commits only the allowed static files with GitHub's atomic `createCommitOnBranch(expectedHeadOid)` mutation. A changed head rejects the commit, including a concurrent reset to an ancestor. GitHub suppresses workflows normally caused by its own workflow token, so the publisher explicitly dispatches Verify for the new revision. The workflow token can write contents and dispatch Actions in that job; it cannot grant business approval and the workflow never approves or merges a PR.
+1. Trusted default-branch code selects an open, same-repository Dependabot PR targeting `main`. Only the two npm manifests and four Swagger asset paths may differ.
+2. It reads manifests from the exact head through GitHub's API, installs public registry dependencies in isolated temporary storage with scripts disabled, and copies static bytes. It executes neither PR scripts nor package code. Integrity, path, symlink and size checks constrain the artifact.
+3. An isolated publisher rechecks the PR, head and artifact, then commits only the static files through `createCommitOnBranch(expectedHeadOid)`. A changed head, including an ancestor reset, rejects the atomic commit.
+4. Confirmation makes at most five read-only attempts. Only an otherwise eligible observation of the old head is retried; a third head or changed identity stops confirmation. The write is never repeated. Zero-diff PRs are accepted only during post-commit confirmation.
+5. The publisher explicitly dispatches Verify because GitHub suppresses normal follow-up workflows from its own token. That job has content-write and Actions-dispatch permissions, and never approves or merges a PR.
 
-GitHub's PR metadata can briefly lag a successful branch commit. Confirmation makes at most five read-only attempts, retrying only an otherwise eligible observation of the old head. A third head or changed identity stops confirmation immediately; the write is never repeated. If confirmation or CI dispatch fails after the commit, inspect the current branch and run Verify manually. A successful repair can leave a zero-diff PR; that is accepted during post-commit confirmation only.
+If confirmation or dispatch fails after a commit, inspect the branch and run Verify manually. Maintainers can also dispatch **Repair dependency assets** on `main` with a numeric `pr` input. Manual selection requires an eligible same-repository PR whose author has repository write permission; the same file and execution restrictions apply.
 
-Maintainers can manually dispatch **Repair dependency assets** on `main` with a numeric `pr` input for an eligible same-repository dependency PR. Manual selection also checks the PR author's repository write permission. This is useful for a maintainer-authored fix or a repair retry. It does not permit arbitrary changed files or execution of the PR's code.
-
-Container findings show upstream package fixed versions where known. The tracker links to open Dependabot PRs and image update locations. Dependabot checks declared dependencies daily and can propose new image version lines; adopting a new line still needs migration review and passing tests. A fixed OS or bundled Go package version does not itself prove a newer parent image contains the fix. We do not rewrite arbitrary Docker instructions, run blind package upgrades, suppress advisories or deploy containers automatically. Newly built images and a running deployment can differ; a successful rebuild is not deployment evidence.
+The tracker links to open Dependabot PRs and image update files. Dependabot checks declared dependencies daily and can propose new image version lines; adoption still requires migration review and tests. A fixed OS or bundled Go package does not prove a newer parent image includes the fix. Image remediation needs an upstream release or reviewed rebuild and a new scan. We do not run blind package upgrades, rewrite arbitrary Docker instructions, suppress advisories or deploy containers automatically. The newly built inventory can differ from a running deployment.
 
 ## Local verification
 
-Run the deterministic security-tool tests:
+Run the security-tool tests:
 
 ```bash
 python3 -m unittest discover -s tools/security -p 'test_*.py' -v
 ```
 
-With Docker, Node 24 and npm available, collect and enrich a local inventory:
+With Docker, Node 24 and npm, collect and enrich a local inventory:
 
 ```bash
 python3 tools/security/scan.py --output /tmp/support-bridge-vulnerability-input
 python3 tools/security/report.py build --input /tmp/support-bridge-vulnerability-input --output /tmp/support-bridge-vulnerability-report --repository AlbertFlorescu/support-bridge --sha REVISION --run-url RUN_URL
 ```
 
-Use actual revision/run values. Reading private native alerts requires an appropriately scoped GitHub token in `GITHUB_TOKEN`; do not print it or add it to source. Local collection can report incomplete native coverage without that credential. The repository workflows provide their scoped token automatically.
+Replace `REVISION` and `RUN_URL` with actual values. Private native alerts require a scoped token in `GITHUB_TOKEN`. Keep it out of source and logs. Without it, local collection reports incomplete native coverage. Repository workflows supply their scoped token automatically.
 
 ## Trade-offs
 
-- Native Dependabot handles ecosystem-aware fix proposals; the supplementary inventory covers image dependencies that native alerts omit. These sources can overlap or disagree.
-- Fresh database downloads cost time and network bandwidth. A database or source outage reduces coverage visibly rather than reusing unknown-age data as a clean result.
-- Exact-ID enrichment is bounded and traceable. It cannot discover an advisory the matching tools did not detect.
-- One managed issue limits notification noise. JSON artifacts retain detail that a compact issue cannot display, with finite retention.
-- Automatic static-asset repair completes dependency proposals while keeping execution and approval separate. It adds a narrowly scoped write-capable job and still requires maintainer review.
+- Dependabot handles supported manifests; supplementary image scans cover dependencies it omits. The sources can overlap or disagree.
+- Fresh databases cost CI time and bandwidth. Download failures produce incomplete coverage instead of a result based on unknown-age data.
+- Exact-ID enrichment is traceable and bounded, but cannot discover advisories missed by the matching tools.
+- One issue reduces notification noise. Artifacts hold the detailed inventory, with finite retention.
+- Asset repair completes dependency proposals but adds a write-capable job. Maintainers still review the resulting PR.
 
 ## Known limitations
 
-Scanner coverage is not complete application coverage. Trivy's PHP package support concerns Composer manifests; this project has none. The source-built PHP runtime and copied Node executable are not ordinary distribution-managed packages. Go binary dependency detection depends on retained build metadata, and it does not prove complete identification of Prometheus or Grafana application vulnerabilities. We do not claim reachability analysis, exploitability assessment, complete license review, SAST, DAST or vulnerability-free images.
+Trivy's PHP package scanning covers Composer manifests; this project has none. The source-built PHP runtime and copied Node executable are not ordinary distribution packages. Go dependency detection requires retained build metadata and may miss application-level Prometheus or Grafana vulnerabilities. The workflow does not perform reachability or exploitability analysis, full license review, SAST or DAST.
 
-External databases can lag, disagree or omit analysis. NVD enrichment is not guaranteed for every CVE. Bounded requests can leave metadata unavailable. Scanner database age checks do not establish advisory completeness. A vendor fixed version does not prove that every supported image or distribution has published the fix.
+External databases can lag, disagree or omit analysis. Database freshness does not prove completeness, and a vendor fixed version may not yet exist in a supported distribution or image.
 
-The current private-repository plan does not enforce our prepared branch rule. CI and security reports remain maintainer controls, not a server-side barrier to direct pushes. Workflow token permissions and the repair allowlist do not establish separation of duties or verified human review. Never rely on AI output to accept risk, authorize a runtime write or determine policy satisfaction.
+Our current private-repository plan does not enforce the prepared branch rule. CI and reports do not block direct pushes. Workflow permissions and the file allowlist do not establish separation of duties or human review. Maintainers remain responsible for risk acceptance and deployment; AI output cannot make those decisions.
 
 ## Reporting a vulnerability
 
-Report suspected vulnerabilities privately to the repository maintainers through an established private channel. Include the affected revision/component, advisory identifier, reproducible evidence and suggested mitigation. Keep credentials, customer records and exploit secrets out of public issues and logs. The generated dependency tracker is an inventory aid, not an incident-response or disclosure service.
+Report suspected vulnerabilities privately to repository maintainers through an established channel. Include the affected revision/component, advisory ID, reproduction and suggested mitigation. Keep credentials, customer records and exploit secrets out of public issues and logs. The dependency tracker is not an incident-response or disclosure channel.

@@ -197,7 +197,7 @@ def tree_files(api, repository, head):
             require(entry["path"] not in result, "Duplicate repository tree entry.")
             result[entry["path"]] = commit_sha(entry.get("sha"))
     require(PACKAGE_PATHS <= result.keys(), "Both dependency manifest files are required.")
-    return result, tree_sha
+    return result
 
 
 def blob_bytes(api, repository, blob_sha, maximum):
@@ -274,7 +274,7 @@ def install_assets(directory, version):
 def prepare(api, repository, number, manual=False, expected_head=None, installer=install_assets):
     pull = checked_pr(api, repository, number, manual, expected_head)
     head, ref = pull["head"]["sha"], pull["head"]["ref"]
-    files, unused_tree = tree_files(api, repository, head)
+    files = tree_files(api, repository, head)
     manifests = {path: blob_bytes(api, repository, files[path], MAX_PACKAGE_BYTES) for path in PACKAGE_PATHS}
     version = validate_packages(manifests["tools/api-docs/package.json"], manifests["tools/api-docs/package-lock.json"])
     with tempfile.TemporaryDirectory(prefix="bridge-vendor-repair-") as isolated:

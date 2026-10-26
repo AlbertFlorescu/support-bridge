@@ -1,8 +1,8 @@
 # Explicit assumptions register
 
-We use this register to make our product scope, operating assumptions and deliberate design choices explicit. Each row records what changes if an assumption is wrong and how we enforce or validate it. We have not completed customer discovery, live vendor validation or production capacity measurements.
+Each row states an assumption or design decision, its consequences and the check it needs. Customer discovery, live vendor validation and production capacity measurements remain outstanding.
 
-[Governance and operations](GOVERNANCE.md) describe our write controls, policy boundaries and rollout responsibilities. We keep assumptions separate from evidence so a tested software constraint is not mistaken for a validated business requirement.
+The [governance guide](GOVERNANCE.md) defines write controls, policy ownership and rollout responsibilities.
 
 ## Customer, value and domain
 
@@ -100,5 +100,3 @@ We use this register to make our product scope, operating assumptions and delibe
 | A55 | Native Dependabot covers supported npm advisories; image dependencies need supplementary scanning. Exact CVE List/NVD identifiers enrich detected findings. | Native Docker version PRs and SHA-pinned Actions updates do not establish complete CVE coverage. External metadata can be missing, delayed or rejected. Compiled PHP/Node and application identification remain gaps. | Scoped GitHub Actions inventory, fresh Trivy database, all npm dependencies and explicit source/coverage states; `SECURITY.md` records limits. |
 | A56 | A fixed npm manifest must correspond to the Swagger files actually served. | A lockfile-only patch can leave vulnerable assets deployed. A stale or expanded PR must not receive a repair commit. | Byte equality in native/container CI; trusted-code repair, fixed file allowlist, isolated script-disabled install, exact-head publication and explicit CI dispatch. No automatic approval or merge. |
 | A57 | A daily dependency inventory and one managed issue are sufficient for current repository maintenance. | Scheduling/source outages and artifact retention are not a response SLA or permanent audit archive. Risk acceptance and deployment remain maintainer responsibilities. | Incomplete scans retain prior findings; bounded enrichment and 14-day evidence artifacts. The current plan's unenforced branch rule remains documented. |
-
-We update this register when requirements change and revise superseded assumptions so defaults do not become hidden requirements.

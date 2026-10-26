@@ -2,74 +2,62 @@
 
 ## Customer and scope
 
-We target B2B SaaS teams tracking support escalations in Zendesk and engineering work in GitHub. Manual copies of the summary and resolution state can become stale. The customer, workflow and deployment assumptions are recorded centrally in [ASSUMPTIONS.md](ASSUMPTIONS.md); they require validation with the actual customer.
+Support Bridge keeps the summary and resolution state of linked Zendesk tickets and GitHub issues aligned. We target B2B SaaS support and engineering teams that currently copy those updates by hand. A pilot still needs to measure the benefit and validate the [customer and deployment assumptions](ASSUMPTIONS.md).
 
-This prototype reconciles **explicitly linked, existing** GitHub issues and Zendesk tickets. It synchronizes the issue title with the ticket subject, and a deliberately small open/closed state. The link is an operator's opt-in decision; the service does not infer which records concern the same customer.
+An operator links two existing records. We synchronize title/subject and a binary open/closed state; we do not infer matching records, create remote records or copy descriptions, comments, attachments or requester details. Titles can still contain confidential information and are stored locally.
 
-It does not create records, copy comments or attachments, synchronize descriptions, or copy requester details. Ticket subjects can still contain personal or confidential information: the database holds titles and must be treated accordingly.
-
-The benefit is a hypothesis, not a measured outcome: less manual copying and fewer stale escalations. Validate it with a small opt-in pilot before expanding scope.
-
-We use a headless deterministic workflow behind both CLI and HTTP. Our [governance model](GOVERNANCE.md) explains the per-step execution choices, approval boundary and operating responsibilities. **Never rely on AI in compliance:** a model cannot authorize execution or establish policy satisfaction. Accountable policy owners must validate obligations and controls before live use.
+CLI and HTTP use the same fixed workflow. Our [governance model](GOVERNANCE.md) defines approval and operating ownership. **Never rely on AI in compliance:** policy owners must validate data transfers and controls; model output cannot authorize a write.
 
 ## Architecture overview
 
-We package local operation in Compose services for initialization, API, a scheduled worker, Prometheus and Grafana. Optional CLI, verification and smoke-check containers use the same application image or its development stage. The API, CLI and worker share one local data volume and canonical lock; monitoring and credentials use separate volumes. [Docker operation](DOCKER.md) documents startup, persistence, credential readers and the single-host boundary.
+The application uses PHP 8.2+, PDO SQLite and cURL, without a PHP framework or Composer packages. CLI sweeps and the JSON API share configuration and `Engine`. SQLite stores reconciliation state and retry times. A process lock on the canonical database path permits one operation at a time. Each database is bound to its repository and Zendesk tenant, preventing configuration changes from retargeting saved links.
 
-The default deployment selects synthetic providers explicitly. Runtime containers use non-root users, read-only root filesystems and temporary writable paths; monitoring configuration is built into images rather than mounted from the host source tree. The verification stage adds Node only for locked OpenAPI validation. Compose does not add an alternate merge/approval path or make the PHP development server a production server.
-
-The application runs on PHP 8.2 or later with PDO SQLite and cURL, without a PHP framework or Composer packages. A bounded CLI sweep and a JSON operator API share the same application composition and reconciliation engine. A process lock for the canonical database path permits one worker; SQLite holds durable reconciliation state and retry timing. The database is bound to its configured repository and Zendesk tenant, preventing old baselines from being retargeted by an environment change.
+Compose runs initialization, API, a scheduled worker, Prometheus and Grafana. CLI, verification and smoke containers use the application image or its development stage. API, CLI and worker share one local data volume and lock; metrics and credentials use separate volumes. The default stack explicitly uses synthetic providers. Containers run as non-root users with read-only root filesystems and temporary writable paths. Configuration is built into the images. Node is added only to the verification stage for API tooling and Swagger asset checks. See [Docker operation](DOCKER.md) for startup and volume details.
 
 ```mermaid
 flowchart TD
     CLI[CLI command or scheduled sweep] --> Context[Application Context + Configuration]
-    Operator[Operator HTTP request] --> Auth[Bearer authentication + request validation]
+    Operator[Operator HTTP request] --> Auth[Bearer authentication + validation]
     Auth --> Context
-    Context --> Engine[Engine: durable reconciliation]
-    Engine --> Policies[Pure merge, retry and governance policies]
-    Engine --> Gate[Deterministic state-change approval gate]
-    Reviewer[Operator reviews exact plan] --> Gate
+    Context --> Engine[Reconciliation engine]
+    Engine --> Policies[Merge, retry and governance policies]
+    Reviewer[Operator reviews exact plan] --> Engine
     Engine --> Store[PairRepository / SQLite Store]
-    Store --> DB[(Links, baseline, pending plan,
-    retries, conflicts and audit)]
-    Engine -->|Observe and verify| Providers[GitHub / Zendesk provider adapters]
-    Gate -->|Authorized writes| Providers
+    Store --> DB[(Links, baseline, pending plans,
+    retries, conflicts, approvals and audit)]
+    Engine --> Providers[GitHub / Zendesk adapters]
     Providers --> Transport[Bounded HTTPS JSON client]
     Transport <--> APIs[GitHub and Zendesk APIs]
-    Engine --> Logs[Local structured metadata logs]
-    Logs --> MetricsDB[(Separate aggregate metrics SQLite)]
+    Engine --> Logs[Structured stderr events]
+    Engine --> MetricsDB[(Aggregate metrics SQLite)]
     MetricsDB --> Exporter[Read-only GET /metrics]
     Store --> Exporter
-    Prometheus[Local Prometheus] -->|Separate bearer token scrape| Exporter
-    Prometheus --> TimeSeries[(Local time-series storage)]
-    Prometheus --> Rules[Example alert rules; no recipients]
-    Grafana[Local Grafana dashboard] -->|PromQL queries| Prometheus
+    Prometheus[Prometheus] -->|Separate scrape token| Exporter
+    Grafana[Grafana dashboard] -->|PromQL| Prometheus
 ```
 
-HTTP calls happen outside SQLite transactions. Local transactions make local state durable; they do not make a transaction spanning GitHub and Zendesk.
+Provider calls run outside SQLite transactions. Local commits cannot make GitHub and Zendesk participate in one transaction.
 
-The code separates responsibilities where the behavior needs independent verification:
-
-| Files | Responsibility and practical effect |
+| Files | Responsibility |
 | --- | --- |
-| `src/Domain/MergePolicy.php`, `RetryPolicy.php`, `GovernancePolicy.php` | Decide values, schedules and authorization requirements from explicit inputs. They perform no I/O; time and jitter enter as values, making rule tests deterministic. |
-| `src/Engine.php` | Coordinate observations, durable intent, guarded writes, verification and recovery. It does not parse HTTP requests or construct vendor URLs. |
-| `src/Contract/PairRepository.php`, `src/Store.php` | Define the durable state/locking boundary and implement it with SQLite. The engine depends on that contract rather than SQLite calls. |
-| `src/Provider/Provider.php`, `GitHub.php`, `Zendesk.php`, `Local.php` | Normalize records and apply only supported canonical patches. The local adapter and test doubles exercise the same engine without vendor credentials. |
-| `src/HttpClient.php`, `HttpResponse.php` | Bound HTTPS transport, validate hosts and classify sanitized upstream failures. |
-| `src/Application/Configuration.php`, `Context.php` | Read deployment settings and assemble storage, providers, engine and telemetry once for both entry points. HTTP callers cannot select a state directory, mode, repository or tenant. |
-| `src/Http/Api.php`, `Request.php`, `Response.php`, `src/Exception/*` | Authenticate and validate operator requests, then translate explicit failures to JSON/status codes. Reconciliation is reused rather than reimplemented in controllers. |
-| `src/Observability/Prometheus.php` | Persist bounded outcome counters and a duration histogram across CLI processes; render aggregate metrics and local state gauges without record-derived labels. Telemetry failures cannot change business outcomes. |
+| `src/Domain/MergePolicy.php`, `RetryPolicy.php`, `GovernancePolicy.php` | Decide values, schedules and approval requirements without I/O. Time and jitter are inputs. |
+| `src/Engine.php` | Coordinate reads, durable plans, guarded writes, verification and recovery. |
+| `src/Contract/PairRepository.php`, `src/Store.php` | Define state/locking operations and implement them with SQLite. |
+| `src/Provider/*` | Normalize records and patch supported fields. Local adapters and test doubles use the same engine. |
+| `src/HttpClient.php`, `HttpResponse.php` | Restrict HTTPS hosts, bound transport and classify upstream failures. |
+| `src/Application/Configuration.php`, `Context.php` | Assemble storage, providers, engine and telemetry for both entry points. |
+| `src/Http/*`, `src/Exception/*` | Authenticate and validate requests; translate expected failures into JSON and HTTP status codes. |
+| `src/Observability/Prometheus.php` | Persist counters/histograms and expose aggregate metrics and state gauges. |
 
-The result is a small set of boundaries, not a dependency-injection framework or an abstraction for every method. Typed validation, missing-record, state-conflict and worker-busy failures let the API distinguish expected outcomes without interpreting exception-message text.
+Validation, missing-record, state-conflict and worker-busy exceptions let the API distinguish expected outcomes without parsing error messages.
 
 ## Operator API and documentation
 
-The API lists and inspects links, creates explicit links, runs a sweep, selects conflict resolutions, approves exact state-changing plans, retries failed work and exposes local status. Operational `/api` routes require one deployment-configured bearer token, compared with `hash_equals`. The Prometheus text exporter at `GET /metrics` requires a distinct read-only metrics token; it cannot authorize operator actions. Reusing the same configured token for both surfaces is rejected. `/health`, `/docs`, the specification and explicitly allowed static assets are public. JSON operations accept only their exact documented fields with a 16 KiB body limit; error responses include a request ID and sanitized code.
+The API creates, lists and inspects links; runs sweeps; selects conflict sources; approves exact plans; retries failed work; and exposes status. `/api` requires a configured bearer token compared with `hash_equals`. `GET /metrics` requires a distinct read-only scrape token; equal operator/scrape tokens are rejected. `/health`, `/docs`, the specification and allowlisted static assets are public. JSON commands accept only documented fields, with a 16 KiB body limit. Errors carry a request ID and sanitized code. Requests cannot select provider hosts, credentials, state directories or live mode.
 
-`public/router.php` serves an explicit asset allowlist and delegates API work to `Http\Api`. The OpenAPI contract is `docs/api/openapi.json`. `/docs` uses locally vendored Swagger UI **5.34.0** with submit methods disabled, no remote validator and no query-supplied configuration. It is a read-only reference; clients can still call the real operator API directly. Swagger's bundle includes React, but that is a documentation asset, not a PHP framework. Node/npm are development tools for validating and refreshing the vendored documentation, not requirements for serving it.
+`public/router.php` serves the asset allowlist and delegates API calls to `Http\Api`. [OpenAPI](api/openapi.json) defines the contract. Swagger UI 5.34.0 is served locally with submission, remote validation and query-supplied configuration disabled. Clients can still call the operator API directly. Its JavaScript bundle includes React; Node/npm are needed only to refresh and validate those assets.
 
-The bearer token represents a single operator; there are no individual accounts, roles, token scopes or per-user attribution. The PHP development server binds to localhost in the documented example and provides no TLS termination or rate limiting. A production host must supply those controls before remote exposure. A synchronization request blocks until its bounded sweep completes and uses the same worker lock as the CLI. List responses bound `limit`/`offset`, but currently load all stored pairs before slicing in memory.
+The shared token gives broad operator authority, without accounts, roles, token scopes or individual attribution. The documented PHP development server binds to loopback and supplies neither TLS nor rate limiting. A sweep blocks its HTTP request and uses the CLI's worker lock. List responses bound `limit`/`offset` but load all pairs before slicing them in memory.
 
 ## Mapping and merge rules
 
@@ -79,98 +67,98 @@ The bearer token represents a single operator; there are no individual accounts,
 | `state=open` | `open` | `new`, `open`, `pending`, `hold` |
 | `state=closed` | `closed` | `solved`, `closed` |
 
-Writing a state change to Zendesk uses `open` or `solved`. An unchanged canonical open state must not turn a pending or on-hold ticket into open. The integration does not preserve GitHub closure reasons or Zendesk workflow distinctions in its common model. Custom status categories require account-specific validation. Zendesk documents its status model in the [Tickets API](https://developer.zendesk.com/api-reference/ticketing/tickets/tickets/) and [custom status reference](https://developer.zendesk.com/api-reference/ticketing/tickets/custom_ticket_statuses/).
+A state write to Zendesk uses `open` or `solved`. A title-only patch preserves pending/hold status. The common model loses GitHub closure reasons and Zendesk workflow distinctions; custom status categories need account-specific validation. See the [Tickets API](https://developer.zendesk.com/api-reference/ticketing/tickets/tickets/) and [custom status reference](https://developer.zendesk.com/api-reference/ticketing/tickets/custom_ticket_statuses/).
 
-A Zendesk `closed` ticket is terminal. The service can observe it as closed, but blocks edits or reopening that would require changing that ticket. It never creates a follow-up ticket. See [Zendesk's update guidance](https://developer.zendesk.com/documentation/ticketing/managing-tickets/creating-and-updating-tickets/).
+A Zendesk `closed` ticket is terminal. We can read it but block a plan that would edit or reopen it, without creating a follow-up ticket. See [Zendesk's update guidance](https://developer.zendesk.com/documentation/ticketing/managing-tickets/creating-and-updating-tickets/).
 
-For each field, compare both current values with the persisted common baseline:
+For each field, compare both values with the persisted common baseline:
 
-| Observed values | Decision |
+| Observation | Decision |
 | --- | --- |
-| Both equal | Accept convergence; no remote write |
-| GitHub alone differs from baseline | Copy that field to Zendesk |
-| Zendesk alone differs from baseline | Copy that field to GitHub |
+| Both values equal | Accept convergence; no write |
+| Only GitHub differs from baseline | Copy the field to Zendesk |
+| Only Zendesk differs from baseline | Copy the field to GitHub |
 | Both changed to different values | Quarantine the whole pair |
 
-Changes to different fields can merge. Example: an engineer changes the title while an agent solves the ticket; the merged result contains both changes. A conflict in any field suspends the pair, including otherwise mergeable fields. This is conservative and keeps operator review understandable.
+Edits to different fields merge. For example, an engineer's title edit and a support agent's resolution can form one plan, held for state-change approval. A conflict in any field suspends every write for that pair.
 
-On the first observation, equal records establish a baseline. Existing disagreement needs an explicit source decision; timestamps are not used to guess ownership. The operator can resolve a quarantined pair by choosing one whole record as the source. Resolution checks both canonical fields and versions against the stored conflict snapshot. Any observed change, including an unrelated edit that advances the version, refreshes the conflict and requires another review. The same timestamp-granularity limits described below apply to this freshness check.
+On first observation, equal records establish a baseline. Disagreement requires an operator to choose one whole record as the source. Timestamps do not select a winner. Resolution checks fields and versions against the stored conflict snapshot; a changed value or version refreshes the conflict for another review. Timestamp granularity limits this check as described below.
 
 ## Durable work and uncertain outcomes
 
 ### Deterministic approval before an effect
 
-`GovernancePolicy` validates the persisted field/capability contract and classifies its original state transitions. Under `escalation-state-v1`, explicit linking authorizes title-only transfer; any outbound open/closed transition holds the entire plan in `awaiting_approval` before any write. This includes reopening and a title change accompanying a state transition. Ineligible immutable destinations fail before an impossible approval is requested. No model decides whether approval is required.
+Under `escalation-state-v1`, explicit linking authorizes title-only transfers. Any outbound open/closed transition holds the entire plan in `awaiting_approval`, including accompanying title changes. `GovernancePolicy` validates the saved fields/capabilities and original state transitions. Immutable destinations fail before approval is requested.
 
-Inspection exposes the policy version, plan hash, approval requirement and approval match without provider reads or a side effect. `approve PAIR HASH REASON` and its HTTP equivalent run under the canonical lock, require the currently inspected hash, re-read both records and reject changed fields or versions. The hash covers the pair/link identities, target, both preimages/versions and policy version. The approval event is persisted before authorization state; an audit failure cannot enable a subsequent effect. Source selection and retry never grant approval.
+Inspection returns the policy version, plan hash, approval requirement and current approval match without reading providers or changing state. `approve PAIR HASH REASON` and its HTTP equivalent acquire the canonical lock, require the inspected hash and reread both records. The hash binds pair/link identities, target, both preimages, both versions and policy version. Changed evidence is rejected. The approval event is saved before authorization; an audit failure blocks later effects. Retry and source selection cannot grant approval.
 
-Execution rechecks the stored plan/approval and remote evidence. Destinations still requiring a write retain their observed versions; an unchanged original source must also retain its reviewed version. Already-achieved targets can be acknowledged without another write, preserving recovery after an unknown outcome. No approval can authorize another plan or policy version. Completed/quarantined work clears current approval while retaining local audit history. Pending reviews are skipped by scheduled sweeps until an operator acts; a stale approval request refreshes a conflict for a new source decision.
+Execution checks the saved approval and provider evidence again. Every destination still needing a write must retain its observed version; an unchanged original source must retain its reviewed version too. A destination already at the full target can be acknowledged without writing. Approval never carries to another plan or policy. Convergence or quarantine clears the current approval, retaining its audit history. Sweeps skip pending reviews; a stale approval request refreshes the conflict for a new source decision.
 
-The shared operator credential identifies no individual and cannot prove a human or independent approver. This is an explicit attestation, not verified human origin or a compliance decision. Do not give this broad credential to an agent. The [read-only review skill](../skills/support-bridge-escalation-review/SKILL.md) provides instructions; a separately authenticated facade must enforce agent privileges before integration. Customer policy owners still need to approve data boundaries, state prerequisites and this title-only opt-in. AI output cannot satisfy those responsibilities.
+The shared credential records an operator attestation, without proving a person or independent approver. Do not give it to an agent. The [review skill](../skills/support-bridge-escalation-review/SKILL.md) is read-only guidance; an authenticated facade must enforce agent scopes before integration. Policy owners must approve data boundaries, closure prerequisites and title-only opt-in.
 
-An additive, transactional migration adds a nullable `approval` column to existing stores; the `target` / `before` / `versions` shape remains unchanged. Legacy state-changing intents receive the gate. This narrow upgrade is tested; general schema lifecycle, rollback and restored-backup recovery remain unfinished.
+Existing stores receive a transactional nullable `approval` column. The saved `target` / `before` / `versions` structure stays intact, and legacy state-changing plans receive the current gate. General schema migration, rollback and restored-backup recovery remain unfinished.
 
 ### Reconciliation and recovery
 
-Before writing, persist the intended merged values and each destination's observed preimage and version. Patch only fields that need to change. Keep the plan durable until all required effects have been acknowledged and the common baseline can advance.
+Before writing, persist the merged target, both preimages and both versions. Patch only changed fields and retain the plan until all effects are acknowledged. Advance the common baseline only after both records are observed at the target.
 
-On recovery, read the destination again and inspect the fields in the pending patch:
+Recovery reads both records before another write:
 
-- A field already equal to its desired value needs no repeat write.
-- A field still equal to its expected preimage remains eligible only if the destination's recorded version is unchanged.
-- A field equal to neither indicates an intervening edit and requires conflict handling.
+- A field already at its target needs no repeat write.
+- A field at its recorded preimage can still be written only if the destination version is unchanged.
+- A field at neither value causes a conflict.
 
-If a destination still needs any write and its version has changed, recovery quarantines the pair even when the canonical values look unchanged. An unrelated edit can therefore require operator attention. This conservative choice detects an observable edit-and-revert instead of overwriting it with a stale intent. If the complete destination already equals the target, recovery can acknowledge it without writing or requiring the original version.
+If any destination still needs a write and its version changed, quarantine the pair even if the canonical values look unchanged. This catches observable edits that were later reverted, at the cost of stopping after unrelated edits. A complete destination already at target can be acknowledged regardless of its original version.
 
-This covers a timeout after a server accepted the write, as well as a crash before local acknowledgement. It also preserves work when one destination succeeds and the other fails. Historical patches are never blindly replayed. Repeated polling after convergence should emit no writes, avoiding a feedback loop.
-
-This is checked, repeatable reconciliation, **not exactly-once delivery**. The adapters use API update timestamps as versions; their granularity and provider semantics limit detection of intervening edits. An unchanged value and timestamp do not prove that no edit happened. No local transaction can remove a remote network uncertainty.
+These checks handle a committed write whose response was lost, a crash before local acknowledgement and one-sided success. Saved patches are not replayed blindly; polling a converged pair emits no writes. This does not provide exactly-once delivery. API timestamps have finite granularity, and changes reverted between observations can remain invisible.
 
 ## Remote concurrency and retry policy
 
-Zendesk updates use `safe_update` with `updated_stamp` from the latest read. An update collision causes fresh observation instead of forcing the stale write; Zendesk describes this mechanism in its [ticket update guidance](https://developer.zendesk.com/documentation/ticketing/managing-tickets/creating-and-updating-tickets/).
+Zendesk uses `safe_update` with the latest `updated_stamp`. A collision triggers fresh observation. [Zendesk documents the mechanism here](https://developer.zendesk.com/documentation/ticketing/managing-tickets/creating-and-updating-tickets/).
 
-The [GitHub issue update endpoint](https://docs.github.com/en/rest/issues/issues#update-an-issue) does not document an equivalent version precondition. A fresh read, minimal PATCH and verification narrow the race, but a human can edit the same field between that read and PATCH. The implementation cannot guarantee prevention or detection of every lost update in that window. Conditional GET caching is not proof of conditional PATCH support.
+The [GitHub issue update endpoint](https://docs.github.com/en/rest/issues/issues#update-an-issue) has no documented equivalent atomic version precondition. A person can edit a field between our read and PATCH, and verification cannot detect every resulting lost update. Conditional GET support does not establish conditional PATCH support.
 
-Transient network/server failures and rate limiting schedule persistent exponential backoff with jitter, honoring server retry guidance. After five failed attempts, the pair becomes dead for operator attention. Authentication and validation errors need correction rather than endless retries. Conflicts are separate from transport failures. See the [GitHub integration practices](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api) and [Zendesk rate-limit guidance](https://developer.zendesk.com/documentation/api-basics/best-practices/best-practices-for-avoiding-rate-limiting/).
+Network/server failures and rate limiting use persisted exponential backoff with jitter and server retry guidance. Five failed attempts mark a pair dead for operator attention. Authentication and validation errors need correction; conflicts are handled separately. See [GitHub integration practices](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api) and [Zendesk rate-limit guidance](https://developer.zendesk.com/documentation/api-basics/best-practices/best-practices-for-avoiding-rate-limiting/).
 
 ## Observability boundary
 
-The application stores outcome counters and a classic duration histogram in a separate `metrics.sqlite`, so short-lived CLI processes contribute to the same series. Outcome/status labels are finite; metric names and labels contain no pair IDs, titles, credentials or raw error messages. Snapshot gauges report persisted pair counts, pending plans and the most recent observed convergence. The operator's JSON `/api/metrics` response is distinct from the Prometheus text format at `/metrics`.
+`metrics.sqlite` stores outcome counters and a classic duration histogram across processes. Labels are fixed, without pair IDs, titles, credentials or raw errors. Gauges report stored pair counts, pending plans and the latest observed convergence. `/api/metrics` is operator JSON; `/metrics` is Prometheus text.
 
-Metrics are recorded after the business result is durable and are best effort. A crash between those commits can omit an observation; telemetry is not an exactly-once business ledger. A failed metrics store does not change the business result. An exporter read failure returns HTTP 503 rather than invented zero counters, causing Prometheus's `up` signal to fail. A successful scrape exposes the separate telemetry-storage availability gauge.
+Metrics are best effort after the business result is durable. A crash can omit an observation, and metrics-store failure cannot change reconciliation. An exporter read failure returns HTTP 503, causing Prometheus's `up` signal to fail; a successful scrape includes the separate telemetry-storage availability gauge.
 
-The local monitoring stack uses Prometheus **3.13.5 LTS** and Grafana OSS **13.2.4**, installed from checksum-verified official archives. Prometheus reads its separate scrape credential from a private file and pulls aggregate metrics; Grafana queries Prometheus through a provisioned datasource. An eight-panel dashboard shows scrape health, states, backlog, throughput and duration. Four example rules are evaluated locally; there is no Alertmanager, receiver or notification destination. Credentials and runtime data remain outside the repository, all listeners bind to loopback, and no cloud account is required. The monitoring launcher and server configuration are in [monitoring/README.md](../monitoring/README.md); metric semantics are in [OBSERVABILITY.md](OBSERVABILITY.md).
+Compose supplies Prometheus 3.13.5 LTS and Grafana OSS 13.2.4. The optional native setup uses checksum-verified archives. Prometheus reads its scrape credential from a private file; Grafana has a provisioned datasource and eight-panel dashboard. Four local rules are loaded, with no Alertmanager or notification recipient. Listeners bind to loopback, credentials/state stay outside source, and Prometheus itself has no extra authentication, so other host processes can query it. See [monitoring setup](../monitoring/README.md) and [metric semantics](OBSERVABILITY.md).
 
-The real local stack was started with isolated synthetic application data and verified through an authenticated scrape, a Prometheus query, Grafana datasource health, dashboard provisioning and loaded rules. This confirms that local path, not production monitoring coverage, notification delivery or customer service objectives. Prometheus itself has no extra authentication in this loopback setup, so other processes on the host can query aggregate data. Remote deployment needs TLS, authentication, access control and supervision.
+Authenticated scrapes, queries, Grafana health/provisioning and loaded rules were verified with synthetic local data. [REVIEW.md](REVIEW.md) records that evidence and the remaining deployment checks.
 
 ## Trade-offs
 
-The state-change gate adds explicit review and preserves a deterministic execution path, at the cost of latency and delaying title changes in mixed plans. The title-only opt-in needs customer validation; stricter customers may require review for every write. The binary state contract makes merge rules understandable but loses richer vendor workflow meaning. Whole-pair quarantine protects a coherent decision at the cost of delaying safe fields. Version checks deliberately quarantine some unrelated edits rather than replaying a stale plan. A one-way ownership policy would remove much of this conflict handling if the customer accepts it.
-
-SQLite and one worker keep installation and crash recovery inspectable. They also serialize work and constrain deployment to a single host with local storage. Polling avoids webhook registration and delivery handling, but spends API quota even when nothing changes. The CLI and API share a composition root to avoid divergent behavior; the thin framework-free HTTP layer still leaves authentication operations, deployment hardening and maintenance with this project.
+- Whole-plan state approval keeps one review decision, but adds latency and holds title changes too. Some teams may require review for title-only transfers as well.
+- The binary state model simplifies merging while losing richer workflow meaning. Whole-pair quarantine also delays fields that could otherwise merge safely.
+- Conservative versions stop stale writes, including some unrelated edits. A one-way ownership contract would remove much of the conflict handling if both teams accept it.
+- SQLite and a local lock simplify setup and recovery while limiting us to one host and serial work.
+- Polling avoids webhook setup but consumes API calls without changes. The CLI and API share code, while the framework-free HTTP layer leaves authentication and deployment maintenance with us.
 
 ## Known limitations
 
-Structured logs contain event metadata and record identifiers, not titles, credentials or complete API responses. The SQLite file contains title snapshots, so restrict access, define retention and include it in backup/recovery planning. Credentials belong in the execution environment, not source control. Production deployment also needs a secret manager and an explicit credential-rotation procedure.
+SQLite contains unencrypted title snapshots and unbounded audit history. Restrict access, define retention and back up the database consistently with its WAL. Deployment also needs credential rotation, secret management, TLS, ingress access controls and supervision. General migration/rollback and restore rehearsals are unfinished.
 
-Offline domain, reconciliation, HTTP adapter, API and observability tests establish selected behavior under controlled inputs and faults. They do not establish live API compatibility, production throughput or customer benefit. Real adapters have not been validated with live credentials. Before a pilot, confirm token permissions, Zendesk required fields/custom statuses, triggers, rate limits and terminal tickets in sandbox accounts. Business rules may transform or reject an otherwise valid update.
+The provider adapters have offline tests but no live-account validation. Before a pilot, test permissions, Zendesk required fields/custom statuses, triggers, rate limits and terminal tickets. Vendor rules can transform or reject a write. Production throughput and customer benefit remain unmeasured.
 
-REA was actually run on the local Swagger JavaScript artifacts. The vendor bundle exceeded its worker heap, and even the focused initializer result retained explicit semantic unknowns. This was partial static artifact analysis, not a PHP source review, browser-behavior verification or vendor security audit. See [TOOLING-INSTALLATION.md](TOOLING-INSTALLATION.md) for pins and evidence. Agency profiles provide review guidance; their installation alone is not proof of review.
+An unchanged eligible pair needs two provider reads; writes and recovery add more. Synchronous requests, full link scans and serial processing let slow providers or retry backlogs increase lag. There is no distributed lock, job queue, built-in request-rate limiter or provider-wide rate budget. A local filesystem lock cannot coordinate multiple hosts.
 
-An unchanged eligible pair requires two provider reads; writes and recovery require additional checks. One worker, synchronous HTTP calls and SQLite serialize progress; a slow request or large retry backlog increases freshness lag. The API's blocking sweep, in-memory list pagination and lack of built-in rate limiting also bound its suitability. Multiple hosts must not share this design by assuming a local file lock is a distributed lock. Audit retention, general schema lifecycle/rollback, distributed jobs and production monitoring supervision remain operational work.
+Metrics can miss a post-commit crash, and a recent global convergence timestamp can hide a stalled pair. Histogram quantiles are estimates; rate queries need samples, and missing samples are not zero latency. A blocking sweep can delay scrapes on the development server. The dashboard and example rules are not agreed SLOs or a configured incident-response service.
 
-Metrics can miss post-commit crashes, and a globally recent convergence timestamp can conceal an individual stalled pair. Histogram quantiles estimate values from buckets and rate queries need enough samples; absent samples are not zero latency. The PHP development server can also delay scrapes while serving a blocking sweep. The local dashboard and example alert thresholds are useful demonstrations, not agreed SLOs or a tested incident-response process.
+Development-tool coverage is recorded in [TOOLING-INSTALLATION.md](TOOLING-INSTALLATION.md): REA's JavaScript analysis was partial and its vendor-bundle pass exceeded the worker heap. Agency profiles supply review guidance. Neither replaces tests or provider validation.
 
 ## Measurement and next improvements
 
-Measure a pilot using:
+Measure a pilot against its pre-adoption baseline:
 
-- Manual copying actions and minutes per escalation, before and after adoption.
-- Time from a source edit to observed convergence, reporting median and tail latency.
-- Share of linked pairs that are stale, conflicted, dead or awaiting approval; age of unresolved items and approval wait time (not yet measured as a duration by the exporter).
-- API calls per useful change, rate-limit responses and recovery success after outages.
+- Copying actions and minutes per escalation.
+- Source-edit-to-convergence time, including median and tail latency.
+- Stale, conflicted, dead and approval-waiting pairs, plus their ages.
+- API calls per useful change, rate limiting and outage recovery success.
 
-Set acceptance targets with the support team; compare similar escalation cohorts and retain the pre-pilot baseline. Do not count an offline test duration as a production benchmark or attribute every change in resolution time to this integration.
+The exporter does not yet measure approval wait duration or every per-pair age. Agree on acceptance targets with the support team and compare similar escalation cohorts.
 
-The next improvements should follow evidence: live contract tests first; then metrics and recovery tooling; then webhook wake-ups with polling as a repair path. If volume requires parallelism, use durable jobs partitioned by pair, a database with explicit worker coordination and per-provider rate budgets. Stronger remote concurrency guarantees need provider-supported version checks or a different ownership contract, not just more workers.
+Start with live sandbox contracts, then fill gaps in metrics and recovery tooling. Add webhook wake-ups if polling lag warrants them, retaining polling for repair. Parallel workers need durable pair-partitioned jobs, explicit database coordination and provider-wide rate budgets. Stronger remote concurrency requires provider-supported version checks or a different ownership contract.

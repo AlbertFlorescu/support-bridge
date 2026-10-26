@@ -1,51 +1,59 @@
 # GitHub verification and merge controls
 
-We use GitHub Actions for native PHP checks, container verification and the merge-status gate. The repository workflow is [`.github/workflows/ci.yml`](../.github/workflows/ci.yml); [hosted runs](https://github.com/AlbertFlorescu/support-bridge/actions) provide the result for each published revision.
+Our [Verify workflow](../.github/workflows/ci.yml) runs PHP/API tests and container checks. [GitHub Actions](https://github.com/AlbertFlorescu/support-bridge/actions) records each published revision's results.
 
 ## Required status check
 
-The stable check to require on `main` is **`Required checks`**. It runs after both verification jobs and succeeds only when both report success. Failed, cancelled and skipped dependencies fail the aggregate gate. We keep this name unique across workflows so branch rules can select it unambiguously.
+Require **`Required checks`** on `main`. This unique aggregate check passes only when both verification jobs succeed. Failed, cancelled or skipped dependencies fail the gate.
 
-| Check | Evidence |
+| Check | Coverage |
 | --- | --- |
-| `PHP checks` | PHP syntax, domain/reconciliation/governance/provider/API/observability tests, synthetic demo, vulnerability-tool tests, vendored Swagger freshness, locked OpenAPI parsing and actual loopback response-fixture validation |
-| `Container checks` | Image builds, isolated PHP/OpenAPI verification, complete stack startup, actual service-network smoke checks, graceful worker shutdown and pending-plan/credential persistence through recreation |
-| `Required checks` | Both preceding jobs completed successfully for the revision being evaluated |
+| `PHP checks` | PHP syntax and application tests, synthetic demo, vulnerability-tool tests, Swagger asset freshness, OpenAPI parsing and real loopback response-fixture validation |
+| `Container checks` | Image builds, isolated PHP/OpenAPI verification, stack startup, service-network smoke checks, graceful shutdown and pending-plan/credential persistence through recreation |
+| `Required checks` | Both jobs succeeded for the revision under review |
 
-The workflow runs for pull requests targeting `main`, pushes to `main`, manual dispatch and merge-group checks. It does not filter paths, so documentation-only changes still produce the required status. Newer runs cancel outdated work for the same pull request or ref. Merge-group support supplies checks if a merge queue is enabled later; it does not enable that feature itself. [GitHub concurrency](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) controls duplicate work.
+Verify runs for PRs targeting `main`, pushes to `main`, manual dispatch and merge groups. It has no path filters, so documentation changes also produce the required status. [Concurrency settings](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) cancel outdated runs for the same PR or ref. Merge-group checks support a future merge queue; they do not enable one.
 
 ## Branch protection is a separate setting
 
-Actions report test results. An active GitHub branch rule must enforce them before merging. Configure `main` to require pull requests and `Required checks`, require the branch to be up to date, prevent force pushes and deletion, and apply the restrictions to administrators without a bypass. Select GitHub Actions as the expected source of the status check. Do not require another person's approval until a separate reviewer is available; a sole maintainer cannot approve their own pull request.
+As checked on 2026-10-25, our private-repository plan does not support branch-rule enforcement. We retain that plan. `main` has no enforced rule, and PRs with passing checks are maintainer practice rather than a server-side restriction. [GitHub's availability and settings](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) explain the plan limit.
 
-Private-repository branch protection requires a GitHub plan that includes that capability. On a plan without it, CI still runs but cannot prevent a direct or forced push. We do not treat a workflow file or a passing check as proof that the branch is protected. [GitHub's protected-branch availability and settings](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) define that boundary.
+The prepared [main ruleset](../.github/rulesets/main.json) requires:
 
-As verified on 2026-10-25, our current private-repository plan does not support branch-rule enforcement, and `main` has no enforced rule. We retain this plan and follow the PR/check workflow as maintainer practice. The prepared configuration below is not an active server-side control.
+- A PR, resolved review conversations and an up-to-date branch.
+- `Required checks`, with GitHub Actions as the expected source.
+- No force pushes, deletion or administrator bypass.
 
-The importable [main ruleset](../.github/rulesets/main.json) records this configuration with no bypass actors. Its expected status-check source is the GitHub Actions app, verified from our check-run metadata. Import it through **Settings → Rules → Rulesets → New ruleset → Import a ruleset**, once the account supports private-repository rules. The JSON requests active enforcement, but storing this file does not create or activate a GitHub rule. Verify the server-side rule after import. A classic branch rule with equivalent settings is an alternative; do not maintain two conflicting configurations.
+It has no bypass actors and requires zero peer approvals while a separate reviewer is unavailable; a maintainer cannot approve their own PR. Once the plan supports private rules, import it through **Settings → Rules → Rulesets → New ruleset → Import a ruleset** and verify enforcement. The JSON requests active enforcement but has no effect until imported. An equivalent classic rule is an alternative; avoid conflicting duplicate rules.
 
 ## Permissions, dependencies and artifacts
 
-Verify workflow tokens have read-only repository contents access. Checkout does not retain credentials. Official GitHub actions are pinned to verified commit IDs, and Dependabot opens reviewed updates rather than silently moving those pins. Node dependencies use the lockfile, lifecycle scripts are disabled, and GitHub's package-manager cache reduces repeat downloads. Container builds use the checked-in digest pins and reuse local layers within a job; we do not publish images or deploy services from this workflow. Separate security publisher jobs have the narrowly used issue/content/Actions permissions described in `SECURITY.md`.
+Verify has read-only repository contents access, and checkout removes its credentials. Official Actions use verified commit pins. npm uses the lockfile, disabled lifecycle scripts and GitHub's package cache. Container builds use the checked-in digest pins and local layers within a job. Verify neither publishes images nor deploys services. Separate security publishers have the issue/content/Actions permissions listed in [SECURITY.md](../SECURITY.md).
 
-Verify retains only the synthetic API response-fixture JSON as an Actions artifact for seven days. It contains controlled test responses, not vendor records, bearer tokens or deployment configuration. Failed container jobs print bounded service diagnostics; CI credentials and state stay in the disposable runner's volumes, which are removed after the job. We never upload credential volumes, Compose environment dumps or a whole state directory as artifacts. The separate vulnerability workflow retains dependency reports for 14 days; repair artifacts expire after one day.
+| Artifact | Retention |
+| --- | ---: |
+| Synthetic API response fixtures | 7 days |
+| Vulnerability reports | 14 days |
+| Prepared asset repair | 1 day |
 
-[Dependabot configuration](../.github/dependabot.yml) schedules daily version-update checks at 08:00 UTC for GitHub Actions, npm API tooling, the four upstream service/tooling images and the pinned Trivy scanner image. Each ecosystem entry can open up to ten version-update PRs. The wildcard cooldown exclusion removes release-age delay for tracked dependencies. The Docker allowlist excludes our locally built image names. [Open Dependabot update PRs](https://github.com/AlbertFlorescu/support-bridge/pulls?q=is%3Apr+is%3Aopen+author%3Aapp%2Fdependabot) show available proposals. Updates still need review and passing checks; dependency automation does not establish compatibility or compliance. [Dependabot's configuration reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference) describes the supported options.
+API fixtures contain controlled test responses, not vendor records or deployment configuration. Failed container jobs print bounded diagnostics. Disposable runner volumes hold CI credentials and state and are removed after the job. Credential volumes, Compose environment dumps and application state directories are never uploaded.
 
-Native Dependabot alerts and automatic security updates are enabled. npm security PRs are grouped separately from routine updates, include development dependencies and respond to alerts independently of the version-update schedule. Our [security workflow](../SECURITY.md) adds image scanning, CVE List/NVD enrichment, one managed tracker and repair of served Swagger assets. Its inventory results retain unresolved findings and coverage failures; a completed inventory is not a vulnerability-free or compliance claim. The normal `Required checks` gate verifies the reporting/repair code and refuses stale Swagger files. Security inventory runs retain separate statuses and evidence.
+[Dependabot](../.github/dependabot.yml) schedules daily version checks at 08:00 UTC for GitHub Actions, npm tooling, four upstream service/tooling images and the Trivy scanner. Each ecosystem entry allows ten version-update PRs. A wildcard cooldown exclusion removes release-age delay for tracked dependencies; locally built image names are excluded by the Docker allowlist. See [open proposals](https://github.com/AlbertFlorescu/support-bridge/pulls?q=is%3Apr+is%3Aopen+author%3Aapp%2Fdependabot) and [configuration options](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
+
+Native alerts and automatic security updates are enabled. npm security PRs are grouped separately, include development dependencies and respond to alerts independently of the version schedule. Our [security workflow](../SECURITY.md) adds image scanning, CVE List/NVD enrichment, one tracker and Swagger asset repair. `Required checks` tests the reporting/repair code and rejects stale Swagger files; vulnerability inventory runs retain their own statuses and evidence.
 
 ## Dependency maintenance policy
 
-PHP 8.3, Node 24 and Prometheus 3.13 describe our current selected runtime lines. They do not limit which updates Dependabot may show. Patch, minor and major proposals remain visible for every allowlisted image, including changes to a newer runtime line. npm minor/patch proposals are grouped; npm major updates can appear separately. Image digests and official GitHub Actions remain pinned until a reviewed update is merged.
+PHP 8.3, Node 24 and Prometheus 3.13 are our selected runtime lines, not proposal filters. Dependabot may show patch, minor and major updates for every allowlisted image. npm minor/patch updates are grouped; majors can appear separately. Image digests and Actions pins change only through reviewed updates.
 
-As reviewed on 2026-10-25, PHP 8.3 has security support through 2027-12-31, Node 24 remains LTS and keeps native/container API validation aligned, and Prometheus 3.13 is our maintained LTS line. [PHP support](https://www.php.net/supported-versions.php), the [Node release schedule](https://github.com/nodejs/Release/blob/main/schedule.json) and [Prometheus release policy](https://prometheus.io/docs/introduction/release-cycle/) provide the upstream support context.
+Our 2026-10-25 review recorded PHP 8.3 security support through 2027-12-31, Node 24 LTS and Prometheus 3.13 LTS. See [PHP support](https://www.php.net/supported-versions.php), the [Node release schedule](https://github.com/nodejs/Release/blob/main/schedule.json) and [Prometheus release policy](https://prometheus.io/docs/introduction/release-cycle/).
 
-Showing an update and adopting it are separate decisions. A change of line needs an explicit reason, upstream migration review, documentation and the appropriate CI evidence. We revisit the selected runtime before support ends or when a required fix is unavailable in that line. There is no automatic merge or deployment. Dependabot does not monitor every support deadline or prove that an image is free of vulnerabilities. [Dependency review evidence](REVIEW.md#dependency-review-2026-10-25) records the earlier candidate decisions and remaining migration work.
+A new runtime line needs a reason, migration review, updated documentation and relevant tests. Revisit the selection before support ends or when a required fix is unavailable. Updates are not merged or deployed automatically. Dependabot does not monitor every support deadline. [Earlier review evidence](REVIEW.md#dependency-review-2026-10-25) records candidate decisions and remaining migration work.
 
-The vulnerability tracker's vendor fixed version identifies a package-level fix. It does not identify an available parent-image tag or prove that an image release includes that fix. Dependabot can update the manifests and image pins we own; it cannot directly upgrade a Go module or OS package bundled inside an upstream Grafana or Prometheus image. Such findings need the appropriate upstream image release, parent-image refresh or rebuild, followed by a new scan. Unfixed and unavailable-image cases remain tracked rather than being presented as ready-to-merge updates.
+The tracker's **Vendor fixed version** is a package-level fix, not an available parent-image tag. Dependabot can edit our manifests and image pins, but not a Go module or OS package inside an upstream image. Those findings need an upstream release, image refresh or reviewed rebuild and a new scan. Cases without an available image stay tracked.
 
 ## Local reproduction and limits
 
-Use `php bin/check.php` and the locked validator for native checks, or the commands in [Docker operation](DOCKER.md) for the same container paths. The lifecycle script always creates its own uniquely named synthetic project; it must not remove the normal stack's volumes.
+Use `php bin/check.php` and the locked OpenAPI validator for native checks, or follow [Docker operation](DOCKER.md). The lifecycle script creates a uniquely named synthetic project and must never remove the normal stack's volumes.
 
-CI verifies deterministic behavior with synthetic data. It does not approve a customer state change, verify human identity, determine compliance, exercise live provider accounts, prove production capacity or establish a restore procedure. Never rely on AI in compliance; merge checks and runtime approval remain distinct controls.
+CI uses synthetic data. Live provider behavior, production capacity and restore procedures need separate validation. Passing checks do not verify human identity, approve customer state changes or establish compliance. Never rely on AI in compliance; runtime approval remains a separate control.
