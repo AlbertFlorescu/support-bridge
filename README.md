@@ -32,6 +32,14 @@ docker compose --profile test run --rm smoke
 
 Named volumes retain data and credentials across restarts and ordinary `docker compose down`. See [Docker operation](docs/DOCKER.md) for credentials, alternate ports and volume handling.
 
+### Generate synthetic traffic
+
+```bash
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml up --build -d --wait
+```
+
+This starts a separate stack on ports 8081, 9091 and 3001, with a traffic container that changes synthetic records every five seconds. It exercises the authenticated API, conflicts, approval waits and interrupted-write recovery. Choose one-second or random intervals and manual or scripted reviews in the [traffic guide](docs/TRAFFIC.md). Its data and credentials are separate from the default stack.
+
 ## Run with PHP
 
 Install PHP 8.2+ with `pdo_sqlite` and `curl`. On Ubuntu/WSL:

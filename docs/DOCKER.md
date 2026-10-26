@@ -62,17 +62,29 @@ docker compose run --rm cli sync
 
 Replace `PLAN_HASH` with the inspected hash after reviewing the entire plan. An approval wait is an operator-attention result; CLI exit code 2 is expected. The next eligible sweep applies an approved plan only if its evidence remains valid. Neither startup nor the worker grants approval. Never rely on AI in compliance; containerization does not expand the workflow's authority or establish verified human approval.
 
+## Continuous synthetic traffic
+
+The opt-in [traffic stack](TRAFFIC.md) adds a generator to a separate Compose project, with its own volumes and loopback ports. Start it with both files:
+
+```bash
+docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml up --build -d --wait
+```
+
+It needs Compose 2.24.4 or later for the overlay's `!override` port replacement. The default cadence is five seconds; one-second and random delays are available. Keep the explicit `-p support-bridge-traffic` flag and both `-f` arguments for every traffic command. The project flag overrides an ambient `COMPOSE_PROJECT_NAME`, keeping traffic volumes and its network separate from the ordinary stack.
+
 ## Credentials and isolation
 
 The initializer generates separate operator and metrics tokens, a Grafana admin password and Grafana secret key. They are persisted in dedicated named volumes rather than copied into images, source, Compose environment values or build arguments.
 
 | Credential volume | Readers |
 | --- | --- |
-| `operator-secret` | API and explicit operator tooling |
+| `operator-secret` | API and explicit operator tooling; the opt-in synthetic traffic generator |
 | `metrics-secret` | API, Prometheus and explicit operator tooling |
 | `grafana-secret` | Grafana |
 
 The initializer writes each volume, and the explicit smoke verifier reads all three to exercise their authorized paths. The worker needs no operator, scrape or Grafana credential. Long-running consumers mount their required credential volumes read-only. Sharing separate volumes constrains which containers receive which files; it is not encrypted Docker Secrets or a secret-management service. Docker administrators can inspect volumes and container processes. Protect access to the Docker engine.
+
+The traffic generator receives only its isolated project's operator credential. Its scripted mode calls the normal review endpoints for its synthetic pairs; it does not provide human review. It refuses live mode. This is a deterministic simulation, not an AI agent or permission to share a live operator credential.
 
 Grafana login is `admin`. View its generated password locally when signing in:
 

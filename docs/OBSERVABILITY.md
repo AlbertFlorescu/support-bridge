@@ -46,6 +46,8 @@ docker compose --profile test run --build --rm smoke
 
 Prometheus scrapes `api:8080` through Compose DNS with its own read-only credential file; Grafana queries `prometheus:9090`. Host ports are bound to loopback. The initializer creates synthetic local application state and distinct credentials in dedicated named volumes, while API and worker share the same state directory and canonical database lock. The worker does not receive monitoring or operator credentials and never grants approval.
 
+The optional [traffic stack](TRAFFIC.md) produces ongoing synthetic activity in its own project. Its one-second, five-second or random tick delay is independent of the five-second Prometheus scrape and Grafana refresh; multiple edits can contribute to one scrape. Scripted review is synthetic operator activity, not a metric-derived or human approval.
+
 Container restart preserves the business database, aggregate metrics, monitoring data and credentials. An ordinary `docker compose down` retains the volumes. Credentials are not baked into images or included in committed configuration. The volume-backed files are not encrypted Docker Secrets; Docker administrators can read them. The isolated smoke verifier reads the credentials needed to check actual authentication, scrapes, queries, rules and Grafana provisioning, and makes no business writes.
 
 ## Optional native stack

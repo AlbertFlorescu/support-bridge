@@ -38,6 +38,6 @@ foreach ($files as $file) {
     $run([PHP_BINARY, '-l', $file], true);
 }
 echo 'PHP syntax: ' . count($files) . " files passed.\n\n";
-foreach (['tests/domain.php', 'tests/run.php', 'tests/governance.php', 'tests/http.php', 'tests/observability.php', 'tests/api.php', 'tests/api-server.php', 'bin/demo.php'] as $script) {
+foreach (['tests/domain.php', 'tests/run.php', 'tests/governance.php', 'tests/http.php', 'tests/observability.php', 'tests/api.php', 'tests/api-server.php', 'tests/traffic.php', 'bin/demo.php'] as $script) {
     $run([PHP_BINARY, $root . '/' . $script]);
 }

@@ -9,7 +9,7 @@ Require **`Required checks`** on `main`. This unique aggregate check passes only
 | Check | Coverage |
 | --- | --- |
 | `PHP checks` | PHP syntax and application tests, synthetic demo, vulnerability-tool tests, Swagger asset freshness, OpenAPI parsing and real loopback response-fixture validation |
-| `Container checks` | Image builds, isolated PHP/OpenAPI verification, stack startup, service-network smoke checks, graceful shutdown and pending-plan/credential persistence through recreation |
+| `Container checks` | Image builds, isolated PHP/OpenAPI verification, stack startup, service-network smoke checks, synthetic HTTP traffic, graceful shutdown and pending-plan/credential persistence through recreation |
 | `Required checks` | Both jobs succeeded for the revision under review |
 
 Verify runs for PRs targeting `main`, pushes to `main`, manual dispatch and merge groups. It has no path filters, so documentation changes also produce the required status. [Concurrency settings](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) cancel outdated runs for the same PR or ref. Merge-group checks support a future merge queue; they do not enable one.

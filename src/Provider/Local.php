@@ -39,6 +39,27 @@ final class Local implements Provider
         });
     }
 
+    /** Add an owned synthetic record without changing one retained from a previous run. */
+    public function ensureRecord(string $id, array $fields, string $owner): void
+    {
+        if (preg_match('/^[1-9][0-9]{0,15}$/D', $id) !== 1 || preg_match('/^[a-f0-9]{32}$/D', $owner) !== 1) {
+            throw new \InvalidArgumentException('Synthetic records require a numeric ID and an ownership marker.');
+        }
+        new Record($fields, '1');
+        $this->access(static function (array &$data) use ($id, $fields, $owner): void {
+            if (!isset($data['records']) || !is_array($data['records'])) {
+                throw new \RuntimeException('Initialize local fixtures before adding synthetic records.');
+            }
+            if (isset($data['records'][$id])) {
+                if (($data['records'][$id]['owner'] ?? null) !== $owner) {
+                    throw new \RuntimeException('A synthetic record ID is already in use.');
+                }
+                return;
+            }
+            $data['records'][$id] = ['fields' => $fields, 'version' => 1, 'writable' => true, 'owner' => $owner];
+        }, true);
+    }
+
     public function patch(string $id, array $changes, Record $expected): void
     {
         $failure = $this->access(function (array &$data) use ($id, $changes, $expected): ?string {
@@ -49,8 +70,12 @@ final class Local implements Provider
             if ((string) $r['version'] !== $expected->version) {
                 throw new RemoteConflict('Local version changed.');
             }
-            $fault = $data['fault'];
-            $data['fault'] = null;
+            $fault = $data['record_faults'][$id] ?? $data['fault'];
+            if (isset($data['record_faults'][$id])) {
+                unset($data['record_faults'][$id]);
+            } else {
+                $data['fault'] = null;
+            }
             if ($fault === 'before') {
                 return $fault;
             }
@@ -77,12 +102,21 @@ final class Local implements Provider
         }, true);
     }
 
-    public function failNext(string $when): void
+    public function failNext(string $when, ?string $id = null): void
     {
         if (!in_array($when, ['before', 'after'], true)) {
             throw new \InvalidArgumentException('Fault must be before or after.');
         }
-        $this->access(static function (array &$data) use ($when): void { $data['fault'] = $when; }, true);
+        $this->access(static function (array &$data) use ($when, $id): void {
+            if ($id === null) {
+                $data['fault'] = $when;
+                return;
+            }
+            if (!isset($data['records'][$id])) {
+                throw new \InvalidArgumentException('A targeted fault requires an existing local record.');
+            }
+            $data['record_faults'][$id] = $when;
+        }, true);
     }
 
     public function writes(): int

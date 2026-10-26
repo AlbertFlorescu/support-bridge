@@ -38,6 +38,8 @@ flowchart TD
 
 Provider calls run outside SQLite transactions. Local commits cannot make GitHub and Zendesk participate in one transaction.
 
+An opt-in [traffic stack](TRAFFIC.md) adds a synthetic driver in a separate Compose project. It edits eight owned local record pairs, then exercises the ordinary HTTP API for reconciliation and scripted or manual review. Record-targeted faults exercise retries and uncertain outcomes. The driver uses the existing policies; it adds no operator endpoint or runtime model decisions.
+
 | Files | Responsibility |
 | --- | --- |
 | `src/Domain/MergePolicy.php`, `RetryPolicy.php`, `GovernancePolicy.php` | Decide values, schedules and approval requirements without I/O. Time and jitter are inputs. |
