@@ -10,19 +10,22 @@ CLI and HTTP use the same fixed workflow. Our [governance model](GOVERNANCE.md) 
 
 ## Architecture overview
 
-The application uses PHP 8.2+, PDO SQLite and cURL, without a PHP framework or Composer packages. CLI sweeps and the JSON API share configuration and `Engine`. SQLite stores reconciliation state and retry times. A process lock on the canonical database path permits one operation at a time. Each database is bound to its repository and Zendesk tenant, preventing configuration changes from retargeting saved links.
+The application uses PHP 8.2+, PDO SQLite and cURL, without a PHP framework or Composer runtime packages. CLI and HTTP adapters share typed application commands, queries and the reconciliation `Engine`. SQLite stores reconciliation state and retry times. A process lock on the canonical database path permits one operation at a time. Each database is bound to its repository and Zendesk tenant, preventing configuration changes from retargeting saved links.
 
-Compose runs initialization, API, a scheduled worker, Prometheus and Grafana. CLI, verification and smoke containers use the application image or its development stage. API, CLI and worker share one local data volume and lock; metrics and credentials use separate volumes. The default stack explicitly uses synthetic providers. Containers run as non-root users with read-only root filesystems and temporary writable paths. Configuration is built into the images. Node is added only to the verification stage for API tooling and Swagger asset checks. See [Docker operation](DOCKER.md) for startup and volume details.
+Compose runs initialization, API, a scheduled worker, Prometheus and Grafana. CLI, verification and smoke containers use the application image or its development stage. API, CLI and worker share one local data volume and lock; metrics and credentials use separate volumes. The default stack explicitly uses synthetic providers. Containers run as non-root users with read-only root filesystems and temporary writable paths. Configuration is built into the images. Composer development tools and Node are added only to verification for style, dependency and API asset checks. See [Docker operation](DOCKER.md) for startup and volume details.
 
 ```mermaid
 flowchart TD
     CLI[CLI command or scheduled sweep] --> Context[Application Context + Configuration]
     Operator[Operator HTTP request] --> Auth[Bearer authentication + validation]
     Auth --> Context
-    Context --> Engine[Reconciliation engine]
+    Context --> Commands[Typed command handlers]
+    Context --> Queries[Typed query handlers]
+    Commands --> Engine[Reconciliation engine]
+    Queries --> Store[PairRepository / SQLite Store]
     Engine --> Policies[Merge, retry and governance policies]
-    Reviewer[Operator reviews exact plan] --> Engine
-    Engine --> Store[PairRepository / SQLite Store]
+    Reviewer[Operator reviews exact plan] --> Commands
+    Engine --> Store
     Store --> DB[(Links, baseline, pending plans,
     retries, conflicts, approvals and audit)]
     Engine --> Providers[GitHub / Zendesk adapters]
@@ -45,13 +48,28 @@ An opt-in [traffic stack](TRAFFIC.md) adds a synthetic driver in a separate Comp
 | `src/Domain/MergePolicy.php`, `RetryPolicy.php`, `GovernancePolicy.php` | Decide values, schedules and approval requirements without I/O. Time and jitter are inputs. |
 | `src/Engine.php` | Coordinate reads, durable plans, guarded writes, verification and recovery. |
 | `src/Contract/PairRepository.php`, `src/Store.php` | Define state/locking operations and implement them with SQLite. |
+| `src/Infrastructure/Persistence/*` | Own the scoped PDO connection, schema upgrades, atomic repository transactions and canonical file lock. |
 | `src/Provider/*` | Normalize records and patch supported fields. Local adapters and test doubles use the same engine. |
 | `src/HttpClient.php`, `HttpResponse.php` | Restrict HTTPS hosts, bound transport and classify upstream failures. |
-| `src/Application/Configuration.php`, `Context.php` | Assemble storage, providers, engine and telemetry for both entry points. |
-| `src/Http/*`, `src/Exception/*` | Authenticate and validate requests; translate expected failures into JSON and HTTP status codes. |
+| `src/Application/Command/*`, `Query/*` | Represent each use case and dispatch it to a focused command or query handler. |
+| `src/Application/Configuration.php`, `Context.php`, `ProviderFactory.php`, `EngineFactory.php` | Wire explicit dependencies and construct providers/engines for command execution. |
+| `src/Console/*`, `src/Http/*`, `src/Runtime/*` | Adapt command-line arguments, HTTP requests and container processes to shared application behavior. |
+| `src/Exception/*` | Identify expected application failures without message parsing. |
 | `src/Observability/Prometheus.php` | Persist counters/histograms and expose aggregate metrics and state gauges. |
 
 Validation, missing-record, state-conflict and worker-busy exceptions let the API distinguish expected outcomes without parsing error messages.
+
+### Commands, queries and dependency ownership
+
+Commands represent local initialization, linking, synthetic source edits, reconciliation, source selection, approval and retry. Each has an explicit handler. Queries list/inspect pairs or read status/metrics; they do not call providers or perform reconciliation. The dispatchers map known types directly to handlers, without reflection or runtime discovery. The HTTP and CLI entry scripts delegate to adapter objects rather than implementing these use cases themselves.
+
+We use CQRS as an application-code boundary. Commands and queries remain synchronous and share the same SQLite database. There is no event-sourced aggregate, asynchronous command bus, replicated projection or separate read store. Splitting these concerns makes dependencies and side effects easier to review; it does not create additional throughput or isolation.
+
+`Context` is the composition root. It creates one `SqliteConnection` and injects it into `Store`, then shares the repository with use-case handlers and engine factories. `SqliteConnection` owns PDO setup and canonical path resolution; `SchemaMigrator` owns table creation and the additive approval upgrade; `TransactionManager` commits or rolls back repository work such as linking with its required audit event; `DatabaseLock` coordinates operations through the canonical file path. Separate contexts can use separate database identities. A global Singleton would make that choice implicit and could couple tests or local/live deployments. Connection reuse stays within a context; the file lock supplies cross-process coordination.
+
+### PHP coding standards
+
+The `Bridge\` namespace maps to `src/` under PSR-4. PHP_CodeSniffer is a locked Composer development dependency; [the ruleset](../phpcs.xml.dist) defines PSR-12 coverage and standalone-harness exceptions. `composer style` checks formatting and `composer style:fix` applies supported fixes. Runtime bootstrapping needs no installed Composer package. Style checks complement behavior tests; they cannot verify approval freshness, audit ordering or recovery correctness.
 
 ## Operator API and documentation
 
@@ -139,6 +157,8 @@ Authenticated scrapes, queries, Grafana health/provisioning and loaded rules wer
 - Conservative versions stop stale writes, including some unrelated edits. A one-way ownership contract would remove much of the conflict handling if both teams accept it.
 - SQLite and a local lock simplify setup and recovery while limiting us to one host and serial work.
 - Polling avoids webhook setup but consumes API calls without changes. The CLI and API share code, while the framework-free HTTP layer leaves authentication and deployment maintenance with us.
+- Command/query objects and handlers make use cases explicit at the cost of more files and constructor wiring. We retain one database and one serial worker until measured requirements justify another execution model.
+- Explicit connection ownership supports reuse and isolated tests. Each composition root must supply the correct database identity and lifetime.
 
 ## Known limitations
 
@@ -147,6 +167,8 @@ SQLite contains unencrypted title snapshots and unbounded audit history. Restric
 The provider adapters have offline tests but no live-account validation. Before a pilot, test permissions, Zendesk required fields/custom statuses, triggers, rate limits and terminal tickets. Vendor rules can transform or reject a write. Production throughput and customer benefit remain unmeasured.
 
 An unchanged eligible pair needs two provider reads; writes and recovery add more. Synchronous requests, full link scans and serial processing let slow providers or retry backlogs increase lag. There is no distributed lock, job queue, built-in request-rate limiter or provider-wide rate budget. A local filesystem lock cannot coordinate multiple hosts.
+
+CQRS separates use-case code but does not split storage or remove the existing listing/worker bottlenecks. The development formatter, Composer lockfile and dependency audit add tooling dependencies; they are absent from the runtime image and do not validate vendor behavior.
 
 Metrics can miss a post-commit crash, and a recent global convergence timestamp can hide a stalled pair. Histogram quantiles are estimates; rate queries need samples, and missing samples are not zero latency. A blocking sweep can delay scrapes on the development server. The dashboard and example rules are not agreed SLOs or a configured incident-response service.
 

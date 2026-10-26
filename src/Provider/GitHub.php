@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Provider;
@@ -24,8 +25,8 @@ final class GitHub implements Provider
         }
         $this->repository = $repository;
         $this->headers = [
-            'Authorization' => 'Bearer ' . $token,
-            'Accept' => 'application/vnd.github+json',
+            'Authorization'        => 'Bearer ' . $token,
+            'Accept'               => 'application/vnd.github+json',
             'X-GitHub-Api-Version' => '2026-03-10',
         ];
     }
@@ -51,7 +52,10 @@ final class GitHub implements Provider
         if ($fresh->fields !== $expected->fields || $fresh->version !== $expected->version) {
             throw new RemoteConflict('GitHub issue changed before the write.');
         }
-        $payload = array_filter($changes, static fn (mixed $value, string $field): bool => $value !== $fresh->fields[$field], ARRAY_FILTER_USE_BOTH);
+        $payload = array_filter($changes, static fn (
+            mixed $value,
+            string $field
+        ): bool => $value !== $fresh->fields[$field], ARRAY_FILTER_USE_BOTH);
         if ($payload !== []) {
             $this->record($this->http->request('PATCH', $this->url($id), $this->headers, $payload));
         }
@@ -72,8 +76,10 @@ final class GitHub implements Provider
         if (array_key_exists('pull_request', $body)) {
             throw new RemoteFailure('Pull requests are not supported; link a GitHub issue.');
         }
-        if (!is_string($body['title'] ?? null) || !is_string($body['state'] ?? null)
-            || !is_string($body['updated_at'] ?? null) || $body['updated_at'] === '') {
+        if (
+            !is_string($body['title'] ?? null) || !is_string($body['state'] ?? null)
+            || !is_string($body['updated_at'] ?? null) || $body['updated_at'] === ''
+        ) {
             throw new RemoteFailure('GitHub returned an invalid issue representation.');
         }
         try {

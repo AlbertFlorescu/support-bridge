@@ -2,6 +2,16 @@
   "name": "albert-florescu/support-bridge",
   "description": "Framework-free PHP reconciliation of linked GitHub issues and Zendesk tickets",
   "type": "project",
+  "license": "proprietary",
   "require": {"php": ">=8.2", "ext-pdo": "*", "ext-pdo_sqlite": "*", "ext-curl": "*"},
-  "scripts": {"test": "php bin/check.php", "demo": "php bin/demo.php"}
+  "require-dev": {"squizlabs/php_codesniffer": "4.0.4"},
+  "autoload": {"psr-4": {"Bridge\\": "src/"}},
+  "config": {"allow-plugins": {}, "sort-packages": true},
+  "scripts": {
+    "test": "php bin/check.php",
+    "demo": "php bin/demo.php",
+    "autoload:check": "@composer dump-autoload --optimize --strict-psr --no-scripts --no-plugins",
+    "style": "phpcs",
+    "style:fix": "phpcbf"
+  }
 }

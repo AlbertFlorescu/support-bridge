@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Provider;
@@ -8,8 +9,10 @@ final class Identity
 {
     public static function repository(string $repository): string
     {
-        if (!preg_match('~^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9_.-]{1,100}$~D', $repository)
-            || in_array(explode('/', $repository)[1] ?? '', ['.', '..'], true)) {
+        if (
+            !preg_match('~^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9_.-]{1,100}$~D', $repository)
+            || in_array(explode('/', $repository)[1] ?? '', ['.', '..'], true)
+        ) {
             throw new \InvalidArgumentException('GitHub repository must be an owner/repository pair.');
         }
         return $repository;

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge;
@@ -41,7 +42,11 @@ final readonly class HttpResponse
         }
 
         // Never include upstream bodies: they may contain ticket text or credentials.
-        throw new RemoteFailure($service . ' returned HTTP ' . $this->status . '.', $retryable, $retryable ? $delay : null);
+        throw new RemoteFailure(
+            $service . ' returned HTTP ' . $this->status . '.',
+            $retryable,
+            $retryable ? $delay : null
+        );
     }
 
     /** Honor both limits if a server sends Retry-After and a primary-rate-limit reset. */

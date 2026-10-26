@@ -2,6 +2,9 @@
 **
 !Dockerfile
 !bootstrap.php
+!composer.json
+!composer.lock
+!phpcs.xml.dist
 !src/
 !src/**
 !bin/

@@ -25,7 +25,9 @@ Merge, approval and recovery follow fixed rules. The application calls no model.
 
 ## Architecture overview
 
-CLI and HTTP share `Application/Context` and `Engine`. Provider adapters fetch records and apply field patches. SQLite stores links, baselines, pending plans, conflicts, approvals and events. Prometheus and Grafana read aggregate metrics through a separate credential.
+CLI and HTTP share typed application commands/queries, their handlers and `Engine`. `Application/Context` wires explicit dependencies, including a scoped SQLite connection; persistence helpers own schema upgrades, transactions and the canonical lock. Provider adapters fetch records and apply field patches. SQLite stores links, baselines, pending plans, conflicts, approvals and events. Prometheus and Grafana read aggregate metrics through a separate credential.
+
+Command/query separation organizes use cases without changing authority. Queries read local state without provider access; the approval command still invokes the normal engine gate and fresh provider checks. There is one business database, with the same persisted plan shape and audit ordering. Class boundaries, PSR formatting and a command type cannot themselves authorize an effect.
 
 The write sequence is:
 

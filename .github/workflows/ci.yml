@@ -26,7 +26,14 @@ jobs:
         with:
           persist-credentials: false
       - name: Install PHP CLI extensions
-        run: sudo apt-get update -qq && sudo apt-get install -y php-cli php-sqlite3 php-curl
+        run: sudo apt-get update -qq && sudo apt-get install -y php-cli php-sqlite3 php-curl php-xml composer unzip
+      - name: Install locked PHP development tools and check PSR-12
+        run: |
+          composer install --no-interaction --no-progress --no-plugins --no-scripts --prefer-dist
+          composer validate --strict
+          composer autoload:check
+          composer style
+          composer audit --locked --no-interaction
       - name: Lint, test, and run offline demo
         run: php bin/check.php
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

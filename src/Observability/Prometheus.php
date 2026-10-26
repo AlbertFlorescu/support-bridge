@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Observability;
@@ -9,9 +10,36 @@ use PDO;
 final class Prometheus
 {
     public const CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8';
-    private const OUTCOMES = ['synced', 'retry', 'conflict', 'dead', 'skipped', 'awaiting_approval'];
-    private const STATUSES = ['new', 'synced', 'retry', 'conflict', 'dead', 'awaiting_approval'];
-    private const BUCKETS = ['0.005', '0.01', '0.025', '0.05', '0.1', '0.25', '0.5', '1', '2.5', '5', '10', '+Inf'];
+    private const OUTCOMES = [
+        'synced',
+        'retry',
+        'conflict',
+        'dead',
+        'skipped',
+        'awaiting_approval',
+    ];
+    private const STATUSES = [
+        'new',
+        'synced',
+        'retry',
+        'conflict',
+        'dead',
+        'awaiting_approval',
+    ];
+    private const BUCKETS = [
+        '0.005',
+        '0.01',
+        '0.025',
+        '0.05',
+        '0.1',
+        '0.25',
+        '0.5',
+        '1',
+        '2.5',
+        '5',
+        '10',
+        '+Inf',
+    ];
     private ?PDO $db = null;
 
     public function __construct(string $dbPath)
@@ -27,13 +55,16 @@ final class Prometheus
             $this->db->exec('PRAGMA journal_mode=WAL');
             $this->db->exec('PRAGMA synchronous=FULL');
             $this->transaction(function (): void {
-                $tables = $this->db->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+                $tables = $this->db->query("SELECT name FROM sqlite_master WHERE type = 'table' " .
+                    "AND name NOT LIKE 'sqlite_%' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
                 $version = '2:' . implode(',', self::BUCKETS);
                 if ($tables === []) {
                     // Only first creation may initialize zero series. Repairing missing rows in an
                     // existing registry would fabricate healthy data and hide lost observations.
-                    $this->db->exec('CREATE TABLE telemetry_values (name TEXT PRIMARY KEY, value NUMERIC NOT NULL CHECK (value >= 0))');
-                    $this->db->exec('CREATE TABLE telemetry_schema (id INTEGER PRIMARY KEY CHECK (id = 1), version TEXT NOT NULL)');
+                    $this->db->exec('CREATE TABLE telemetry_values (name TEXT PRIMARY KEY, ' .
+                        'value NUMERIC NOT NULL CHECK (value >= 0))');
+                    $this->db->exec('CREATE TABLE telemetry_schema (id INTEGER PRIMARY KEY ' .
+                        'CHECK (id = 1), version TEXT NOT NULL)');
                     $insert = $this->db->prepare('INSERT INTO telemetry_schema (id, version) VALUES (1, ?)');
                     $insert->execute([$version]);
                     $initialize = $this->db->prepare('INSERT INTO telemetry_values (name, value) VALUES (?, 0)');
@@ -48,15 +79,21 @@ final class Prometheus
                     // Validate the complete old registry before adding the one genuinely new
                     // series. Never reset counters or repair missing historical observations.
                     $legacyOutcomes = array_values(array_diff(self::OUTCOMES, ['awaiting_approval']));
-                    $this->validateSnapshot($this->db->query('SELECT name, value FROM telemetry_values')->fetchAll(PDO::FETCH_KEY_PAIR), $legacyOutcomes);
-                    $this->db->exec("INSERT INTO telemetry_values (name, value) VALUES ('outcome:awaiting_approval', 0)");
+                    $this->validateSnapshot(
+                        $this->db->query('SELECT name, value FROM telemetry_values')->fetchAll(PDO::FETCH_KEY_PAIR),
+                        $legacyOutcomes
+                    );
+                    $this->db->exec("INSERT INTO telemetry_values (name, value) VALUES " .
+                        "('outcome:awaiting_approval', 0)");
                     $this->db->prepare('UPDATE telemetry_schema SET version = ? WHERE id = 1')->execute([$version]);
                     $storedVersion = $version;
                 }
                 if ($storedVersion !== $version) {
                     throw new \RuntimeException('Incompatible telemetry schema.');
                 }
-                $this->validateSnapshot($this->db->query('SELECT name, value FROM telemetry_values')->fetchAll(PDO::FETCH_KEY_PAIR));
+                $this->validateSnapshot(
+                    $this->db->query('SELECT name, value FROM telemetry_values')->fetchAll(PDO::FETCH_KEY_PAIR)
+                );
             });
         } catch (\Throwable) {
             $this->db = null;
@@ -67,16 +104,19 @@ final class Prometheus
     public function __invoke(array $entry): void
     {
         $duration = $entry['duration_ms'] ?? null;
-        if ($this->db === null || ($entry['event'] ?? null) !== 'reconcile'
+        if (
+            $this->db === null || ($entry['event'] ?? null) !== 'reconcile'
             || !in_array($entry['status'] ?? null, self::OUTCOMES, true)
-            || (!is_int($duration) && !is_float($duration)) || !is_finite((float) $duration) || $duration < 0) {
+            || (!is_int($duration) && !is_float($duration)) || !is_finite((float) $duration) || $duration < 0
+        ) {
             return;
         }
         $seconds = (float) $duration / 1000;
         try {
             // Counter, histogram buckets, count and sum are committed together, or not at all.
             $this->transaction(function () use ($entry, $seconds): void {
-                $sum = (float) $this->db->query("SELECT value FROM telemetry_values WHERE name = 'duration_sum'")->fetchColumn();
+                $sum = (float) $this->db
+                    ->query("SELECT value FROM telemetry_values WHERE name = 'duration_sum'")->fetchColumn();
                 if (!is_finite($sum + $seconds)) {
                     throw new \RuntimeException('Telemetry sum overflow.');
                 }
@@ -88,7 +128,9 @@ final class Prometheus
                         $increment->execute(['bucket:' . $bound]);
                     }
                 }
-                $updateSum = $this->db->prepare("UPDATE telemetry_values SET value = value + ? WHERE name = 'duration_sum'");
+                $updateSum = $this->db->prepare(
+                    "UPDATE telemetry_values SET value = value + ? WHERE name = 'duration_sum'"
+                );
                 $updateSum->execute([$seconds]);
             });
         } catch (\Throwable) {
@@ -116,20 +158,26 @@ final class Prometheus
         }
 
         $lines = [
-            '# HELP support_bridge_reconciliations_total Observed reconciliations by outcome since this metrics database was created.',
+            '# HELP support_bridge_reconciliations_total Observed reconciliations by outcome ' .
+                'since this metrics database was created.',
             '# TYPE support_bridge_reconciliations_total counter',
         ];
         foreach (self::OUTCOMES as $outcome) {
-            $lines[] = 'support_bridge_reconciliations_total{outcome="' . $outcome . '"} ' . $values['outcome:' . $outcome];
+            $lines[] = 'support_bridge_reconciliations_total{outcome="' . $outcome . '"} ' .
+                $values['outcome:' . $outcome];
         }
-        $lines[] = '# HELP support_bridge_reconciliation_duration_seconds Observed per-pair reconciliation duration in seconds.';
+        $lines[] = '# HELP support_bridge_reconciliation_duration_seconds Observed per-pair ' .
+            'reconciliation duration in seconds.';
         $lines[] = '# TYPE support_bridge_reconciliation_duration_seconds histogram';
         foreach (self::BUCKETS as $bound) {
-            $lines[] = 'support_bridge_reconciliation_duration_seconds_bucket{le="' . $bound . '"} ' . $values['bucket:' . $bound];
+            $lines[] = 'support_bridge_reconciliation_duration_seconds_bucket{le="' . $bound . '"} ' .
+                $values['bucket:' . $bound];
         }
-        $lines[] = 'support_bridge_reconciliation_duration_seconds_sum ' . self::number((float) $values['duration_sum']);
+        $lines[] = 'support_bridge_reconciliation_duration_seconds_sum ' .
+            self::number((float) $values['duration_sum']);
         $lines[] = 'support_bridge_reconciliation_duration_seconds_count ' . $values['duration_count'];
-        $lines[] = '# HELP support_bridge_telemetry_storage_available Whether this scrape could read durable instrumentation storage.';
+        $lines[] = '# HELP support_bridge_telemetry_storage_available Whether this scrape could ' .
+            'read durable instrumentation storage.';
         $lines[] = '# TYPE support_bridge_telemetry_storage_available gauge';
         $lines[] = 'support_bridge_telemetry_storage_available 1';
 
@@ -143,7 +191,8 @@ final class Prometheus
             $lines[] = '# HELP support_bridge_pending_plans Current durable write plans awaiting convergence.';
             $lines[] = '# TYPE support_bridge_pending_plans gauge';
             $lines[] = 'support_bridge_pending_plans ' . self::gauge($state['pending_plans'] ?? null);
-            $lines[] = '# HELP support_bridge_last_success_timestamp_seconds Most recent observed convergence as Unix seconds, or zero if none.';
+            $lines[] = '# HELP support_bridge_last_success_timestamp_seconds Most recent ' .
+                'observed convergence as Unix seconds, or zero if none.';
             $lines[] = '# TYPE support_bridge_last_success_timestamp_seconds gauge';
             $lines[] = 'support_bridge_last_success_timestamp_seconds ' . self::gauge($state['last_success'] ?? null);
         }
@@ -152,8 +201,12 @@ final class Prometheus
 
     public function status(): array
     {
-        return ['enabled' => true, 'vendor' => 'prometheus', 'storage_available' => $this->db !== null,
-            'status' => $this->db === null ? 'storage_unavailable' : 'ready'];
+        return [
+            'enabled'           => true,
+            'vendor'            => 'prometheus',
+            'storage_available' => $this->db !== null,
+            'status'            => $this->db === null ? 'storage_unavailable' : 'ready',
+        ];
     }
 
     private function transaction(callable $operation): void
@@ -179,8 +232,10 @@ final class Prometheus
         }
         foreach (self::keys($outcomes) as $key) {
             $value = $values[$key] ?? null;
-            if (($key === 'duration_sum' && (!is_numeric($value) || !is_finite((float) $value) || (float) $value < 0))
-                || ($key !== 'duration_sum' && (!is_int($value) || $value < 0))) {
+            if (
+                ($key === 'duration_sum' && (!is_numeric($value) || !is_finite((float) $value) || (float) $value < 0))
+                || ($key !== 'duration_sum' && (!is_int($value) || $value < 0))
+            ) {
                 throw new \RuntimeException('Invalid telemetry snapshot.');
             }
         }
@@ -207,9 +262,14 @@ final class Prometheus
 
     private static function keys(array $outcomes = self::OUTCOMES): array
     {
-        return array_merge(['duration_count', 'duration_sum'],
+        return array_merge(
+            [
+                'duration_count',
+                'duration_sum',
+            ],
             array_map(static fn (string $value): string => 'outcome:' . $value, $outcomes),
-            array_map(static fn (string $value): string => 'bucket:' . $value, self::BUCKETS));
+            array_map(static fn (string $value): string => 'bucket:' . $value, self::BUCKETS)
+        );
     }
 
     private static function gauge(mixed $value): int

@@ -1,13 +1,18 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Http;
 
 final readonly class Request
 {
-    public function __construct(public string $method, public string $path, public array $headers = [],
-        public string $body = '', public array $query = [])
-    {
+    public function __construct(
+        public string $method,
+        public string $path,
+        public array $headers = [],
+        public string $body = '',
+        public array $query = []
+    ) {
     }
 
     public function header(string $name): string

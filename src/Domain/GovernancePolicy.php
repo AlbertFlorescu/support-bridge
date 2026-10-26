@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Domain;
@@ -15,12 +16,24 @@ final class GovernancePolicy
     {
         $plan = $pair['plan'];
         if ($plan === null) {
-            return ['policy_version' => self::VERSION, 'plan_hash' => null, 'requires_approval' => false, 'approved' => false];
+            return [
+                'policy_version'    => self::VERSION,
+                'plan_hash'         => null,
+                'requires_approval' => false,
+                'approved'          => false,
+            ];
         }
         $this->validatePlan($plan);
         // The approval is specific to this linked identity and policy, not merely a target value.
-        $hash = hash('sha256', json_encode([self::VERSION, $pair['id'], $pair['github_id'], $pair['zendesk_id'],
-            $plan['target'], $plan['before'], $plan['versions']], JSON_THROW_ON_ERROR));
+        $hash = hash('sha256', json_encode([
+            self::VERSION,
+            $pair['id'],
+            $pair['github_id'],
+            $pair['zendesk_id'],
+            $plan['target'],
+            $plan['before'],
+            $plan['versions'],
+        ], JSON_THROW_ON_ERROR));
         $required = false;
         foreach (['github', 'zendesk'] as $side) {
             $required = $required || $plan['before'][$side]['state'] !== $plan['target']['state'];
@@ -31,21 +44,44 @@ final class GovernancePolicy
             && is_string($approval['reason'] ?? null) && trim($approval['reason']) !== ''
             && strlen($approval['reason']) <= 500 && preg_match('//u', $approval['reason']) === 1
             && is_int($approval['approved_at'] ?? null) && $approval['approved_at'] >= 0;
-        return ['policy_version' => self::VERSION, 'plan_hash' => $hash, 'requires_approval' => $required, 'approved' => $approved];
+        return [
+            'policy_version'    => self::VERSION,
+            'plan_hash'         => $hash,
+            'requires_approval' => $required,
+            'approved'          => $approved,
+        ];
     }
 
     /** A capability allowlist enforced in code before any provider effect, including legacy plans. */
     public function validatePlan(array $plan): void
     {
-        if (array_keys($plan) !== ['target', 'before', 'versions']
+        if (
+            array_keys($plan) !== [
+                'target',
+                'before',
+                'versions',
+            ]
             || !is_array($plan['target']) || !is_array($plan['before']) || !is_array($plan['versions'])
-            || array_keys($plan['before']) !== ['github', 'zendesk'] || array_keys($plan['versions']) !== ['github', 'zendesk']) {
+            || array_keys($plan['before']) !== [
+                'github',
+                'zendesk',
+            ]
+                || array_keys($plan['versions']) !== [
+                    'github',
+                    'zendesk',
+                ]
+        ) {
             throw new ValidationFailure('The persisted write plan is outside the allowed workflow contract.');
         }
         foreach ([$plan['target'], $plan['before']['github'], $plan['before']['zendesk']] as $fields) {
-            if (!is_array($fields) || array_keys($fields) !== ['title', 'state']
+            if (
+                !is_array($fields) || array_keys($fields) !== [
+                    'title',
+                    'state',
+                ]
                 || !is_string($fields['title']) || trim($fields['title']) === '' || strlen($fields['title']) > 500
-                || preg_match('//u', $fields['title']) !== 1 || !in_array($fields['state'], ['open', 'closed'], true)) {
+                || preg_match('//u', $fields['title']) !== 1 || !in_array($fields['state'], ['open', 'closed'], true)
+            ) {
                 throw new ValidationFailure('Only a valid title and open/closed state may cross the write boundary.');
             }
         }

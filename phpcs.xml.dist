@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<ruleset name="Support Bridge">
+    <description>PSR-12 for application classes and executable entrypoints.</description>
+    <arg name="basepath" value="."/>
+    <arg name="colors"/>
+    <arg value="sp"/>
+    <file>src</file>
+    <file>bin</file>
+    <file>public/router.php</file>
+    <file>docker</file>
+    <file>bootstrap.php</file>
+    <exclude-pattern>docker/verify-stack.php</exclude-pattern>
+    <rule ref="PSR12"/>
+</ruleset>

@@ -34,6 +34,17 @@ updates:
         patterns: ['*']
         update-types: [minor, patch]
 
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: daily
+      time: '08:00'
+      timezone: UTC
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 1
+      exclude: ['*']
+
   - package-ecosystem: docker
     directories: ['/', '/docker', '/tools/security']
     schedule:
@@ -47,6 +58,7 @@ updates:
     allow:
       - dependency-name: php
       - dependency-name: node
+      - dependency-name: composer
       - dependency-name: prom/prometheus
       - dependency-name: grafana/grafana
       - dependency-name: ghcr.io/aquasecurity/trivy
