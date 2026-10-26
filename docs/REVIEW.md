@@ -1,6 +1,6 @@
 # Verification record
 
-We verify the service with synthetic local data on Ubuntu/WSL and PHP 8.3. The results below were checked through 2026-10-25. We distinguish executable checks, actual local monitoring and provider-account validation.
+We verify the service with synthetic local data on Ubuntu/WSL and PHP 8.3. The results below were checked through 2026-10-26. The opening summary describes the current gate; dated sections retain earlier evidence. We distinguish executable checks, actual local monitoring and provider-account validation.
 
 ## Automated checks
 
@@ -8,17 +8,23 @@ We verify the service with synthetic local data on Ubuntu/WSL and PHP 8.3. The r
 php bin/check.php
 ```
 
-The gate passes **136 tests**, **nine demo assertions** and syntax checks for **49 PHP files**, including container helpers:
+The current gate passes **170 PHP checks**, **nine demo assertions** and syntax checks for **112 PHP files**, including container helpers. The separate Composer gate checks **99 files** against PSR-12 and verifies optimized PSR-4 autoloading for **89 classes**:
 
 | Suite | Checks | Coverage |
 | --- | ---: | --- |
 | Domain | 8 | Merge truth table and retry arithmetic |
 | Reconciliation | 30 | Durable plans, versions, locks, retries, conflicts and uncertain outcomes |
 | Governance | 17 | Whole-plan approval, stale evidence, policy binding, capabilities, migration and audit failures |
+| Persistence | 6 | Scoped connections, atomic audit rollback, canonical locks and legacy-plan preservation |
+| Application use cases | 8 | Typed command/query dispatch, local reads without provider access and shared workflow behavior |
+| Console/runtime | 8 | CLI parsing/exit codes, secret loading, local-edit locking, heartbeats and termination |
+| Synthetic traffic | 12 | Bounded owned records, normal HTTP workflow, delayed review, faults and uncertain outcomes |
 | Provider HTTP | 20 | Payload/status mapping, safe updates, rate guidance and response validation |
 | Observability | 16 | Persistence, concurrent increments, histogram consistency, upgrades and failed storage |
 | Operator API | 29 | Authentication, strict contracts, approval, privacy and error mapping |
 | Wire HTTP | 16 | Actual loopback server, Swagger assets, exporter and end-to-end approval |
+
+The [post-refactor main Verify run](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40390702419) and [vulnerability inventory](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40390702405) passed. The [PHP application design section](#php-application-design-verification-2026-10-26) records the scope and local container evidence.
 
 Provider tests use controlled transports rather than vendor accounts. Wire tests create isolated state, start a loopback PHP server and stop their own process. Demo approvals use synthetic data; they are not human approval evidence.
 
@@ -36,9 +42,9 @@ We validated **11 OpenAPI paths** and **27 actual HTTP response fixtures** with 
 
 The repository's Verify workflow runs the PHP gate and schema validation on pushes and pull requests. [GitHub Actions](https://github.com/AlbertFlorescu/support-bridge/actions) records hosted results for the published revision.
 
-## Container verification
+## Initial container verification: 2026-10-25
 
-We built and started the complete Compose stack on Docker Desktop's Linux engine. The application image runs PHP 8.3.36 as UID10001 without Node, tests, credentials or host state embedded in its runtime layers. The separate verification target includes Node and the locked API tooling, and passed the same 136 tests, nine assertions, 49 lint checks and 27 response fixtures with runtime networking disabled.
+We built and started the complete Compose stack on Docker Desktop's Linux engine. The application image runs PHP 8.3.36 as UID10001 without Node, tests, credentials or host state embedded in its runtime layers. The separate verification target includes Node and the locked API tooling, and passed the then-current 136 tests, nine assertions, 49 lint checks and 27 response fixtures with runtime networking disabled.
 
 `docker compose --profile test run --rm smoke` passed nine read-only groups against the actual API, Prometheus and Grafana service network. The checks include separate credential authority, local Swagger, private-path denial, metric consistency, authenticated scrapes, query results, all four rules and the provisioned eight-panel dashboard. We also verified API liveness, Grafana health and Prometheus readiness through their published host-loopback ports.
 
@@ -127,6 +133,12 @@ A disposable lifecycle check preserved the exact unapproved plan and credentials
 The rebuilt traffic stack completed 50 one-second ticks through the operator API, covering edits, independent merges, conflicts, exact-plan approvals, pre-write failures, lost responses and no-op sweeps. All nine service-network smoke groups passed. The eight-pair pool stayed bounded, the sample remained unchanged, durable state and credential hashes matched across recreation, the duplicate generator was rejected, and the restarted generator stopped with exit code zero.
 
 A separate AI-assisted source review inspected command/query dispatch, authentication before application construction, CLI/runtime parity, lock ownership, transactions and additive migration. It found no blocking regression in that scope. This review did not establish live provider compatibility, customer value or compliance. We retain the limitations listed below and in the [architecture guide](ARCHITECTURE.md).
+
+## Documentation consistency check: 2026-10-26
+
+We checked the README and operating guides against both Compose definitions and the actual published bindings. The traffic project exposes API/Swagger 8081, Prometheus 9091 and Grafana 3001; the default project exposes 8080, 9090 and 3000. Both Swagger pages, Prometheus readiness endpoints and Grafana database-health endpoints responded successfully. These checks do not validate a Grafana user's login.
+
+We validated 95 local documentation links/anchors, 52 shell blocks and two PowerShell examples. The guides distinguish project-specific accounts and volumes, native filesystem state, internal service addresses and host-port overrides. We also corrected the current check summary, persistence description and observed repository-control status. This was a documentation change; the checks did not approve plans, run business commands, reset credentials or change repository settings.
 
 ## Validation still required
 

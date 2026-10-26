@@ -20,6 +20,8 @@ Both files and the explicit `-p support-bridge-traffic` flag are required. The f
 | Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) |
 | Grafana | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) |
 
+These are traffic-project host ports. The default project uses 8080, 9090 and 3000; see the [stack comparison](DOCKER.md#choose-a-stack-and-its-ports). Inside both projects, service addresses remain `api:8080`, `prometheus:9090` and `grafana:3000`. Changing a browser URL does not switch or combine their records.
+
 The project has its own application data, credentials, monitoring data and network. It can run beside the ordinary stack. Host ports remain on loopback; `BRIDGE_TRAFFIC_HTTP_PORT`, `BRIDGE_TRAFFIC_PROMETHEUS_PORT` and `BRIDGE_TRAFFIC_GRAFANA_PORT` select alternatives if needed.
 
 For a fresh stack, Grafana login is `admin`. Read its generated bootstrap password locally with the command below; keep the value out of logs and source:
@@ -28,7 +30,7 @@ For a fresh stack, Grafana login is `admin`. Read its generated bootstrap passwo
 docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml exec grafana cat /run/secrets/grafana/password
 ```
 
-Renamed accounts and changed passwords persist in Grafana's database. After account rotation, this bootstrap file may no longer match the login. Verify the current credentials in the browser on port 3001. The standard smoke check assumes the bootstrap account; its authentication result does not validate a rotated account.
+Renamed accounts and changed passwords persist in Grafana's database. After account rotation, this bootstrap file may no longer match the login. Verify the current credentials in the browser at the traffic host port (3001 by default). The standard smoke check assumes the bootstrap account; its authentication result does not validate a rotated account.
 
 ## Choose timing and review mode
 

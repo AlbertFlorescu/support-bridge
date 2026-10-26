@@ -16,6 +16,7 @@ The full gate lints PHP and runs pure policies, durable reconciliation/governanc
 ## Explore a linked escalation
 
 ```bash
+export BRIDGE_MODE=local
 php bin/bridge.php init
 php bin/bridge.php sync
 php bin/bridge.php local-edit zendesk 501 title 'Export fails above 100k rows'
@@ -66,14 +67,17 @@ Useful files and tests:
 | `src/Domain/MergePolicy.php` | Per-field baseline decisions and whole-pair conflicts. |
 | `src/Domain/GovernancePolicy.php` | Field capability validation, state classification and plan/policy hash binding. |
 | `src/Engine.php` | Observe, persist intent, request/check approval, apply, verify and recover. |
-| `src/Store.php` | Atomic updates, canonical worker lock and additive approval migration. |
+| `src/Store.php`, `src/Infrastructure/Persistence/` | Repository operations, scoped connection, transaction handling, canonical worker lock and additive approval migration. |
+| `src/Application/`, `src/Console/`, `src/Http/`, `src/Runtime/` | Shared typed commands/queries and the CLI, HTTP and container adapters. |
 | `tests/run.php`, `tests/governance.php` | Partial commits, lost responses, stale evidence, approval and audit-failure cases. |
 
 The GitHub preflight/PATCH gap and finite provider timestamps remain limitations; local tests do not eliminate them.
 
 ## Use the API and monitoring
 
-The API exposes the same application rules. Follow [API.md](API.md) to start the loopback server and open Swagger. The documentation UI is read-only; the authenticated API still permits real commands. Deployment mode, hosts, credentials and state paths cannot be selected in request JSON.
+The API exposes the same application rules. First choose the [Compose project and port set](DOCKER.md#choose-a-stack-and-its-ports): traffic uses API 8081, Prometheus 9091 and Grafana 3001; the default project uses 8080, 9090 and 3000. Each has separate state and credentials. Follow [API.md](API.md) for the matching URL/token and Swagger. The documentation UI is read-only; the authenticated API still permits real commands. Deployment mode, hosts, credentials and state paths cannot be selected in request JSON.
+
+The following commands are the optional native alternative, with their own filesystem state. They do not inspect either Compose project. Their ports 8080/9090/3000 conflict with the default Compose stack; use this alternative only when those ports are free.
 
 ```bash
 bash monitoring/install.sh
