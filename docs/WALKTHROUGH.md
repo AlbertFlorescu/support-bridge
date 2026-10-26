@@ -83,6 +83,31 @@ python3 monitoring/stack.py verify
 
 The optional monitoring stack uses isolated synthetic state, serves only loopback listeners, and provisions an eight-panel Grafana dashboard. Operator attention includes conflicts, dead work and approval waits. Metrics use aggregate bounded labels and are separate from the business audit. Example rules have no notification recipient; local health does not prove vendor health or an agreed service objective.
 
+## Scheduling and troubleshooting
+
+The Compose worker schedules sweeps already. For a native deployment, use cron or a service timer under an account with the provider environment loaded:
+
+```cron
+* * * * * cd /absolute/path/to/support-bridge && /usr/bin/php bin/bridge.php sync --mode=live --home=/absolute/path/to/state >> /absolute/path/to/bridge-runs.log 2>> /absolute/path/to/bridge-events.jsonl
+```
+
+Use one scheduler per state directory. The canonical database lock prevents overlapping operations. Retries persist their due time; sweeps process them at or after `next_run`, without sleeping for each pair. Five failed attempts exhaust the retry budget. Other pairs can still run when one fails.
+
+| Status | Meaning and action |
+| --- | --- |
+| `new` | Run a sweep to establish a baseline or process a selected resolution. |
+| `synced` | The last reconciliation converged; polling discovers later edits. |
+| `retry` | Inspect the reason and `next_run`; due work retries automatically. |
+| `conflict` | Inspect snapshots, then use `resolve PAIR github\|zendesk`. |
+| `dead` | Correct the cause, then use `retry PAIR`. |
+| `awaiting_approval` | Review the whole plan, use `approve PAIR PLAN_HASH REASON`, then run a sweep. |
+
+The `sync` exit codes are `0` for convergence, `1` for command/configuration failure, `2` when conflict, dead work or approval waits exist, and `3` when retries remain. Code `2` takes precedence over `3`.
+
+`status`, `inspect` and `metrics` return JSON. Scheduling and last-success times are Unix seconds; `next_run=0` means no scheduled retry. Audit `created_at` values are SQLite UTC text. Stderr events include pair ID, outcome, attempts and duration, without titles, credentials or raw vendor responses. `inspect` reveals stored title snapshots. For summarized vendor errors, check sandbox settings and vendor logs.
+
+Protect the state directory and define retention. Back up SQLite consistently with its WAL, using SQLite backup tooling or stopping writers before copying. See [Docker operation](DOCKER.md) for named-volume handling.
+
 ## Before live use
 
 We still need sandbox verification of account permissions, required Zendesk fields/triggers, custom statuses, rate limits and terminal tickets. Establish data-sharing rules, operator ownership, approval requirements, credentials, retention, backups and incident handling before opting in real records. Use [ASSUMPTIONS.md](ASSUMPTIONS.md) and [GOVERNANCE.md](GOVERNANCE.md) to record decisions, then follow the README's sandbox setup with a dedicated state directory.
