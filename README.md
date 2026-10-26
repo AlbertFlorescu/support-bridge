@@ -319,6 +319,8 @@ We deliberately keep AI out of runtime authority. It does not infer record links
 
 ## Development tools and reusable workflows
 
+Our [dependency vulnerability workflow](SECURITY.md) combines native Dependabot alerts and security-fix PRs with built-image scanning, exact CVE List/NVD enrichment and one GitHub tracker. Swagger dependency fixes include a static-asset freshness check and a bounded repair workflow. Findings remain review evidence; automation does not accept risk or establish compliance.
+
 REA **6.7.0** and selected Agency Agents architecture, engineering, testing and security profiles support our development workflow. Their [installation and analysis record](docs/TOOLING-INSTALLATION.md) distinguishes actual analysis from tool availability and documents partial coverage. They are optional development aids, not runtime dependencies.
 
 The versioned [escalation-review skill](skills/support-bridge-escalation-review/SKILL.md) describes a read-only business capability. It cannot grant approval, and its Markdown allowlist does not replace enforced credentials or an authorization facade. `AGENTS.md` records our project conventions and recovery/governance invariants. Local development, API and observability skills help maintain those same boundaries across changes.

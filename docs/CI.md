@@ -8,7 +8,7 @@ The stable check to require on `main` is **`Required checks`**. It runs after bo
 
 | Check | Evidence |
 | --- | --- |
-| `PHP checks` | PHP syntax, domain/reconciliation/governance/provider/API/observability tests, the synthetic demo, locked OpenAPI parsing and actual loopback response-fixture validation |
+| `PHP checks` | PHP syntax, domain/reconciliation/governance/provider/API/observability tests, synthetic demo, vulnerability-tool tests, vendored Swagger freshness, locked OpenAPI parsing and actual loopback response-fixture validation |
 | `Container checks` | Image builds, isolated PHP/OpenAPI verification, complete stack startup, actual service-network smoke checks, graceful worker shutdown and pending-plan/credential persistence through recreation |
 | `Required checks` | Both preceding jobs completed successfully for the revision being evaluated |
 
@@ -26,11 +26,13 @@ The importable [main ruleset](../.github/rulesets/main.json) records this config
 
 ## Permissions, dependencies and artifacts
 
-Workflow tokens have read-only repository contents access. Checkout does not retain credentials. Official GitHub actions are pinned to verified commit IDs, and Dependabot opens reviewed updates rather than silently moving those pins. Node dependencies use the lockfile, lifecycle scripts are disabled, and GitHub's package-manager cache reduces repeat downloads. Container builds use the checked-in digest pins and reuse local layers within a job; we do not publish images or deploy services from this workflow.
+Verify workflow tokens have read-only repository contents access. Checkout does not retain credentials. Official GitHub actions are pinned to verified commit IDs, and Dependabot opens reviewed updates rather than silently moving those pins. Node dependencies use the lockfile, lifecycle scripts are disabled, and GitHub's package-manager cache reduces repeat downloads. Container builds use the checked-in digest pins and reuse local layers within a job; we do not publish images or deploy services from this workflow. Separate security publisher jobs have the narrowly used issue/content/Actions permissions described in `SECURITY.md`.
 
-We retain only the synthetic API response-fixture JSON as an Actions artifact for seven days. It contains controlled test responses, not vendor records, bearer tokens or deployment configuration. Failed container jobs print bounded service diagnostics; CI credentials and state stay in the disposable runner's volumes, which are removed after the job. We never upload credential volumes, Compose environment dumps or a whole state directory as artifacts.
+Verify retains only the synthetic API response-fixture JSON as an Actions artifact for seven days. It contains controlled test responses, not vendor records, bearer tokens or deployment configuration. Failed container jobs print bounded service diagnostics; CI credentials and state stay in the disposable runner's volumes, which are removed after the job. We never upload credential volumes, Compose environment dumps or a whole state directory as artifacts. The separate vulnerability workflow retains dependency reports for 14 days; repair artifacts expire after one day.
 
-[Dependabot configuration](../.github/dependabot.yml) checks GitHub actions, npm API tooling and the four upstream Docker images weekly. The Docker allowlist excludes our locally built image names. Updates still need review and passing checks; dependency automation does not establish compatibility or compliance. [Dependabot's configuration reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference) describes the supported options.
+[Dependabot configuration](../.github/dependabot.yml) checks GitHub actions, npm API tooling, the four upstream service/tooling images and the pinned Trivy scanner image weekly. The Docker allowlist excludes our locally built image names. Updates still need review and passing checks; dependency automation does not establish compatibility or compliance. [Dependabot's configuration reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference) describes the supported options.
+
+Native Dependabot alerts and automatic security updates are enabled. npm security PRs are grouped separately from routine updates, include development dependencies and respond to alerts independently of the weekly version schedule. Our [security workflow](../SECURITY.md) adds image scanning, CVE List/NVD enrichment, one managed tracker and repair of served Swagger assets. Its inventory results retain unresolved findings and coverage failures; a completed inventory is not a vulnerability-free or compliance claim. The normal `Required checks` gate verifies the reporting/repair code and refuses stale Swagger files. Security inventory runs retain separate statuses and evidence.
 
 ## Dependency maintenance policy
 

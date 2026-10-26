@@ -93,4 +93,12 @@ We use this register to make our product scope, operating assumptions and delibe
 | A53 | Runtime code is image-owned and read-only; only state volumes and temporary filesystems are writable. | Containerization narrows accidental writes but does not establish isolation from Docker administrators or production readiness. Image pins need deliberate review and updates. | Non-root users, dropped capabilities, no-new-privileges, no host-source or Docker-socket mounts and a restricted build context. |
 | A54 | Container verification uses isolated synthetic state; stack smoke checks are read-only. | Passing them does not demonstrate live vendor behavior, human approval, policy satisfaction, load capacity or notification delivery. | Containerized PHP/OpenAPI gate plus actual service-network, scrape and Grafana checks. |
 
+## Dependency vulnerability management
+
+| ID | Assumption or explicit decision | Why it matters; consequence if wrong | Validation or enforcement |
+| --- | --- | --- | --- |
+| A55 | Native Dependabot covers supported npm advisories; image dependencies need supplementary scanning. Exact CVE List/NVD identifiers enrich detected findings. | Native Docker version PRs and SHA-pinned Actions updates do not establish complete CVE coverage. External metadata can be missing, delayed or rejected. Compiled PHP/Node and application identification remain gaps. | Scoped GitHub Actions inventory, fresh Trivy database, all npm dependencies and explicit source/coverage states; `SECURITY.md` records limits. |
+| A56 | A fixed npm manifest must correspond to the Swagger files actually served. | A lockfile-only patch can leave vulnerable assets deployed. A stale or expanded PR must not receive a repair commit. | Byte equality in native/container CI; trusted-code repair, fixed file allowlist, isolated script-disabled install, exact-head publication and explicit CI dispatch. No automatic approval or merge. |
+| A57 | A daily dependency inventory and one managed issue are sufficient for current repository maintenance. | Scheduling/source outages and artifact retention are not a response SLA or permanent audit archive. Risk acceptance and deployment remain maintainer responsibilities. | Incomplete scans retain prior findings; bounded enrichment and 14-day evidence artifacts. The current plan's unenforced branch rule remains documented. |
+
 We update this register when requirements change and revise superseded assumptions so defaults do not become hidden requirements.

@@ -1,0 +1,93 @@
+name: Vulnerability inventory
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 5 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: vulnerabilities-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  inventory:
+    name: Collect vulnerability evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      vulnerability-alerts: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - name: Scan built images and all npm dependencies
+        id: scan
+        run: python3 tools/security/scan.py --output "$RUNNER_TEMP/vulnerability-evidence/input"
+      - name: Enrich exact CVE IDs and produce the report
+        id: report
+        if: ${{ always() && !cancelled() }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set +e
+          python3 tools/security/report.py build --input "$RUNNER_TEMP/vulnerability-evidence/input" --output "$RUNNER_TEMP/vulnerability-evidence/report" --repository "$REPOSITORY" --sha "$REVISION" --run-url "$RUN_URL"
+          report_status=$?
+          if [ -f "$RUNNER_TEMP/vulnerability-evidence/report/summary.md" ]; then
+            cat "$RUNNER_TEMP/vulnerability-evidence/report/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$report_status"
+      - name: Retain vulnerability evidence
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vulnerability-evidence
+          path: ${{ runner.temp }}/vulnerability-evidence/
+          if-no-files-found: error
+          retention-days: 14
+
+  tracker:
+    name: Update the vulnerability tracker
+    needs: inventory
+    if: ${{ always() && !cancelled() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: vulnerability-evidence
+          path: ${{ runner.temp }}/vulnerability-evidence
+      - name: Report incomplete collection when evidence is unavailable
+        env:
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          report="$RUNNER_TEMP/vulnerability-evidence/report/report.json"
+          if [ ! -f "$report" ]; then
+            python3 tools/security/report.py build --input "$RUNNER_TEMP/missing-vulnerability-evidence" --output "$RUNNER_TEMP/vulnerability-evidence/report" --repository "$REPOSITORY" --sha "$REVISION" --run-url "$RUN_URL" || test -f "$report"
+          fi
+      - name: Update one managed issue without clearing incomplete findings
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 tools/security/report.py publish --report "$RUNNER_TEMP/vulnerability-evidence/report/report.json" --repository "$REPOSITORY"
