@@ -30,9 +30,10 @@ try {
         'cli' => [PHP_BINARY, '/app/bin/bridge.php', ...$arguments],
         'init' => [PHP_BINARY, '/app/docker/initialize.php'],
         'worker' => [PHP_BINARY, '/app/docker/worker.php'],
+        'traffic' => [PHP_BINARY, '/app/docker/traffic.php'],
         'verify' => [PHP_BINARY, '/app/docker/check.php'],
         'smoke' => [PHP_BINARY, '/app/docker/verify-stack.php'],
-        default => throw new RuntimeException('Unknown container role. Use api, worker, cli, init, verify or smoke.'),
+        default => throw new RuntimeException('Unknown container role. Use api, worker, traffic, cli, init, verify or smoke.'),
     };
     if ($role !== 'cli' && $arguments !== []) {
         throw new RuntimeException('Only the cli role accepts additional arguments.');

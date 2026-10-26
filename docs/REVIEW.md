@@ -104,6 +104,16 @@ The tests cover incomplete scans, stale databases, metadata failures and rejecte
 
 The [initial main inventory](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40282645536) completed all four image scans, npm audit, native alert reads and managed issue publication. The [main Verify run](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40282645619) also passed. The [tracker](https://github.com/AlbertFlorescu/support-bridge/issues/10) initially recorded 5,941 component/package/advisory observations; observations can repeat a CVE across packages or images. Unfixed findings remain visible. Source enrichment is a bounded subset and does not establish that every observed vulnerability has been analyzed or repaired.
 
+## Synthetic traffic verification: 2026-10-26
+
+The verification image passed 55 PHP syntax checks, 148 application checks (including 12 traffic checks), nine demo assertions, Swagger byte equality, 11 OpenAPI paths and 27 HTTP response fixtures.
+
+The disposable traffic project ran 50 one-second ticks through the actual operator HTTP API. It produced support/engineering title edits, independent field merges, state changes, conflicts, scripted exact-plan approval/source selection, pre-write failures, lost responses and no-op polls. Audit events confirmed the ordinary workflow paths. The eight-pair pool remained bounded and the original sample was unchanged. Pair/provider/credential hashes matched across container recreation with writers stopped; the driver restarted and terminated cleanly.
+
+The separate lifecycle check preserved an unapproved state-change plan and credentials through recreation. Both that project and the traffic project passed all nine API/exporter/Prometheus/Grafana smoke groups. A concurrent second traffic driver was rejected by its generator lock. A three-tick random-interval run also completed without errors.
+
+The ongoing five-second traffic stack reported a healthy authenticated scrape, nine linked pairs, increasing reconciliation observations and nonzero retry and approval-wait counters. Its smoke checks verified the provisioned dashboard and datasource. These are synthetic workflow and local monitoring observations; they do not exercise vendor network behavior or measure production capacity. [Traffic operation](TRAFFIC.md) records the setup and limits.
+
 ## Validation still required
 
 We have not validated live GitHub/Zendesk sandbox accounts, customer-specific statuses/triggers, production load, restore procedures, customer outcomes or notification delivery. The shared operator token does not establish individual or human identity. Approval has no expiry/revocation workflow. GitHub's preflight/PATCH race and provider timestamp granularity remain material limitations. Our governance controls do not determine whether customer obligations have been fulfilled.

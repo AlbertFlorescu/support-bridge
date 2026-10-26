@@ -1,17 +1,17 @@
 {
   "uid": "supportbridge-overview",
   "title": "Support Bridge — Reconciliation",
-  "description": "Local synthetic monitoring. No customer SLA or production readiness claim. Check operator state for per-pair detail.",
+  "description": "Aggregate reconciliation outcomes and stored workflow state. Inspect a linked pair for its pending plan and audit events.",
   "tags": [
     "support-bridge",
     "local"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "5s",
   "time": {
-    "from": "now-30m",
+    "from": "now-15m",
     "to": "now"
   },
   "editable": false,

@@ -66,6 +66,8 @@ jobs:
         run: docker compose --profile test run --rm smoke
       - name: Verify pending approvals and credentials survive recreation
         run: sh docker/check-lifecycle.sh
+      - name: Exercise synthetic traffic through the operator API
+        run: sh docker/check-traffic.sh
       - name: Show container diagnostics
         if: failure()
         run: docker compose ps -a && docker compose logs --no-color --tail=100

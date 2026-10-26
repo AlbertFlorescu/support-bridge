@@ -50,6 +50,10 @@ Approvals have no expiry, revocation or rejection command. `approved_at` records
 
 The gate does not classify confidential titles, decide data-sharing permission or check every prerequisite for closure. Our [AI-use disclosure](../README.md#ai-use) describes development assistance separately from runtime authority.
 
+### Scripted synthetic review
+
+The opt-in [traffic simulation](TRAFFIC.md) uses a separate local stack and a fixed pool of owned synthetic pairs. In `scripted` mode, a deterministic driver waits at least ten seconds before choosing a conflict source or submitting the current exact-plan hash through the normal API. It receives that project's broad operator credential. The approval gate and freshness checks still run; the resulting attestation is scripted, not human review or compliance evidence. `manual` mode leaves conflicts and approval waits for the operator. The simulator refuses live mode and does not call a model.
+
 ## Audit and identity boundaries
 
 Local events record plan hashes, approval rationale/policy, write attempts and changed field names. The pending plan is cleared after convergence, so full completed review snapshots are not archived. Events are mutable and retention is unbounded.
