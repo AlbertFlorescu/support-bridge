@@ -6,8 +6,9 @@ Dependabot proposes dependency updates; GitHub Actions scans our images and publ
 
 | Component | Responsibility |
 | --- | --- |
-| Dependabot alerts | Match supported manifests against GitHub-reviewed advisories. Dependency graph and automatic security updates are enabled for this private repository. |
-| Dependabot security updates | Open npm fix PRs, including development dependencies. Swagger UI is development-classified, but its browser files ship with the application. Security updates respond to alerts independently of the version-update schedule. |
+| Dependabot alerts | Match supported npm and Composer manifests against GitHub-reviewed advisories. Dependency graph and automatic security updates are enabled for this private repository. |
+| Dependabot security updates | Propose supported npm/Composer fixes, including development dependencies. Swagger UI is development-classified, but its browser files ship with the application. PHP_CodeSniffer is development-only and absent from runtime images. Security updates respond to alerts independently of the version-update schedule. |
+| Locked Composer audit | Verify checks the root development lockfile, including PHP_CodeSniffer. This is a CI package audit, not a separate custom tracker source. |
 | Vulnerability inventory | Build and scan the application, verification, Prometheus and Grafana images; audit all locked npm dependencies; read native Dependabot alerts. |
 | CVE enrichment | Retrieve exact detected CVE IDs from the official CVE List and NVD, recording missing data and source failures. |
 | Vulnerability tracker | Update one managed issue from trusted default-branch runs. Keep JSON reports and a readable summary as Actions artifacts for 14 days. |
@@ -20,6 +21,8 @@ See the [inventory workflow](.github/workflows/vulnerabilities.yml), [repair wor
 Dependabot uses the [GitHub Advisory Database](https://docs.github.com/en/code-security/concepts/vulnerability-reporting-and-management/github-advisory-database), not a custom NVD or CVE List feed. Docker version PRs do not scan image contents. SHA-pinned Actions receive version updates but fall outside native Actions vulnerability alerts. See [GitHub's ecosystem coverage](https://docs.github.com/en/code-security/reference/supply-chain-security/dependency-graph-supported-package-ecosystems).
 
 Our supplementary scanner uses a digest-pinned official Trivy image and scans built image archives. It receives no Docker socket, application credentials or running data volumes. Each run downloads a fresh vulnerability database, checks its timestamp and retains findings without fixes. npm auditing includes development dependencies and saves the lockfile used for matching.
+
+The application has no Composer runtime packages. Composer installs locked development tooling with plugins and scripts disabled; native Dependabot and the Verify job's locked audit cover that package graph. The custom inventory still collects four built-image scans, npm audit and native alert observations. It does not import Composer audit JSON as another tracker feed. Native alerts can report supported Composer advisories through their existing source.
 
 [CVEProject/cvelistV5](https://github.com/CVEProject/cvelistV5) provides official CVE records; [NVD](https://nvd.nist.gov/developers/vulnerabilities) adds analysis where available. We enrich IDs detected by the matching tools. We do not infer CPE matches from product names, judge vendor backports by upstream version strings or execute instructions from CVE records.
 
@@ -39,7 +42,7 @@ The issue links to the run that last changed its findings; run history contains 
 
 ## Fix workflow
 
-Dependabot groups npm security fixes separately from routine updates and includes development dependencies. Each proposal needs review and passing CI.
+Dependabot includes development dependencies in supported npm and Composer fixes. npm security fixes are grouped separately from routine npm updates. Each proposal needs review and passing CI. Composer changes must preserve the development-only package boundary and the lockfile; the Swagger asset repair workflow remains restricted to its npm manifests and static assets.
 
 A Swagger lockfile update can leave the committed browser assets stale. Native and container CI compare all four served files with the installed `swagger-ui-dist` package and fail with a regeneration instruction when they differ.
 
@@ -61,6 +64,8 @@ Run the security-tool tests:
 
 ```bash
 python3 -m unittest discover -s tools/security -p 'test_*.py' -v
+composer install --no-interaction --no-plugins --no-scripts
+composer audit --locked --no-plugins
 ```
 
 With Docker, Node 24 and npm, collect and enrich a local inventory:
@@ -82,7 +87,7 @@ Replace `REVISION` and `RUN_URL` with actual values. Private native alerts requi
 
 ## Known limitations
 
-Trivy's PHP package scanning covers Composer manifests; this project has none. The source-built PHP runtime and copied Node executable are not ordinary distribution packages. Go dependency detection requires retained build metadata and may miss application-level Prometheus or Grafana vulnerabilities. The workflow does not perform reachability or exploitability analysis, full license review, SAST or DAST.
+Trivy's PHP package scanning covers Composer manifests, but the runtime has no Composer packages. The root lockfile contains development tooling, audited separately and covered by supported native alerts. The source-built PHP runtime and copied Node executable are not ordinary distribution packages. Go dependency detection requires retained build metadata and may miss application-level Prometheus or Grafana vulnerabilities. The workflow does not perform reachability or exploitability analysis, full license review, SAST or DAST.
 
 External databases can lag, disagree or omit analysis. Database freshness does not prove completeness, and a vendor fixed version may not yet exist in a supported distribution or image.
 

@@ -114,6 +114,20 @@ The separate lifecycle check preserved an unapproved state-change plan and crede
 
 The ongoing five-second traffic stack reported a healthy authenticated scrape, nine linked pairs, increasing reconciliation observations and nonzero retry and approval-wait counters. Its smoke checks verified the provisioned dashboard and datasource. These are synthetic workflow and local monitoring observations; they do not exercise vendor network behavior or measure production capacity. [Traffic operation](TRAFFIC.md) records the setup and limits.
 
+## PHP application design verification: 2026-10-26
+
+We separated application commands and queries into typed messages and focused handlers. HTTP and CLI map their inputs into those shared use cases; container entry scripts delegate to runtime objects. A scoped injected SQLite connection replaces implicit construction inside the repository, with separate schema, transaction and canonical-lock responsibilities. The existing plan JSON, approval rules and recovery ordering are unchanged.
+
+The rebuilt verification image passed 170 PHP checks, nine demo assertions, syntax checks for 112 PHP files, the PSR-12 ruleset across 99 files, Swagger byte equality, 11 OpenAPI paths and 27 real HTTP response fixtures. The new checks cover persistence rollback and legacy-plan preservation, typed dispatch without provider access on queries, CLI exit behavior, local-edit lock contention, secret loading, heartbeat validation and graceful termination. Strict Composer autoload verification generated 89 classes without PSR-4 violations. Composer metadata validation and the locked development-package audit passed with no advisories at the time checked.
+
+The style ruleset covers application classes and entrypoints. Tests and the standalone stack-verification harness are outside that ruleset; they still receive syntax and behavior checks. Composer and its development packages are present only in development/verification, while the runtime continues to use the existing lightweight PSR-4 loader.
+
+A disposable lifecycle check preserved the exact unapproved plan and credentials through container recreation and confirmed graceful worker termination. Its nine real API/exporter/Prometheus/Grafana smoke groups passed. These checks use synthetic records and newly initialized monitoring credentials; they do not validate a rotated Grafana account or vendor services.
+
+The rebuilt traffic stack completed 50 one-second ticks through the operator API, covering edits, independent merges, conflicts, exact-plan approvals, pre-write failures, lost responses and no-op sweeps. All nine service-network smoke groups passed. The eight-pair pool stayed bounded, the sample remained unchanged, durable state and credential hashes matched across recreation, the duplicate generator was rejected, and the restarted generator stopped with exit code zero.
+
+A separate AI-assisted source review inspected command/query dispatch, authentication before application construction, CLI/runtime parity, lock ownership, transactions and additive migration. It found no blocking regression in that scope. This review did not establish live provider compatibility, customer value or compliance. We retain the limitations listed below and in the [architecture guide](ARCHITECTURE.md).
+
 ## Validation still required
 
 We have not validated live GitHub/Zendesk sandbox accounts, customer-specific statuses/triggers, production load, restore procedures, customer outcomes or notification delivery. The shared operator token does not establish individual or human identity. Approval has no expiry/revocation workflow. GitHub's preflight/PATCH race and provider timestamp granularity remain material limitations. Our governance controls do not determine whether customer obligations have been fulfilled.

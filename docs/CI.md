@@ -8,8 +8,8 @@ Require **`Required checks`** on `main`. This unique aggregate check passes only
 
 | Check | Coverage |
 | --- | --- |
-| `PHP checks` | PHP syntax and application tests, synthetic demo, vulnerability-tool tests, Swagger asset freshness, OpenAPI parsing and real loopback response-fixture validation |
-| `Container checks` | Image builds, isolated PHP/OpenAPI verification, stack startup, service-network smoke checks, synthetic HTTP traffic, graceful shutdown and pending-plan/credential persistence through recreation |
+| `PHP checks` | Locked Composer development install and audit, strict PSR-4 autoload verification, configured PSR-12 style check, PHP syntax/application tests, synthetic demo, vulnerability-tool tests, Swagger asset freshness, OpenAPI parsing and real loopback response-fixture validation |
+| `Container checks` | Image builds, isolated PHP/style/OpenAPI verification, stack startup, service-network smoke checks, synthetic HTTP traffic, graceful shutdown and pending-plan/credential persistence through recreation |
 | `Required checks` | Both jobs succeeded for the revision under review |
 
 Verify runs for PRs targeting `main`, pushes to `main`, manual dispatch and merge groups. It has no path filters, so documentation changes also produce the required status. [Concurrency settings](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) cancel outdated runs for the same PR or ref. Merge-group checks support a future merge queue; they do not enable one.
@@ -28,7 +28,9 @@ It has no bypass actors and requires zero peer approvals while a separate review
 
 ## Permissions, dependencies and artifacts
 
-Verify has read-only repository contents access, and checkout removes its credentials. Official Actions use verified commit pins. npm uses the lockfile, disabled lifecycle scripts and GitHub's package cache. Container builds use the checked-in digest pins and local layers within a job. Verify neither publishes images nor deploys services. Separate security publishers have the issue/content/Actions permissions listed in [SECURITY.md](../SECURITY.md).
+Verify has read-only repository contents access, and checkout removes its credentials. Official Actions use verified commit pins. Composer installs the root lockfile with plugins and scripts disabled, then verifies optimized PSR-4 autoloading, runs the configured style gate and a locked package audit including development dependencies. npm uses its lockfile, disabled lifecycle scripts and GitHub's package cache. Container builds use the checked-in digest pins and local layers within a job. Verify neither publishes images nor deploys services. Separate security publishers have the issue/content/Actions permissions listed in [SECURITY.md](../SECURITY.md).
+
+The verification image pins Composer 2.10.3 and installs PHP_CodeSniffer 4.0.4 from the root lockfile. Native CI installs Composer from the runner's package repository. These are development tools: the runtime image contains neither Composer nor the development `vendor/` tree. [The PSR-12 ruleset](../phpcs.xml.dist) defines checked paths and standalone-harness exceptions, while `composer.json` records PSR-4 namespace mapping and style commands. A passing style check is separate from behavior, recovery and governance evidence.
 
 | Artifact | Retention |
 | --- | ---: |
@@ -38,9 +40,9 @@ Verify has read-only repository contents access, and checkout removes its creden
 
 API fixtures contain controlled test responses, not vendor records or deployment configuration. Failed container jobs print bounded diagnostics. Disposable runner volumes hold CI credentials and state and are removed after the job. Credential volumes, Compose environment dumps and application state directories are never uploaded.
 
-[Dependabot](../.github/dependabot.yml) schedules daily version checks at 08:00 UTC for GitHub Actions, npm tooling, four upstream service/tooling images and the Trivy scanner. Each ecosystem entry allows ten version-update PRs. A wildcard cooldown exclusion removes release-age delay for tracked dependencies; locally built image names are excluded by the Docker allowlist. See [open proposals](https://github.com/AlbertFlorescu/support-bridge/pulls?q=is%3Apr+is%3Aopen+author%3Aapp%2Fdependabot) and [configuration options](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
+[Dependabot](../.github/dependabot.yml) schedules daily version checks at 08:00 UTC for GitHub Actions, npm API tooling, root Composer development packages, PHP/Node/Composer/monitoring images and the Trivy scanner. Each ecosystem entry allows ten version-update PRs. A wildcard cooldown exclusion removes release-age delay for tracked dependencies; locally built image names are excluded by the Docker allowlist. See [open proposals](https://github.com/AlbertFlorescu/support-bridge/pulls?q=is%3Apr+is%3Aopen+author%3Aapp%2Fdependabot) and [configuration options](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
 
-Native alerts and automatic security updates are enabled. npm security PRs are grouped separately, include development dependencies and respond to alerts independently of the version schedule. Our [security workflow](../SECURITY.md) adds image scanning, CVE List/NVD enrichment, one tracker and Swagger asset repair. `Required checks` tests the reporting/repair code and rejects stale Swagger files; vulnerability inventory runs retain their own statuses and evidence.
+Native alerts and automatic security updates are enabled for supported manifests, including the Composer development lockfile. Security updates include development dependencies and respond to alerts independently of the version schedule. npm security PRs are grouped separately from routine npm updates. Our [security workflow](../SECURITY.md) adds image scanning, CVE List/NVD enrichment, one tracker and Swagger asset repair. The locked Composer audit is a Verify check; it is not another custom tracker feed. `Required checks` tests the reporting/repair code and rejects stale Swagger files; vulnerability inventory runs retain their own statuses and evidence.
 
 ## Dependency maintenance policy
 
@@ -54,6 +56,6 @@ The tracker's **Vendor fixed version** is a package-level fix, not an available 
 
 ## Local reproduction and limits
 
-Use `php bin/check.php` and the locked OpenAPI validator for native checks, or follow [Docker operation](DOCKER.md). The lifecycle script creates a uniquely named synthetic project and must never remove the normal stack's volumes.
+Use `php bin/check.php`, `composer autoload:check`, `composer style`, `composer audit --locked --no-plugins` and the locked OpenAPI validator for native checks, or follow [Docker operation](DOCKER.md). Install locked Composer development packages first with `composer install --no-interaction --no-plugins --no-scripts`. The lifecycle script creates a uniquely named synthetic project and must never remove the normal stack's volumes.
 
 CI uses synthetic data. Live provider behavior, production capacity and restore procedures need separate validation. Passing checks do not verify human identity, approve customer state changes or establish compliance. Never rely on AI in compliance; runtime approval remains a separate control.

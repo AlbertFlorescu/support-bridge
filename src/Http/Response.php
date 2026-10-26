@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Http;
@@ -17,7 +18,9 @@ final readonly class Response
             $explicitContentType = $explicitContentType || strcasecmp($name, 'Content-Type') === 0;
         }
         if (!$explicitContentType) {
-            header(is_array($this->body) ? 'Content-Type: application/json; charset=utf-8' : 'Content-Type: text/plain; charset=utf-8');
+            header(is_array($this->body)
+                ? 'Content-Type: application/json; charset=utf-8'
+                : 'Content-Type: text/plain; charset=utf-8');
         }
         header('Cache-Control: no-store');
         header('X-Content-Type-Options: nosniff');

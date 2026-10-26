@@ -1,16 +1,23 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Simulation;
 
 final readonly class TrafficSettings
 {
-    public function __construct(public string $interval = '5', public int $minimum = 1,
-        public int $maximum = 5, public string $review = 'scripted', public ?int $maxTicks = null)
-    {
-        if (!in_array($interval, ['1', '5', 'random'], true) || $minimum < 1 || $maximum > 60
+    public function __construct(
+        public string $interval = '5',
+        public int $minimum = 1,
+        public int $maximum = 5,
+        public string $review = 'scripted',
+        public ?int $maxTicks = null
+    ) {
+        if (
+            !in_array($interval, ['1', '5', 'random'], true) || $minimum < 1 || $maximum > 60
             || $minimum > $maximum || !in_array($review, ['scripted', 'manual'], true)
-            || ($maxTicks !== null && ($maxTicks < 1 || $maxTicks > 1_000_000))) {
+            || ($maxTicks !== null && ($maxTicks < 1 || $maxTicks > 1_000_000))
+        ) {
             throw new \InvalidArgumentException('Invalid synthetic traffic settings.');
         }
     }
@@ -31,10 +38,13 @@ final readonly class TrafficSettings
             return (int) $value;
         };
         $maxTicks = getenv('BRIDGE_TRAFFIC_MAX_TICKS');
-        return new self(getenv('BRIDGE_TRAFFIC_INTERVAL') ?: '5',
-            $integer('BRIDGE_TRAFFIC_RANDOM_MIN', 1), $integer('BRIDGE_TRAFFIC_RANDOM_MAX', 5),
+        return new self(
+            getenv('BRIDGE_TRAFFIC_INTERVAL') ?: '5',
+            $integer('BRIDGE_TRAFFIC_RANDOM_MIN', 1),
+            $integer('BRIDGE_TRAFFIC_RANDOM_MAX', 5),
             getenv('BRIDGE_TRAFFIC_REVIEW') ?: 'scripted',
-            $maxTicks === false || $maxTicks === '' ? null : $integer('BRIDGE_TRAFFIC_MAX_TICKS', 1));
+            $maxTicks === false || $maxTicks === '' ? null : $integer('BRIDGE_TRAFFIC_MAX_TICKS', 1)
+        );
     }
 
     public function delay(): int

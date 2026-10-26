@@ -1,8 +1,30 @@
 <?php
-declare(strict_types=1);
 
 /** Run the same PHP and OpenAPI gates without any host PHP/Node installation. */
-foreach ([[PHP_BINARY, '/app/bin/check.php'], ['node', '/app/tools/api-docs/check-vendor.cjs'], ['node', '/app/tools/api-docs/validate.cjs']] as $command) {
+
+declare(strict_types=1);
+
+foreach (
+    [
+        [
+            PHP_BINARY,
+            '/app/vendor/bin/phpcs',
+            '--standard=/app/phpcs.xml.dist',
+        ],
+        [
+            PHP_BINARY,
+            '/app/bin/check.php',
+        ],
+        [
+            'node',
+            '/app/tools/api-docs/check-vendor.cjs',
+        ],
+        [
+            'node',
+            '/app/tools/api-docs/validate.cjs',
+        ],
+    ] as $command
+) {
     $pipes = [];
     $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => STDOUT, 2 => STDERR], $pipes, '/app');
     if (!is_resource($process)) {

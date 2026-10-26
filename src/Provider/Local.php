@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Provider;
@@ -23,10 +24,18 @@ final class Local implements Provider
             if ($data !== []) {
                 throw new \RuntimeException('Local fixture already exists; use a fresh state directory.');
             }
-            $data = ['records' => [], 'fault' => null, 'writes' => 0];
+            $data = [
+                'records' => [],
+                'fault'   => null,
+                'writes'  => 0,
+            ];
             foreach ($records as $id => $fields) {
                 new Record($fields, '1');
-                $data['records'][(string) $id] = ['fields' => $fields, 'version' => 1, 'writable' => true];
+                $data['records'][(string) $id] = [
+                    'fields'   => $fields,
+                    'version'  => 1,
+                    'writable' => true,
+                ];
             }
         }, true);
     }
@@ -56,7 +65,12 @@ final class Local implements Provider
                 }
                 return;
             }
-            $data['records'][$id] = ['fields' => $fields, 'version' => 1, 'writable' => true, 'owner' => $owner];
+            $data['records'][$id] = [
+                'fields'   => $fields,
+                'version'  => 1,
+                'writable' => true,
+                'owner'    => $owner,
+            ];
         }, true);
     }
 
@@ -87,7 +101,12 @@ final class Local implements Provider
             return $fault;
         }, true);
         if ($failure !== null) {
-            throw new RemoteFailure($failure === 'after' ? 'Simulated response lost after remote commit.' : 'Simulated service unavailable.', true);
+            throw new RemoteFailure(
+                $failure === 'after'
+                    ? 'Simulated response lost after remote commit.'
+                    : 'Simulated service unavailable.',
+                true
+            );
         }
     }
 
@@ -121,7 +140,7 @@ final class Local implements Provider
 
     public function writes(): int
     {
-        return $this->access(static fn(array $data): int => $data['writes']);
+        return $this->access(static fn (array $data): int => $data['writes']);
     }
 
     private function access(callable $action, bool $write = false): mixed

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Domain;
@@ -15,8 +16,13 @@ final class RetryPolicy
         return min(self::MAX_BACKOFF_SECONDS, 2 ** min(9, max(1, $previousAttempts + 1)));
     }
 
-    public function afterFailure(int $previousAttempts, bool $retryable, ?int $retryAfter, int $now, int $jitter): RetryDecision
-    {
+    public function afterFailure(
+        int $previousAttempts,
+        bool $retryable,
+        ?int $retryAfter,
+        int $now,
+        int $jitter
+    ): RetryDecision {
         $attempts = $previousAttempts + 1;
         if (!$retryable || $attempts >= self::MAX_ATTEMPTS) {
             return new RetryDecision($attempts, false, 0, null);

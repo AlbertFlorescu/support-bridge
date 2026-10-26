@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge;
@@ -25,8 +26,10 @@ class HttpClient
             throw new \InvalidArgumentException('Unsupported HTTP method.');
         }
         foreach ($headers as $name => $value) {
-            if (!is_string($name) || !preg_match('/^[A-Za-z0-9-]+$/D', $name)
-                || !is_string($value) || preg_match('/[\x00-\x1f\x7f]/', $value)) {
+            if (
+                !is_string($name) || !preg_match('/^[A-Za-z0-9-]+$/D', $name)
+                || !is_string($value) || preg_match('/[\x00-\x1f\x7f]/', $value)
+            ) {
                 throw new \InvalidArgumentException('Invalid HTTP header.');
             }
         }
@@ -52,10 +55,12 @@ class HttpClient
         $host = is_array($parts) ? ($parts['host'] ?? '') : '';
         $officialHost = $host === 'api.github.com'
             || preg_match('/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.zendesk\.com$/D', $host) === 1;
-        if (!is_array($parts) || ($parts['scheme'] ?? '') !== 'https' || !$officialHost
+        if (
+            !is_array($parts) || ($parts['scheme'] ?? '') !== 'https' || !$officialHost
             || (isset($parts['port']) && $parts['port'] !== 443)
             || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment'])
-            || preg_match('/[\x00-\x20\x7f\\\\]/', $url)) {
+            || preg_match('/[\x00-\x20\x7f\\\\]/', $url)
+        ) {
             throw new \InvalidArgumentException('Only official GitHub and Zendesk HTTPS API hosts are allowed.');
         }
     }
@@ -89,17 +94,17 @@ class HttpClient
         }
         try {
             curl_setopt_array($handle, [
-                CURLOPT_CUSTOMREQUEST => $method,
-                CURLOPT_HTTPHEADER => $headerLines,
-                CURLOPT_USERAGENT => 'SupportEngineeringBridge/1.0',
+                CURLOPT_CUSTOMREQUEST  => $method,
+                CURLOPT_HTTPHEADER     => $headerLines,
+                CURLOPT_USERAGENT      => 'SupportEngineeringBridge/1.0',
                 CURLOPT_CONNECTTIMEOUT => 5,
-                CURLOPT_TIMEOUT => 10,
+                CURLOPT_TIMEOUT        => 10,
                 CURLOPT_FOLLOWLOCATION => false,
-                CURLOPT_MAXREDIRS => 0,
-                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+                CURLOPT_MAXREDIRS      => 0,
+                CURLOPT_PROTOCOLS      => CURLPROTO_HTTPS,
                 CURLOPT_SSL_VERIFYPEER => true,
                 CURLOPT_SSL_VERIFYHOST => 2,
-                CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$body, &$tooLarge): int {
+                CURLOPT_WRITEFUNCTION  => static function ($handle, string $chunk) use (&$body, &$tooLarge): int {
                     if (strlen($body) + strlen($chunk) > self::MAX_BODY_BYTES) {
                         $tooLarge = true;
                         return 0;
@@ -107,7 +112,14 @@ class HttpClient
                     $body .= $chunk;
                     return strlen($chunk);
                 },
-                CURLOPT_HEADERFUNCTION => static function ($handle, string $line) use (&$responseHeaders, &$headerBytes, &$tooLarge): int {
+                CURLOPT_HEADERFUNCTION => static function (
+                    $handle,
+                    string $line
+                ) use (
+                    &$responseHeaders,
+                    &$headerBytes,
+                    &$tooLarge
+                ): int {
                     $headerBytes += strlen($line);
                     if ($headerBytes > self::MAX_HEADER_BYTES) {
                         $tooLarge = true;
@@ -116,7 +128,10 @@ class HttpClient
                     if (str_starts_with($line, 'HTTP/')) {
                         $responseHeaders = []; // Discard interim/proxy response headers.
                     } elseif (str_contains($line, ':')) {
-                        [$name, $value] = explode(':', $line, 2);
+                        [
+                            $name,
+                            $value,
+                        ] = explode(':', $line, 2);
                         $responseHeaders[strtolower(trim($name))] = trim($value);
                     }
                     return strlen($line);

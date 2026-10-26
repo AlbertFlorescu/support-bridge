@@ -1,6 +1,6 @@
 # Docker operation
 
-We run the application, its reconciliation worker, Prometheus and Grafana with Docker Compose. The default stack uses synthetic local records and makes no GitHub or Zendesk requests. It needs Docker Engine with Linux containers and the Compose plugin; PHP, Node, Python and monitoring binaries are contained in the images.
+We run the application, its reconciliation worker, Prometheus and Grafana with Docker Compose. The default stack uses synthetic local records and makes no GitHub or Zendesk requests. It needs Docker Engine with Linux containers and the Compose plugin. The runtime image contains PHP and application classes; the verification image adds Composer development tools and Node for style and API checks. Monitoring runs in its own images.
 
 ## Start the stack
 
@@ -121,7 +121,9 @@ Run the complete PHP and OpenAPI gate inside the verification image:
 docker compose --profile test run --build --rm verify
 ```
 
-This uses isolated temporary synthetic state, not the running application's volume. The verification image contains the development tools needed for the PHP test suite and locked OpenAPI validator; the runtime image does not need Node or npm.
+This uses isolated temporary synthetic state, not the running application's volume. The verification image contains Composer, locked PHP_CodeSniffer dependencies, the style ruleset, PHP tests and the locked Node/OpenAPI tooling. Composer installs development dependencies with scripts and plugins disabled. The runtime image contains none of that development `vendor/` tree, Composer or Node/npm; application autoloading remains independent of it.
+
+Entry scripts delegate to CLI, HTTP or runtime objects. Those objects use the same typed command/query handlers and per-context injected repository connection. The existing shared application volume and file lock still coordinate API, CLI and worker; object-level connection reuse does not add support for multiple hosts.
 
 With the stack running, exercise the actual service network:
 

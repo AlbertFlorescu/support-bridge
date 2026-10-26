@@ -53,6 +53,17 @@ php bin/check.php
 
 The demo makes no network calls and retains its state under `var/demo-*`. The test runner checks PHP syntax, merge and retry policies, reconciliation, providers, governance, metrics and the HTTP API. Server tests use loopback and synthetic records. Node 24 is needed separately for Swagger asset and OpenAPI checks.
 
+For development, Composer installs the locked PHP_CodeSniffer tool; it adds no runtime package:
+
+```bash
+sudo apt-get install php-xml
+composer install --no-interaction --no-plugins --no-scripts
+composer autoload:check
+composer style
+```
+
+Classes follow the [PSR-4](https://www.php-fig.org/psr/psr-4/) `Bridge\` → `src/` mapping. [The style ruleset](phpcs.xml.dist) enforces [PSR-12](https://www.php-fig.org/psr/psr-12/) on its listed source and entrypoint paths and records harness exceptions. Use `composer style:fix` to apply automatic formatting, then rerun style and behavior checks. The runtime and core demonstration work without Composer or `vendor/`.
+
 ## Review a state change
 
 Local mode is the default. The sample links issue `101` and ticket `501`:
@@ -99,9 +110,12 @@ Titles must be nonempty and at most 500 UTF-8 bytes. Comments, descriptions, att
 flowchart LR
     CLI[CLI] --> Context[Application context]
     API[HTTP API] --> Context
-    Context --> Engine[Reconciliation engine]
+    Context --> Commands[Typed commands and handlers]
+    Context --> Queries[Typed queries and handlers]
+    Commands --> Engine[Reconciliation engine]
+    Queries --> Store[(SQLite repository)]
     Engine --> Policies[Merge, retry and governance policies]
-    Engine --> Store[(SQLite)]
+    Engine --> Store
     Engine <--> Providers[GitHub and Zendesk adapters]
     Engine --> Metrics[(Metric registry)]
     Prometheus --> Exporter[Authenticated exporter]
@@ -121,13 +135,16 @@ Any outbound state change holds every effect in the plan until approval. The app
 | --- | --- |
 | Pure merge, retry and approval rules | `src/Domain/` |
 | Read → plan → persist → write → verify | `src/Engine.php` |
-| Shared CLI/API configuration and commands | `src/Application/` |
-| SQLite state and canonical worker lock | `src/Store.php`, `src/Contract/PairRepository.php` |
+| Composition, typed commands/queries, handlers and factories | `src/Application/` |
+| Repository contract and SQLite state operations | `src/Contract/PairRepository.php`, `src/Store.php` |
+| Scoped connection, schema migration, transactions and canonical lock | `src/Infrastructure/Persistence/` |
 | Vendor payloads, version checks and HTTP | `src/Provider/`, `src/HttpClient.php` |
-| Request validation, authentication and responses | `src/Http/`, `public/router.php`, `bin/bridge.php` |
+| CLI, HTTP and container adapters | `src/Console/`, `src/Http/`, `src/Runtime/` |
 | Persistent aggregate metrics | `src/Observability/` |
 
-CLI and HTTP call the same engine. Provider adapters handle vendor semantics; domain policies use plain inputs and decisions without network or storage access. The [architecture guide](docs/ARCHITECTURE.md) covers state, locking and recovery in detail.
+Entry scripts delegate to adapter objects. CLI and HTTP dispatch the same typed application use cases: commands initialize/link/edit/reconcile/resolve/approve/retry; queries read status, pair details and metrics without contacting providers. Both sides share SQLite. This is synchronous CQRS without a queue, event sourcing or separate read database.
+
+`Context` wires constructor dependencies and creates one scoped `SqliteConnection` for its repository. Reusing that connection keeps transaction ownership explicit while separate contexts can use separate databases. A process-global Singleton would hide that dependency and risk coupling local, live and test state. Provider adapters handle vendor semantics; pure domain policies use plain inputs and decisions without network or storage access. The [architecture guide](docs/ARCHITECTURE.md) covers these boundaries and recovery in detail.
 
 ## Trade-offs
 
@@ -138,6 +155,8 @@ CLI and HTTP call the same engine. Provider adapters handle vendor semantics; do
 | Durable intent and read-before-retry | Recovers lost responses and partial writes | Extra reads and conservative version conflicts |
 | SQLite and polling | Simple single-host operation | Serial sweeps, scheduler delay and no distributed worker coordination |
 | Plain PHP and shared engine | Small runtime and one set of application rules | We maintain routing, validation and composition ourselves |
+| Typed commands/queries and focused handlers | Explicit use cases shared by CLI and HTTP | More classes and wiring; the shared database and serial worker remain |
+| Injected connection and repository infrastructure | Clear connection, transaction and lock ownership | Each context must be composed correctly; no global service lookup |
 | Vendored Swagger | Local API reference without a CDN | Assets must match the lockfile; Try it out is disabled |
 | Separate worker and monitoring containers | Independent processes and persistent data | More images, credentials and volumes to maintain |
 
@@ -149,6 +168,7 @@ CLI and HTTP call the same engine. Provider adapters handle vendor semantics; do
 - **Approval and audit:** approval has no expiry or revocation. The shared token does not verify human identity or separation of duties. Audit events are mutable local records with unbounded retention.
 - **Data and recovery:** SQLite stores title snapshots without application encryption. Only narrow additive migrations are implemented; general rollback and backup restoration have not been rehearsed.
 - **Monitoring:** metric writes can be lost around a crash. Local scrape/dashboard tests do not verify alert delivery. Containers and digest pins do not establish complete vulnerability coverage.
+- **Development tooling:** PSR formatting checks and locked development-package audits need Composer and XML extensions. They add maintenance work without proving domain correctness or a stronger concurrency model.
 
 See [governance](docs/GOVERNANCE.md) for policy ownership and approval limits, and [verification evidence](docs/REVIEW.md) for tested cases and outstanding checks.
 
@@ -183,6 +203,10 @@ php bin/bridge.php inspect escalation-1 --mode=live --home=var/sandbox
 
 ```bash
 php bin/check.php
+composer install --no-interaction --no-plugins --no-scripts
+composer autoload:check
+composer style
+composer audit --locked --no-plugins
 python3 -m unittest discover -s tools/security -p 'test_*.py' -v
 cd tools/api-docs
 npm ci --ignore-scripts
@@ -190,7 +214,7 @@ node check-vendor.cjs
 node validate.cjs
 ```
 
-The tests cover merge decisions, stale approvals, partial writes, lost responses, locks, HTTP contracts, metrics and vulnerability tooling. The [verification record](docs/REVIEW.md) contains counts and hosted results. Live vendor behavior, customer benefit and production load still need validation.
+The tests cover merge decisions, stale approvals, partial writes, lost responses, scoped persistence, command/query behavior, locks, HTTP contracts, metrics and vulnerability tooling. Style checks enforce the configured coding standard separately. The [verification record](docs/REVIEW.md) contains executed counts and hosted results. Live vendor behavior, customer benefit and production load still need validation.
 
 ## AI use
 

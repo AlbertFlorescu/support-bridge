@@ -1,90 +1,117 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Application;
 
-use Bridge\Engine;
+use Bridge\Application\Command\ApprovePlanHandler;
+use Bridge\Application\Command\Command;
+use Bridge\Application\Command\CommandDispatcher;
+use Bridge\Application\Command\EditLocalRecordHandler;
+use Bridge\Application\Command\InitializeLocalState;
+use Bridge\Application\Command\InitializeLocalStateHandler;
+use Bridge\Application\Command\LinkPair;
+use Bridge\Application\Command\LinkPairHandler;
+use Bridge\Application\Command\ReconcileHandler;
+use Bridge\Application\Command\ResolveConflictHandler;
+use Bridge\Application\Command\RetryPairHandler;
+use Bridge\Application\Query\GetMetricsHandler;
+use Bridge\Application\Query\GetStatusHandler;
+use Bridge\Application\Query\InspectPair;
+use Bridge\Application\Query\InspectPairHandler;
+use Bridge\Application\Query\ListPairs;
+use Bridge\Application\Query\ListPairsHandler;
+use Bridge\Application\Query\Query;
+use Bridge\Application\Query\QueryDispatcher;
 use Bridge\Domain\GovernancePolicy;
-use Bridge\HttpClient;
+use Bridge\Engine;
+use Bridge\Infrastructure\Logging\JsonLineWriter;
+use Bridge\Infrastructure\Logging\ReconciliationLogger;
+use Bridge\Infrastructure\Persistence\SqliteConnection;
 use Bridge\Observability\Prometheus;
-use Bridge\Provider\GitHub;
-use Bridge\Provider\Local;
-use Bridge\Provider\Zendesk;
 use Bridge\Store;
 
-/** Composition root shared by the CLI and HTTP adapters; no global service locator. */
+/** Per-deployment composition root; adapters share the same explicit use cases. */
 final class Context
 {
     public readonly Store $store;
     public readonly Prometheus $telemetry;
+    private readonly ProviderFactory $providerFactory;
+    private readonly EngineFactory $engineFactory;
+    private readonly CommandDispatcher $commands;
+    private readonly QueryDispatcher $queries;
 
     public function __construct(public readonly Configuration $configuration)
     {
-        $this->store = new Store($configuration->home . '/' . $configuration->mode . '.sqlite');
-        $this->store->bindIdentity(['mode' => $configuration->mode, 'repository' => strtolower($configuration->repository),
-            'subdomain' => strtolower($configuration->subdomain)]);
+        $connection = new SqliteConnection($configuration->home . '/' . $configuration->mode . '.sqlite');
+        $this->store = new Store($connection);
+        $this->store->bindIdentity([
+            'mode'       => $configuration->mode,
+            'repository' => strtolower($configuration->repository),
+            'subdomain'  => strtolower($configuration->subdomain),
+        ]);
         $this->telemetry = new Prometheus($configuration->home . '/metrics.sqlite');
+        $this->providerFactory = new ProviderFactory($configuration);
+        $this->engineFactory = new EngineFactory(
+            $this->store,
+            $this->providerFactory,
+            new ReconciliationLogger(new JsonLineWriter(), $this->telemetry)
+        );
+        $this->commands = new CommandDispatcher(
+            new InitializeLocalStateHandler($configuration, $this->store, $this->providerFactory),
+            new LinkPairHandler($this->store),
+            new ReconcileHandler($this->engineFactory),
+            new ResolveConflictHandler($this->engineFactory),
+            new ApprovePlanHandler($this->engineFactory),
+            new RetryPairHandler($this->engineFactory),
+            new EditLocalRecordHandler($configuration, $this->store, $this->providerFactory)
+        );
+        $listing = new ListPairsHandler($this->store);
+        $this->queries = new QueryDispatcher(
+            $listing,
+            new InspectPairHandler($this->store, new GovernancePolicy()),
+            new GetStatusHandler($listing),
+            new GetMetricsHandler($this->store, $this->telemetry)
+        );
+    }
+
+    public function handle(Command $command): array
+    {
+        return $this->commands->handle($command);
+    }
+
+    public function ask(Query $query): array
+    {
+        return $this->queries->ask($query);
     }
 
     public function initialize(): void
     {
-        $this->store->withExclusiveLock(function (): void {
-            if ($this->configuration->mode !== 'local' || $this->store->all() !== []) {
-                return;
-            }
-            $home = $this->configuration->home;
-            if (file_exists($home . '/github.json') || file_exists($home . '/zendesk.json')) {
-                throw new \RuntimeException('Fixture files already exist. Use a fresh state directory.');
-            }
-            [$github, $zendesk] = $this->providers();
-            $sample = ['title' => 'CSV export fails for large reports', 'state' => 'open'];
-            $github->seed(['101' => $sample]);
-            $zendesk->seed(['501' => $sample]);
-            $this->store->addPair('escalation-1', '101', '501');
-        });
+        $this->handle(new InitializeLocalState());
     }
 
     public function link(string $id, string $githubId, string $zendeskId): void
     {
-        $this->store->withExclusiveLock(fn() => $this->store->addPair($id, $githubId, $zendeskId));
+        $this->handle(new LinkPair($id, $githubId, $zendeskId));
     }
 
     public function engine(): Engine
     {
-        [$github, $zendesk] = $this->providers();
-        return new Engine($this->store, $github, $zendesk, function (array $entry): void {
-            file_put_contents('php://stderr', json_encode($entry, JSON_THROW_ON_ERROR) . PHP_EOL);
-            ($this->telemetry)($entry);
-        });
+        return $this->engineFactory->create();
     }
 
     public function listPairs(int $limit = 50, int $offset = 0): array
     {
-        $pairs = $this->store->all();
-        return ['items' => array_map(static fn(array $pair): array => array_intersect_key($pair, array_flip([
-            'id', 'github_id', 'zendesk_id', 'status', 'attempts', 'next_run', 'error', 'last_success'])), array_slice($pairs, $offset, $limit)),
-            'total' => count($pairs), 'limit' => $limit, 'offset' => $offset];
+        return $this->ask(new ListPairs($limit, $offset));
     }
 
     public function inspect(string $id): array
     {
-        $pair = $this->store->get($id);
-        return ['pair' => $pair, 'recent_events' => $this->store->events($id),
-            'governance' => (new GovernancePolicy())->review($pair)];
+        return $this->ask(new InspectPair($id));
     }
 
     public function providers(): array
     {
-        $configuration = $this->configuration;
-        if ($configuration->mode === 'local') {
-            return [new Local($configuration->home . '/github.json'), new Local($configuration->home . '/zendesk.json')];
-        }
-        $http = new HttpClient();
-        try {
-            return [new GitHub($http, $configuration->repository, Configuration::required('BRIDGE_GITHUB_TOKEN')),
-                new Zendesk($http, $configuration->subdomain, Configuration::required('BRIDGE_ZENDESK_EMAIL'), Configuration::required('BRIDGE_ZENDESK_TOKEN'))];
-        } catch (\InvalidArgumentException) {
-            throw new ConfigurationFailure('Provider configuration is invalid. Check the deployment environment.');
-        }
+        return $this->providerFactory->create();
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Provider;
@@ -18,13 +19,16 @@ final class Zendesk implements Provider
     public function __construct(private readonly HttpClient $http, string $subdomain, string $email, string $token)
     {
         $subdomain = Identity::subdomain($subdomain);
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || trim($token) === '' || preg_match('/[\x00-\x20\x7f]/', $token)) {
+        if (
+            !filter_var($email, FILTER_VALIDATE_EMAIL) || trim($token) === ''
+            || preg_match('/[\x00-\x20\x7f]/', $token)
+        ) {
             throw new \InvalidArgumentException('A valid Zendesk email and API token are required.');
         }
         $this->subdomain = $subdomain;
         $this->headers = [
             'Authorization' => 'Basic ' . base64_encode($email . '/token:' . $token),
-            'Accept' => 'application/json',
+            'Accept'        => 'application/json',
         ];
     }
 
@@ -48,7 +52,10 @@ final class Zendesk implements Provider
         if ($expected->version === '') {
             throw new \InvalidArgumentException('Zendesk safe updates require an observed updated_at timestamp.');
         }
-        $ticket = ['safe_update' => true, 'updated_stamp' => $expected->version];
+        $ticket = [
+            'safe_update'   => true,
+            'updated_stamp' => $expected->version,
+        ];
         if (isset($changes['title']) && $changes['title'] !== $expected->fields['title']) {
             $ticket['subject'] = $changes['title'];
         }
@@ -73,14 +80,23 @@ final class Zendesk implements Provider
     {
         $response->assertSuccess('Zendesk');
         $ticket = $response->body['ticket'] ?? null;
-        if (!is_array($ticket) || !is_string($ticket['subject'] ?? null)
+        if (
+            !is_array($ticket) || !is_string($ticket['subject'] ?? null)
             || !is_string($ticket['updated_at'] ?? null) || $ticket['updated_at'] === ''
-            || !in_array($ticket['status'] ?? null, ['new', 'open', 'pending', 'hold', 'solved', 'closed'], true)) {
+            || !in_array($ticket['status'] ?? null, ['new', 'open', 'pending', 'hold', 'solved', 'closed'], true)
+        ) {
             throw new RemoteFailure('Zendesk returned an invalid ticket representation.');
         }
         $state = in_array($ticket['status'], ['solved', 'closed'], true) ? 'closed' : 'open';
         try {
-            return new Record(['title' => $ticket['subject'], 'state' => $state], $ticket['updated_at'], $ticket['status'] !== 'closed');
+            return new Record(
+                [
+                    'title' => $ticket['subject'],
+                    'state' => $state,
+                ],
+                $ticket['updated_at'],
+                $ticket['status'] !== 'closed'
+            );
         } catch (\InvalidArgumentException) {
             throw new RemoteFailure('Zendesk returned an invalid ticket representation.');
         }

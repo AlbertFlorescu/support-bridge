@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Application;
@@ -8,8 +9,12 @@ use Bridge\Provider\Identity;
 /** Deployment settings are process configuration, never HTTP request parameters. */
 final readonly class Configuration
 {
-    public function __construct(public string $mode, public string $home, public string $repository, public string $subdomain)
-    {
+    public function __construct(
+        public string $mode,
+        public string $home,
+        public string $repository,
+        public string $subdomain
+    ) {
         if (!in_array($mode, ['local', 'live'], true) || $home === '') {
             throw new ConfigurationFailure('Mode must be local/live and the state directory must be nonempty.');
         }
@@ -27,9 +32,12 @@ final readonly class Configuration
     {
         $mode ??= getenv('BRIDGE_MODE') ?: 'local';
         $home ??= getenv('BRIDGE_HOME') ?: dirname(__DIR__, 2) . '/var/local';
-        return new self($mode, $home,
+        return new self(
+            $mode,
+            $home,
             $mode === 'live' ? self::required('BRIDGE_GITHUB_REPOSITORY') : 'local/demo',
-            $mode === 'live' ? self::required('BRIDGE_ZENDESK_SUBDOMAIN') : 'local');
+            $mode === 'live' ? self::required('BRIDGE_ZENDESK_SUBDOMAIN') : 'local'
+        );
     }
 
     public static function required(string $name): string

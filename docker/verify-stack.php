@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 /** Read-only checks against the actual Compose network; no provider or operator writes. */
@@ -40,16 +41,27 @@ final class StackVerification
         $docs = $this->get(self::API . '/docs');
         $specification = $this->get(self::API . '/openapi.json');
         $initializer = $this->get(self::API . '/assets/swagger-ui/initializer.js');
-        $this->check($docs['status'] === 200 && str_contains($docs['body'], '/assets/swagger-ui/swagger-ui-bundle.js'),
-            'Swagger must use the locally served bundle.');
-        $this->check($specification['status'] === 200 && ($specification['json']['openapi'] ?? null) === '3.1.0'
-            && isset($specification['json']['paths']['/api/pairs/{id}/approve']), 'The published API contract is incomplete.');
-        $this->check($initializer['status'] === 200 && str_contains($initializer['body'], 'validatorUrl: null')
+        $this->check(
+            $docs['status'] === 200 && str_contains($docs['body'], '/assets/swagger-ui/swagger-ui-bundle.js'),
+            'Swagger must use the locally served bundle.'
+        );
+        $this->check(
+            $specification['status'] === 200 && ($specification['json']['openapi'] ?? null) === '3.1.0'
+            && isset($specification['json']['paths']['/api/pairs/{id}/approve']),
+            'The published API contract is incomplete.'
+        );
+        $this->check(
+            $initializer['status'] === 200 && str_contains($initializer['body'], 'validatorUrl: null')
             && str_contains($initializer['body'], 'persistAuthorization: false')
-            && str_contains($initializer['body'], 'supportedSubmitMethods: []'), 'Swagger must remain a read-only local reference.');
+            && str_contains($initializer['body'], 'supportedSubmitMethods: []'),
+            'Swagger must remain a read-only local reference.'
+        );
         foreach (['swagger-ui.css', 'swagger-ui-bundle.js'] as $asset) {
             $loaded = $this->get(self::API . '/assets/swagger-ui/' . $asset);
-            $this->check($loaded['status'] === 200 && strlen($loaded['body']) > 100, 'A vendored Swagger asset is unavailable.');
+            $this->check(
+                $loaded['status'] === 200 && strlen($loaded['body']) > 100,
+                'A vendored Swagger asset is unavailable.'
+            );
         }
         $this->passed('Swagger, its assets and the OpenAPI contract are served locally');
 
@@ -59,36 +71,48 @@ final class StackVerification
             $this->get(self::API . '/metrics', 'Bearer ' . $this->operatorToken),
             $this->get(self::API . '/api/pairs', 'Bearer ' . $this->metricsToken),
         ] as $denied) {
-            $this->check($denied['status'] === 401 && ($denied['json']['error']['code'] ?? null) === 'unauthorized',
-                'An unauthorized or cross-authority request was accepted.');
+            $this->check(
+                $denied['status'] === 401 && ($denied['json']['error']['code'] ?? null) === 'unauthorized',
+                'An unauthorized or cross-authority request was accepted.'
+            );
         }
         $this->passed('Operator and scrape credentials cannot authorize each other');
 
         $listing = $this->get(self::API . '/api/pairs', 'Bearer ' . $this->operatorToken);
         $items = $listing['json']['items'] ?? null;
-        $this->check($listing['status'] === 200 && is_array($items) && $items !== [], 'The initialized local link set is unavailable.');
+        $this->check(
+            $listing['status'] === 200 && is_array($items) && $items !== [],
+            'The initialized local link set is unavailable.'
+        );
         $id = $items[0]['id'] ?? null;
         $this->check(is_string($id), 'A linked pair has no identifier.');
         $inspection = $this->get(self::API . '/api/pairs/' . rawurlencode($id), 'Bearer ' . $this->operatorToken);
-        $this->check($inspection['status'] === 200
+        $this->check(
+            $inspection['status'] === 200
             && in_array($inspection['json']['pair']['status'] ?? null, self::STATUSES, true)
             && ($inspection['json']['governance']['policy_version'] ?? null) === 'escalation-state-v1'
             && is_bool($inspection['json']['governance']['requires_approval'] ?? null),
-            'Operator inspection does not expose the persisted workflow and governance state.');
+            'Operator inspection does not expose the persisted workflow and governance state.'
+        );
         $this->passed('Authenticated inspection exposes workflow and governance evidence');
 
         foreach (['/.env', '/README.md', '/src/Engine.php', '/var/local/local.sqlite'] as $path) {
             $private = $this->get(self::API . $path);
-            $this->check(in_array($private['status'], [400, 404], true)
+            $this->check(
+                in_array($private['status'], [400, 404], true)
                 && !str_contains($private['body'], '<?php') && !str_contains($private['body'], 'SQLite format'),
-                'A private source or state path was served.');
+                'A private source or state path was served.'
+            );
         }
         $this->passed('The HTTP server does not expose private source or state paths');
 
         $exporter = $this->get(self::API . '/metrics', 'Bearer ' . $this->metricsToken);
-        $this->check($exporter['status'] === 200
+        $this->check(
+            $exporter['status'] === 200
             && str_starts_with($exporter['headers']['content-type'] ?? '', 'text/plain; version=0.0.4')
-            && str_ends_with($exporter['body'], "\n"), 'The authenticated exporter is unavailable or has the wrong format.');
+            && str_ends_with($exporter['body'], "\n"),
+            'The authenticated exporter is unavailable or has the wrong format.'
+        );
         $samples = $this->samples($exporter['body']);
         $count = $this->sample($samples, 'support_bridge_reconciliation_duration_seconds_count');
         $total = 0.0;
@@ -98,7 +122,8 @@ final class StackVerification
         $this->check($total === $count && $count >= 1, 'Exported outcome and histogram counts are inconsistent.');
         $previous = 0.0;
         foreach (self::BUCKETS as $bucket) {
-            $value = $this->sample($samples, 'support_bridge_reconciliation_duration_seconds_bucket{le="' . $bucket . '"}');
+            $value = $this->sample($samples, 'support_bridge_reconciliation_duration_seconds_bucket{le="' .
+                $bucket . '"}');
             $this->check($value >= $previous && $value <= $count, 'Exported histogram buckets are inconsistent.');
             $previous = $value;
         }
@@ -106,7 +131,10 @@ final class StackVerification
         foreach ([$this->operatorToken, $this->metricsToken, $this->grafanaPassword, $id,
             $inspection['json']['pair']['baseline']['title'] ?? null] as $private) {
             if (is_string($private) && $private !== '') {
-                $this->check(!str_contains($exporter['body'], $private), 'The exporter disclosed private record or credential data.');
+                $this->check(
+                    !str_contains($exporter['body'], $private),
+                    'The exporter disclosed private record or credential data.'
+                );
             }
         }
         $this->passed('Exporter counters, cumulative histogram and fixed labels are consistent');
@@ -120,10 +148,15 @@ final class StackVerification
             }
             return false;
         }, 'Prometheus did not establish an authenticated healthy scrape.');
-        $this->check($this->promValue('sum(support_bridge_reconciliations_total)') >= 1, 'Prometheus has no reconciliation observations.');
+        $this->check(
+            $this->promValue('sum(support_bridge_reconciliations_total)') >= 1,
+            'Prometheus has no reconciliation observations.'
+        );
         $this->check($this->promValue('sum(support_bridge_pairs)') >= 1, 'Prometheus has no linked-pair gauge.');
-        $this->check($this->promValue('sum(support_bridge_pairs{status="awaiting_approval"})') >= 0,
-            'Prometheus has no approval-wait gauge.');
+        $this->check(
+            $this->promValue('sum(support_bridge_pairs{status="awaiting_approval"})') >= 0,
+            'Prometheus has no approval-wait gauge.'
+        );
         $this->passed('Prometheus performs real authenticated scrapes and returns application metrics');
 
         $rules = $this->get(self::PROMETHEUS . '/api/v1/rules');
@@ -133,9 +166,11 @@ final class StackVerification
                 $loaded[$rule['name'] ?? ''] = $rule;
             }
         }
-        $this->check(count($loaded) === 4
+        $this->check(
+            count($loaded) === 4
             && str_contains($loaded['SupportBridgeOperatorAttention']['query'] ?? '', 'awaiting_approval'),
-            'Prometheus did not load the expected operator-attention rules.');
+            'Prometheus did not load the expected operator-attention rules.'
+        );
         $this->passed('All four example rules are loaded, including pending approvals');
 
         $grafanaAuth = 'Basic ' . base64_encode('admin:' . $this->grafanaPassword);
@@ -144,15 +179,23 @@ final class StackVerification
             return $health['status'] === 200 && ($health['json']['status'] ?? null) === 'OK';
         }, 'Grafana did not establish its provisioned Prometheus datasource.');
         $datasource = $this->get(self::GRAFANA . '/api/datasources/uid/supportbridge-prometheus', $grafanaAuth);
-        $this->check($datasource['status'] === 200 && ($datasource['json']['url'] ?? null) === self::PROMETHEUS,
-            'Grafana must query Prometheus through its Compose service address.');
+        $this->check(
+            $datasource['status'] === 200 && ($datasource['json']['url'] ?? null) === self::PROMETHEUS,
+            'Grafana must query Prometheus through its Compose service address.'
+        );
         $dashboard = $this->get(self::GRAFANA . '/api/dashboards/uid/supportbridge-overview', $grafanaAuth);
         $panels = $dashboard['json']['dashboard']['panels'] ?? null;
-        $this->check($dashboard['status'] === 200 && ($dashboard['json']['meta']['provisioned'] ?? false) === true
-            && is_array($panels) && count($panels) === 8, 'Grafana did not load the provisioned eight-panel dashboard.');
-        $attention = array_filter($panels, static fn(array $panel): bool => ($panel['id'] ?? null) === 3);
+        $this->check(
+            $dashboard['status'] === 200 && ($dashboard['json']['meta']['provisioned'] ?? false) === true
+            && is_array($panels) && count($panels) === 8,
+            'Grafana did not load the provisioned eight-panel dashboard.'
+        );
+        $attention = array_filter($panels, static fn (array $panel): bool => ($panel['id'] ?? null) === 3);
         $expression = array_values($attention)[0]['targets'][0]['expr'] ?? '';
-        $this->check(str_contains($expression, 'awaiting_approval'), 'The dashboard must include plans awaiting approval.');
+        $this->check(
+            str_contains($expression, 'awaiting_approval'),
+            'The dashboard must include plans awaiting approval.'
+        );
         $this->passed('Grafana authenticates, queries its datasource and provisions the approval-aware dashboard');
 
         echo "9 Compose integration checks passed; no operator or provider writes were performed.\n";
@@ -162,8 +205,10 @@ final class StackVerification
     {
         $value = @file_get_contents($path);
         $value = $value === false ? '' : trim($value);
-        $this->check(strlen($value) >= 32 && preg_match('/[\x00-\x20\x7f]/', $value) === 0,
-            'A required generated credential is missing or invalid.');
+        $this->check(
+            strlen($value) >= 32 && preg_match('/[\x00-\x20\x7f]/', $value) === 0,
+            'A required generated credential is missing or invalid.'
+        );
         return $value;
     }
 
@@ -187,7 +232,10 @@ final class StackVerification
         $body = curl_exec($handle);
         $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
         curl_close($handle);
-        $this->check(is_string($body) && strlen($body) <= 4_194_304, 'An internal HTTP read failed or exceeded the verification limit.');
+        $this->check(
+            is_string($body) && strlen($body) <= 4_194_304,
+            'An internal HTTP read failed or exceeded the verification limit.'
+        );
         $json = null;
         if (str_starts_with($headers['content-type'] ?? '', 'application/json')) {
             $json = json_decode($body, true, 128, JSON_THROW_ON_ERROR);
@@ -214,8 +262,11 @@ final class StackVerification
     {
         $response = $this->get(self::PROMETHEUS . '/api/v1/query?' . http_build_query(['query' => $expression]));
         $value = $response['json']['data']['result'][0]['value'][1] ?? null;
-        $this->check($response['status'] === 200 && ($response['json']['status'] ?? null) === 'success'
-            && is_string($value) && is_numeric($value) && is_finite((float) $value), 'An expected Prometheus query result is unavailable.');
+        $this->check(
+            $response['status'] === 200 && ($response['json']['status'] ?? null) === 'success'
+            && is_string($value) && is_numeric($value) && is_finite((float) $value),
+            'An expected Prometheus query result is unavailable.'
+        );
         return (float) $value;
     }
 
@@ -227,24 +278,38 @@ final class StackVerification
             if ($line === '' || str_starts_with($line, '#')) {
                 continue;
             }
-            $this->check(preg_match('/^([a-z_]+)(?:\{([a-z]+)="([^"]+)"\})? ([0-9.eE+-]+)$/D', $line, $matches) === 1,
-                'The exporter emitted an unexpected sample shape.');
+            $this->check(
+                preg_match('/^([a-z_]+)(?:\{([a-z]+)="([^"]+)"\})? ([0-9.eE+-]+)$/D', $line, $matches) === 1,
+                'The exporter emitted an unexpected sample shape.'
+            );
             $name = $matches[1];
             $label = $matches[2] ?? '';
             $value = $matches[3] ?? '';
             $allowed = match ($name) {
-                'support_bridge_reconciliations_total' => $label === 'outcome' && in_array($value, self::OUTCOMES, true),
+                'support_bridge_reconciliations_total' => $label === 'outcome' && in_array(
+                    $value,
+                    self::OUTCOMES,
+                    true
+                ),
                 'support_bridge_pairs' => $label === 'status' && in_array($value, self::STATUSES, true),
-                'support_bridge_reconciliation_duration_seconds_bucket' => $label === 'le' && in_array($value, self::BUCKETS, true),
-                'support_bridge_reconciliation_duration_seconds_sum', 'support_bridge_reconciliation_duration_seconds_count',
-                'support_bridge_telemetry_storage_available', 'support_bridge_pending_plans', 'support_bridge_last_success_timestamp_seconds' => $label === '',
+                'support_bridge_reconciliation_duration_seconds_bucket' => $label === 'le' && in_array(
+                    $value,
+                    self::BUCKETS,
+                    true
+                ),
+                'support_bridge_reconciliation_duration_seconds_sum',
+                'support_bridge_reconciliation_duration_seconds_count',
+                'support_bridge_telemetry_storage_available', 'support_bridge_pending_plans',
+                'support_bridge_last_success_timestamp_seconds' => $label === '',
                 default => false,
             };
             $this->check($allowed, 'The exporter emitted an unexpected name or label.');
             $identity = explode(' ', $line)[0];
             $numeric = (float) end($matches);
-            $this->check(!isset($samples[$identity]) && is_finite($numeric) && $numeric >= 0,
-                'The exporter emitted a duplicate or invalid sample.');
+            $this->check(
+                !isset($samples[$identity]) && is_finite($numeric) && $numeric >= 0,
+                'The exporter emitted a duplicate or invalid sample.'
+            );
             $samples[$identity] = $numeric;
         }
         return $samples;

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Bridge\Domain;
@@ -6,7 +7,10 @@ namespace Bridge\Domain;
 /** Pure three-way merge of the deliberately small canonical model. */
 final class MergePolicy
 {
-    public const FIELDS = ['title', 'state'];
+    public const FIELDS = [
+        'title',
+        'state',
+    ];
 
     /** Inputs are canonical fields already validated at the provider boundary. */
     public function decide(?array $baseline, array $github, array $zendesk): MergeDecision

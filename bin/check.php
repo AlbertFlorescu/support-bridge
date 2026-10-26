@@ -1,13 +1,18 @@
 #!/usr/bin/env php
 <?php
-declare(strict_types=1);
 
 /** One local/CI entry point; no Composer or shell-specific syntax required. */
+
+declare(strict_types=1);
+
 $root = dirname(__DIR__);
 chdir($root);
 $files = [__DIR__ . '/../bootstrap.php'];
 foreach (['src', 'bin', 'tests', 'public', 'docker'] as $directory) {
-    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $directory, FilesystemIterator::SKIP_DOTS));
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(
+        $root . '/' . $directory,
+        FilesystemIterator::SKIP_DOTS
+    ));
     foreach ($iterator as $file) {
         if ($file->getExtension() === 'php') {
             $files[] = $file->getPathname();
@@ -38,6 +43,21 @@ foreach ($files as $file) {
     $run([PHP_BINARY, '-l', $file], true);
 }
 echo 'PHP syntax: ' . count($files) . " files passed.\n\n";
-foreach (['tests/domain.php', 'tests/run.php', 'tests/governance.php', 'tests/http.php', 'tests/observability.php', 'tests/api.php', 'tests/api-server.php', 'tests/traffic.php', 'bin/demo.php'] as $script) {
+foreach (
+    [
+        'tests/domain.php',
+        'tests/run.php',
+        'tests/governance.php',
+        'tests/persistence.php',
+        'tests/application.php',
+        'tests/adapters.php',
+        'tests/http.php',
+        'tests/observability.php',
+        'tests/api.php',
+        'tests/api-server.php',
+        'tests/traffic.php',
+        'bin/demo.php',
+    ] as $script
+) {
     $run([PHP_BINARY, $root . '/' . $script]);
 }
