@@ -1,0 +1,101 @@
+name: Repair dependency assets
+
+on:
+  workflow_run:
+    workflows: [Verify]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Same-repository dependency PR whose Swagger files should be regenerated
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: dependency-assets-${{ github.event.workflow_run.head_branch || inputs.pr }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare static assets using trusted code
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_repository.full_name == github.repository) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      changed: ${{ steps.result.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - name: Resolve an eligible dependency PR
+        id: select
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 tools/security/vendor_repair.py select --repository "$REPOSITORY" --event-name "$GITHUB_EVENT_NAME" --event-file "$GITHUB_EVENT_PATH" --output "$GITHUB_OUTPUT"
+      - name: Prepare only allowlisted static assets
+        if: ${{ steps.select.outputs.eligible == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.select.outputs.pr }}
+          EXPECTED_HEAD: ${{ steps.select.outputs.head_sha }}
+          MANUAL: ${{ steps.select.outputs.manual }}
+        run: |
+          if [ "$MANUAL" = true ]; then
+            python3 tools/security/vendor_repair.py prepare --repository "$REPOSITORY" --pr "$PR_NUMBER" --expected-head "$EXPECTED_HEAD" --manual --output "$RUNNER_TEMP/vendor-repair.json"
+          else
+            python3 tools/security/vendor_repair.py prepare --repository "$REPOSITORY" --pr "$PR_NUMBER" --expected-head "$EXPECTED_HEAD" --output "$RUNNER_TEMP/vendor-repair.json"
+          fi
+      - name: Check whether generated assets need a commit
+        id: result
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'vendor-repair.json'
+          changed = path.exists() and json.loads(path.read_text()).get('changed') is True
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('changed=' + str(changed).lower() + '\n')
+          PY
+      - name: Retain the bounded repair proposal for the isolated publisher
+        if: ${{ steps.result.outputs.changed == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vendor-repair
+          path: ${{ runner.temp }}/vendor-repair.json
+          retention-days: 1
+
+  publish:
+    name: Commit repaired assets and rerun CI
+    needs: prepare
+    if: ${{ needs.prepare.outputs.changed == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: vendor-repair
+          path: ${{ runner.temp }}/vendor-repair
+      - name: Publish a fresh-head commit without approving or merging
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 tools/security/vendor_repair.py publish --input "$RUNNER_TEMP/vendor-repair/vendor-repair.json" --repository "$REPOSITORY"

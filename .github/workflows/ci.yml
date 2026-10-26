@@ -34,9 +34,11 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: tools/api-docs/package-lock.json
+      - name: Test vulnerability reporting and safe asset repair
+        run: python3 -m unittest discover -s tools/security -p 'test_*.py' -v
       - name: Validate OpenAPI and actual HTTP response fixtures
         working-directory: tools/api-docs
-        run: npm ci --ignore-scripts --no-audit --no-fund && node validate.cjs
+        run: npm ci --ignore-scripts --no-audit --no-fund && node check-vendor.cjs && node validate.cjs
       - name: Retain synthetic API response fixtures
         if: ${{ always() && !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

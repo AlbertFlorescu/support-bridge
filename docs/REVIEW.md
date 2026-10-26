@@ -94,6 +94,14 @@ We added tests and controls for these concrete failure cases:
 
 A separate AI-assisted Code Reviewer pass inspected approval, recovery, API and migration paths and independently ran 17 governance, 29 API and 16 observability checks. It found no actionable blocker within that scope. This is bounded review evidence, not a security or compliance certification. [Development tooling](TOOLING-INSTALLATION.md) records the separate, partial REA artifact analysis and its limits.
 
+## Vulnerability automation verification: 2026-10-26
+
+The native repository APIs confirmed Dependabot alerts enabled and automatic security updates enabled and unpaused. The native alert feed reported zero open alerts at setup; that is separate from image-scanner coverage.
+
+Local verification passed 59 Python security-tool tests with one Node-dependent fixture skipped in WSL. The actual Node checker also passed against the committed Swagger assets, and the Docker verification image passed 136 PHP tests, nine demo assertions, 49 lint checks, Swagger byte equality, 11 OpenAPI paths and 27 actual response fixtures. Hosted Verify installs Node 24 before running the security-tool suite so that fixture is exercised there.
+
+The tests cover incomplete scans, stale databases, metadata failures and rejected IDs, unsafe output, exact-head atomic publication, ancestor-reset races, dependency-source restrictions and retention of earlier issue evidence. We verified GitHub's live GraphQL input schema for atomic branch commits. Source metadata and scanner matching remain bounded by the coverage and retention limits in [SECURITY.md](../SECURITY.md). Hosted inventory, tracker publication and repair execution are recorded in [GitHub Actions](https://github.com/AlbertFlorescu/support-bridge/actions); local tests alone do not establish those integrations.
+
 ## Validation still required
 
 We have not validated live GitHub/Zendesk sandbox accounts, customer-specific statuses/triggers, production load, restore procedures, customer outcomes or notification delivery. The shared operator token does not establish individual or human identity. Approval has no expiry/revocation workflow. GitHub's preflight/PATCH race and provider timestamp granularity remain material limitations. Our governance controls do not determine whether customer obligations have been fulfilled.
