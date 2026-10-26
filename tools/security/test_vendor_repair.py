@@ -61,6 +61,12 @@ class FakeAPI:
         self.truncated = False
         self.symlink_path = None
         self.permission = "write"
+        self.published = False
+        self.cached_read_count = 0
+        self.confirmation_reads = 0
+        self.confirmation_override = None
+        self.zero_diff_on_commit = False
+        self.confirmation_api_error = False
 
     def request(self, method, path, payload=None):
         self.calls.append((method, path, copy.deepcopy(payload)))
@@ -69,7 +75,18 @@ class FakeAPI:
             self.reads += 1
             if self.move_on_read == self.reads:
                 self.pull["head"]["sha"] = "e" * 40
-            return copy.deepcopy(self.pull)
+            observed = copy.deepcopy(self.pull)
+            if self.published:
+                self.confirmation_reads += 1
+                if self.confirmation_api_error:
+                    raise repair.RepairError("GitHub API request failed (HTTP 503).")
+                if self.cached_read_count:
+                    self.cached_read_count -= 1
+                    observed["head"]["sha"] = HEAD
+                    observed["changed_files"] = 2
+                if self.confirmation_override:
+                    self.confirmation_override(observed)
+            return observed
         if method == "GET" and suffix.startswith("pulls/12/files?"):
             return copy.deepcopy(self.changed)
         if method == "GET" and suffix.startswith("pulls?state=open"):
@@ -97,7 +114,10 @@ class FakeAPI:
                 return {"data": {"createCommitOnBranch": None}, "errors": [{"message": "Head does not match expectedHeadOid"}]}
             self.pull["head"]["sha"] = NEW_HEAD
             self.changed = [{"filename": name, "status": "modified"} for name in sorted(repair.ALLOWED_PATHS)]
+            if self.zero_diff_on_commit:
+                self.changed = []
             self.pull["changed_files"] = len(self.changed)
+            self.published = True
             return {"data": {"createCommitOnBranch": {"commit": {"oid": NEW_HEAD}}}}
         if method == "POST" and suffix == "actions/workflows/ci.yml/dispatches":
             return None
@@ -215,6 +235,78 @@ class VendorRepairTests(unittest.TestCase):
         with self.assertRaisesRegex(repair.RepairError, "rejected"):
             repair.publish(api, REPOSITORY, manifest)
         self.assertEqual(api.pull["head"]["sha"], HEAD)
+        self.assertFalse(any(path.endswith("dispatches") for unused_method, path, unused_payload in api.calls))
+
+    def test_confirmation_retries_two_cached_heads_without_repeating_mutation(self):
+        api = FakeAPI()
+        manifest = self.prepare(api)
+        api.cached_read_count = 2
+        sleeps = []
+        result = repair.publish(api, REPOSITORY, manifest, sleeper=sleeps.append)
+        self.assertTrue(result["ci_dispatched"])
+        self.assertEqual(api.confirmation_reads, 3)
+        self.assertEqual(sleeps, [1, 1])
+        self.assertEqual(sum(path == "graphql" for unused_method, path, unused_payload in api.calls), 1)
+
+    def test_confirmation_refuses_third_head_ref_or_identity_without_retry(self):
+        changes = {
+            "third_head": lambda pull: pull["head"].update(sha="e" * 40),
+            "ancestor": lambda pull: pull["head"].update(sha="0" * 40),
+            "branch": lambda pull: pull["head"].update(ref="feature/replaced-branch"),
+            "fork": lambda pull: pull["head"]["repo"].update(full_name="attacker/fork"),
+            "base": lambda pull: pull["base"].update(ref="other"),
+            "author": lambda pull: pull.update(user={"login": "unknown-user", "type": "User"}),
+        }
+        for name, change in changes.items():
+            with self.subTest(change=name):
+                api = FakeAPI()
+                manifest = self.prepare(api)
+                api.confirmation_override = change
+                sleeps = []
+                with self.assertRaises(repair.RepairError):
+                    repair.publish(api, REPOSITORY, manifest, sleeper=sleeps.append)
+                self.assertEqual(api.confirmation_reads, 1)
+                self.assertEqual(sleeps, [])
+                self.assertEqual(sum(path == "graphql" for unused_method, path, unused_payload in api.calls), 1)
+                self.assertFalse(any(path.endswith("dispatches") for unused_method, path, unused_payload in api.calls))
+
+    def test_post_commit_zero_diff_is_allowed_but_initial_zero_diff_is_not(self):
+        api = FakeAPI()
+        manifest = self.prepare(api)
+        api.zero_diff_on_commit = True
+        api.cached_read_count = 2
+        sleeps = []
+        self.assertTrue(repair.publish(api, REPOSITORY, manifest, sleeper=sleeps.append)["ci_dispatched"])
+        self.assertEqual(api.pull["changed_files"], 0)
+        self.assertEqual(sleeps, [1, 1])
+        api = FakeAPI()
+        api.pull["changed_files"] = 0
+        api.changed = []
+        with self.assertRaises(repair.Ineligible):
+            self.prepare(api)
+        self.assertFalse(any(method != "GET" for method, unused_path, unused_payload in api.calls))
+
+    def test_confirmation_retry_budget_exhaustion_never_dispatches(self):
+        api = FakeAPI()
+        manifest = self.prepare(api)
+        api.cached_read_count = 10
+        sleeps = []
+        with self.assertRaisesRegex(repair.RepairError, "retry limit"):
+            repair.publish(api, REPOSITORY, manifest, sleeper=sleeps.append)
+        self.assertEqual(api.confirmation_reads, 5)
+        self.assertEqual(sleeps, [1, 1, 1, 1])
+        self.assertEqual(sum(path == "graphql" for unused_method, path, unused_payload in api.calls), 1)
+        self.assertFalse(any(path.endswith("dispatches") for unused_method, path, unused_payload in api.calls))
+
+    def test_confirmation_api_failure_is_not_a_cached_observation(self):
+        api = FakeAPI()
+        manifest = self.prepare(api)
+        api.confirmation_api_error = True
+        sleeps = []
+        with self.assertRaisesRegex(repair.RepairError, "503"):
+            repair.publish(api, REPOSITORY, manifest, sleeper=sleeps.append)
+        self.assertEqual(api.confirmation_reads, 1)
+        self.assertEqual(sleeps, [])
         self.assertFalse(any(path.endswith("dispatches") for unused_method, path, unused_payload in api.calls))
 
     def test_tampered_manifest_rejected_without_writes(self):
