@@ -14,7 +14,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
@@ -56,12 +56,18 @@ class JsonClient:
         self.next_nvd = 0.0
         self.deadline = time.monotonic() + 180
 
-    def request(self, method, url, token="", body=None, nvd_key=""):
+    def get_page(self, url, token=""):
+        """Return JSON plus only the Link header needed by cursor pagination."""
+        return self.request("GET", url, token=token, include_link=True)
+
+    def request(self, method, url, token="", body=None, nvd_key="", include_link=False):
         parsed = urlsplit(url)
         if parsed.scheme != "https" or parsed.netloc not in {
             "api.github.com", "raw.githubusercontent.com", "services.nvd.nist.gov"
         } or parsed.username or parsed.password or parsed.fragment:
             raise FetchError("unapproved source URL")
+        if include_link and (method != "GET" or parsed.netloc != "api.github.com" or body is not None):
+            raise FetchError("invalid paginated request")
         headers = {"Accept": "application/json", "User-Agent": "Support-Bridge-CVE-Tracker"}
         if token:
             if parsed.netloc != "api.github.com" or "\n" in token or "\r" in token:
@@ -89,9 +95,13 @@ class JsonClient:
             try:
                 with self.opener.open(Request(url, data=data, headers=headers, method=method), timeout=min(15, remaining)) as response:
                     raw = response.read(MAX_RESPONSE + 1)
+                    link = response.headers.get("Link", "") if include_link else ""
                 if len(raw) > MAX_RESPONSE:
                     raise FetchError("source response exceeds size limit")
-                return json.loads(raw)
+                if len(link) > 16384:
+                    raise FetchError("source pagination header exceeds size limit")
+                result = json.loads(raw)
+                return (result, link) if include_link else result
             except HTTPError as error:
                 retryable = error.code in (403, 429, 500, 502, 503, 504)
                 if retryable and attempt + 1 < attempts:
@@ -232,8 +242,73 @@ def github_pages(client, path, token, page_limit=5):
     raise FetchError("GitHub pagination limit reached")
 
 
+def native_next_url(link, expected_path, canonical_path=None):
+    """Accept only a next cursor on this exact native-alert collection."""
+    if not isinstance(link, str) or len(link) > 16384:
+        raise FetchError("invalid native alert pagination header")
+    candidate = None
+    if not link:
+        return None
+    for entry in re.split(r",\s*(?=<)", link):
+        match = re.fullmatch(r'\s*<([^<>]+)>\s*;\s*rel=(?:"([A-Za-z ]+)"|([A-Za-z]+))\s*', entry)
+        if match is None:
+            raise FetchError("invalid native alert pagination header")
+        if "next" not in (match.group(2) or match.group(3)).split():
+            continue
+        if candidate is not None:
+            raise FetchError("ambiguous native alert next link")
+        parsed = urlsplit(match.group(1))
+        if parsed.scheme != "https" or parsed.netloc != "api.github.com" or parsed.fragment:
+            raise FetchError("invalid native alert next destination")
+        try:
+            pairs = parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=True)
+        except ValueError:
+            raise FetchError("invalid native alert next query") from None
+        query = dict(pairs)
+        if len(query) != len(pairs) or set(query) != {"state", "per_page", "after"} or query["state"] != "open" or query["per_page"] != "100":
+            raise FetchError("invalid native alert next query")
+        cursor = query["after"]
+        if not cursor or len(cursor) > 1024 or any(ord(char) < 33 or ord(char) > 126 for char in cursor):
+            raise FetchError("invalid native alert cursor")
+        if parsed.path != expected_path:
+            if not re.fullmatch(r"/repositories/[1-9][0-9]*/dependabot/alerts", parsed.path) or canonical_path is None or parsed.path != canonical_path():
+                raise FetchError("invalid native alert next destination")
+        candidate = "https://api.github.com" + parsed.path + "?" + urlencode({"state": "open", "per_page": 100, "after": cursor})
+    return candidate
+
+
+def native_alert_pages(client, repository, token, page_limit=10):
+    path = f"/repos/{repository}/dependabot/alerts"
+    url = "https://api.github.com" + path + "?" + urlencode({"state": "open", "per_page": 100})
+    visited, rows = set(), []
+    verified_path = None
+
+    def canonical_path():
+        nonlocal verified_path
+        if verified_path is None:
+            metadata = client.request("GET", "https://api.github.com/repos/" + repository, token=token)
+            if not isinstance(metadata, dict) or metadata.get("full_name") != repository or type(metadata.get("id")) is not int or metadata["id"] <= 0:
+                raise FetchError("native alert repository identity mismatch")
+            verified_path = f"/repositories/{metadata['id']}/dependabot/alerts"
+        return verified_path
+
+    for _ in range(page_limit):
+        if url in visited:
+            raise FetchError("native alert pagination cycle")
+        visited.add(url)
+        data, link = client.get_page(url, token=token)
+        if not isinstance(data, list) or len(data) > 100:
+            raise FetchError("invalid native alert collection")
+        rows.extend(data)
+        next_url = native_next_url(link, path, canonical_path)
+        if next_url is None:
+            return rows
+        url = next_url
+    raise FetchError("native alert pagination limit reached")
+
+
 def native_alerts(client, repository, token):
-    data = github_pages(client, f"/repos/{repository}/dependabot/alerts?state=open", token)
+    data = native_alert_pages(client, repository, token)
     rows = []
     for alert in data:
         dependency = alert.get("dependency", {})
@@ -411,9 +486,21 @@ def build_report(input_dir, repository, sha, run_url, client=None, github_token=
             extra = native_alerts(client, repository, github_token)
             rows.extend(extra)
             native = {"status": "complete", "observations": len(extra)}
-        except (FetchError, CollectionError, ValueError, TypeError, AttributeError):
+        except FetchError as error:
+            known_causes = {"source connection failed", "source returned invalid JSON", "source request time budget exhausted",
+                            "source response exceeds size limit", "source pagination header exceeds size limit",
+                            "invalid native alert pagination header", "ambiguous native alert next link",
+                            "invalid native alert next destination", "invalid native alert next query",
+                            "invalid native alert cursor", "native alert pagination cycle",
+                            "invalid native alert collection", "native alert pagination limit reached",
+                            "native alert repository identity mismatch"}
+            cause = ("HTTP " + str(error.status)) if type(error.status) is int and 100 <= error.status <= 599 else (
+                str(error) if str(error) in known_causes else "collection or transport failure")
+            native = {"status": "incomplete", "error": cause}
+            errors.append("Dependabot alerts could not be collected completely (" + cause + ")")
+        except (CollectionError, ValueError, TypeError, AttributeError):
             native = {"status": "incomplete"}
-            errors.append("Dependabot alerts could not be collected completely")
+            errors.append("Dependabot alerts could not be collected completely (invalid alert response)")
     rows = merge_findings(rows)
     if len(rows) > MAX_FINDINGS:
         errors.append("finding limit reached; output is truncated")

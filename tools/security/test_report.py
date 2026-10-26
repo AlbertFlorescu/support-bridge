@@ -33,6 +33,9 @@ class Sources:
         self.fail_alerts = False
         self.alerts = []
 
+    def get_page(self, url, token=""):
+        return self.request("GET", url, token=token), ""
+
     def request(self, method, url, **kwargs):
         self.calls.append((method, url, kwargs))
         if "/dependabot/alerts" in url:
@@ -282,6 +285,107 @@ class ReportTests(unittest.TestCase):
         result = self.build(github_token="test-only-token")
         self.assertEqual(result["status"], "incomplete")
         self.assertEqual(result["dependabot"]["status"], "incomplete")
+        self.assertEqual(result["dependabot"]["error"], "HTTP 403")
+        self.assertIn("Dependabot alerts could not be collected completely (HTTP 403)", result["errors"])
+
+    def test_native_zero_alerts_uses_no_page_parameter(self):
+        self.assertEqual(report.native_alert_pages(self.sources, REPO, "test-only-token"), [])
+        self.assertEqual(len(self.sources.calls), 1)
+        query = dict(parse_qs(urlsplit(self.sources.calls[0][1]).query))
+        self.assertEqual(query, {"state": ["open"], "per_page": ["100"]})
+        self.assertNotIn("page", query)
+
+    def test_native_alerts_follow_two_cursor_pages_and_ignore_previous_link(self):
+        initial = f"https://api.github.com/repos/{REPO}/dependabot/alerts?state=open&per_page=100"
+        following = initial + "&after=Y3Vyc29yOnYyOpK5MQ%3D%3D"
+
+        class CursorPages:
+            def __init__(self):
+                self.calls = []
+
+            def get_page(self, url, token=""):
+                self.calls.append(url)
+                if url == initial:
+                    return [{"number": 1}], f'<{following}>; rel="next"'
+                if url == following:
+                    return [{"number": 2}], f'<{initial}>; rel="prev"'
+                raise AssertionError("unexpected continuation")
+
+        client = CursorPages()
+        self.assertEqual(report.native_alert_pages(client, REPO, "test-only-token"), [{"number": 1}, {"number": 2}])
+        self.assertEqual(client.calls, [initial, following])
+        self.assertTrue(all("page" not in parse_qs(urlsplit(url).query) for url in client.calls))
+
+    def test_native_canonical_cursor_path_requires_verified_repository_identity(self):
+        initial = f"https://api.github.com/repos/{REPO}/dependabot/alerts?state=open&per_page=100"
+        following = "https://api.github.com/repositories/1432935660/dependabot/alerts?state=open&per_page=100&after=cursor"
+
+        class CanonicalPages:
+            def __init__(self, metadata=None):
+                self.metadata = metadata or {"full_name": REPO, "id": 1432935660}
+                self.calls = []
+
+            def get_page(self, url, token=""):
+                self.calls.append(url)
+                if url == initial:
+                    return [{"number": 1}], f'<{following}>; rel="next"'
+                if url == following:
+                    return [{"number": 2}], ""
+                raise AssertionError("unvalidated canonical URL requested")
+
+            def request(self, method, url, **kwargs):
+                self.calls.append(url)
+                if method != "GET" or url != "https://api.github.com/repos/" + REPO:
+                    raise AssertionError("unexpected metadata request")
+                return self.metadata
+
+        client = CanonicalPages()
+        self.assertEqual(report.native_alert_pages(client, REPO, "test-only-token"), [{"number": 1}, {"number": 2}])
+        self.assertEqual(client.calls, [initial, "https://api.github.com/repos/" + REPO, following])
+        for metadata in ({"full_name": "other/repository", "id": 1432935660},
+                         {"full_name": REPO, "id": 123}, {"full_name": REPO, "id": True}):
+            with self.subTest(metadata=metadata), self.assertRaises(report.FetchError):
+                report.native_alert_pages(CanonicalPages(metadata), REPO, "test-only-token")
+
+    def test_native_pagination_rejects_missing_cursor_foreign_host_path_and_query(self):
+        path = f"/repos/{REPO}/dependabot/alerts"
+        base = "https://api.github.com" + path
+        invalid = [base + "?state=open&per_page=100", base + "?state=open&per_page=100&after=",
+                   "https://foreign.example" + path + "?state=open&per_page=100&after=abc",
+                   base.replace("/dependabot/alerts", "/issues") + "?state=open&per_page=100&after=abc",
+                   base + "?state=open&per_page=100&after=abc&page=2", base + "?state=closed&per_page=100&after=abc",
+                   base + "?state=open&per_page=100&after=abc&after=def"]
+        for url in invalid:
+            with self.subTest(url=url), self.assertRaises(report.FetchError):
+                report.native_next_url(f'<{url}>; rel="next"', path)
+
+    def test_native_pagination_rejects_cycles_and_page_bound(self):
+        next_url = f"https://api.github.com/repos/{REPO}/dependabot/alerts?state=open&per_page=100&after=same"
+
+        class Cycling:
+            calls = 0
+
+            def get_page(self, url, token=""):
+                self.calls += 1
+                return [{"number": 1}], f'<{next_url}>; rel="next"'
+
+        client = Cycling()
+        with self.assertRaisesRegex(report.FetchError, "cycle"):
+            report.native_alert_pages(client, REPO, "test-only-token")
+        self.assertEqual(client.calls, 2)
+
+        class TooManyPages:
+            calls = 0
+
+            def get_page(self, url, token=""):
+                self.calls += 1
+                link = next_url.replace("after=same", "after=" + str(self.calls))
+                return [{"number": 1}] * 100, f'<{link}>; rel="next"'
+
+        client = TooManyPages()
+        with self.assertRaisesRegex(report.FetchError, "limit reached"):
+            report.native_alert_pages(client, REPO, "test-only-token")
+        self.assertEqual(client.calls, 10)
 
     def test_fingerprint_ignores_run_image_and_scan_timestamps(self):
         self.add_vulnerability()
