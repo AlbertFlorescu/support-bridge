@@ -51,7 +51,7 @@ GitHub's PR metadata can briefly lag a successful branch commit. Confirmation ma
 
 Maintainers can manually dispatch **Repair dependency assets** on `main` with a numeric `pr` input for an eligible same-repository dependency PR. Manual selection also checks the PR author's repository write permission. This is useful for a maintainer-authored fix or a repair retry. It does not permit arbitrary changed files or execution of the PR's code.
 
-Container findings show upstream fixed versions where known. Dependabot continues to propose supported-line image updates, and the inventory scans candidate PR images. A required fix outside the selected line needs an explicit migration review; no available fix remains an open finding. We do not rewrite arbitrary Docker instructions, run blind package upgrades, suppress advisories or deploy containers automatically. Newly built images and a running deployment can differ; a successful rebuild is not deployment evidence.
+Container findings show upstream package fixed versions where known. The tracker links to open Dependabot PRs and image update locations. Dependabot checks declared dependencies daily and can propose new image version lines; adopting a new line still needs migration review and passing tests. A fixed OS or bundled Go package version does not itself prove a newer parent image contains the fix. We do not rewrite arbitrary Docker instructions, run blind package upgrades, suppress advisories or deploy containers automatically. Newly built images and a running deployment can differ; a successful rebuild is not deployment evidence.
 
 ## Local verification
 

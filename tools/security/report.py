@@ -33,6 +33,7 @@ FINGERPRINT = "<!-- support-bridge-cve-fingerprint:"
 NOTICE = "This product uses data from the NVD API but is not endorsed or certified by the NVD."
 MAX_RESPONSE = 2 * 1024 * 1024
 MAX_FINDINGS = 20000
+SUMMARY_FORMAT_VERSION = 2
 
 
 class CollectionError(Exception):
@@ -508,7 +509,7 @@ def build_report(input_dir, repository, sha, run_url, client=None, github_token=
     enrichment = enrich(rows, client, nvd_key, enrichment_limit)
     complete = not errors
     status = "incomplete" if not complete else ("enrichment_partial" if not enrichment["complete"] else ("attention_required" if rows else "no_reported_findings"))
-    report = {"schema_version": 1, "repository": repository, "sha": sha, "run_url": run_url,
+    report = {"schema_version": 1, "summary_format_version": SUMMARY_FORMAT_VERSION, "repository": repository, "sha": sha, "run_url": run_url,
               "generated_at": datetime.now(timezone.utc).isoformat(), "status": status,
               "inventory_complete": complete, "attention_required": bool(rows), "findings": rows,
               "errors": sorted(set(errors)), "components": sorted(components, key=lambda r: r["name"]),
@@ -517,7 +518,7 @@ def build_report(input_dir, repository, sha, run_url, client=None, github_token=
     identity_rows = [{key: row[key] for key in ("component", "package", "installed_version", "fixed_version", "advisory_id", "severity", "aliases", "sources")} for row in rows]
     identity_enrichment = {identifier: {source: {key: value for key, value in details.items() if key != "updated_at"}
                                       for source, details in record.items()} for identifier, record in enrichment["records"].items()}
-    identity = {"status": status, "findings": identity_rows, "errors": report["errors"], "components": report["components"],
+    identity = {"summary_format_version": SUMMARY_FORMAT_VERSION, "status": status, "findings": identity_rows, "errors": report["errors"], "components": report["components"],
                 "dependabot": native, "enrichment": identity_enrichment, "omitted": enrichment["omitted"]}
     report["fingerprint"] = hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return report
@@ -533,7 +534,17 @@ def render_summary(report):
         lines += ["", "**Collection is incomplete. Empty or reduced results must not clear earlier findings.**"]
     if report["errors"]:
         lines += ["", *["- " + safe(error) for error in report["errors"][:20]]]
-    lines += ["", "| Component | Package | Installed | Advisory | Severity | Fix version/proposal |",
+    repository = report["repository"]
+    lines += ["", "### Available update proposals", "",
+              f"[Open Dependabot PRs](https://github.com/{repository}/pulls?q=is%3Apr+is%3Aopen+author%3Aapp%2Fdependabot) · "
+              f"[Dependabot update jobs](https://github.com/{repository}/network/updates)", "",
+              "Dependabot proposes updates to dependencies declared in our manifests and image pins, including new version lines. Review the candidate's release notes and CI before adopting it.", "",
+              "The vendor fixed versions below describe individual packages, not necessarily an available parent-image release. "
+              "Bundled OS/Go library findings require a parent-image update, vendor fix or reviewed rebuild; Dependabot cannot directly edit those packages inside a prebuilt image.", "",
+              f"Image update locations: [PHP/Node](https://github.com/{repository}/blob/main/Dockerfile), "
+              f"[Prometheus](https://github.com/{repository}/blob/main/docker/prometheus.Dockerfile), "
+              f"[Grafana](https://github.com/{repository}/blob/main/docker/grafana.Dockerfile).", "",
+              "### Finding observations", "", "| Component | Package | Installed | Advisory | Severity | Vendor fixed version |",
               "| --- | --- | --- | --- | --- | --- |"]
     for row in report["findings"][:60]:
         identifier = row["advisory_id"]
