@@ -61,7 +61,7 @@ These native commands use filesystem state outside the Compose volumes. The demo
 For development, Composer installs the locked PHP_CodeSniffer tool; it adds no runtime package:
 
 ```bash
-sudo apt-get install php-xml
+sudo apt-get install composer php-xml unzip
 composer install --no-interaction --no-plugins --no-scripts
 composer autoload:check
 composer style
@@ -74,6 +74,7 @@ Classes follow the [PSR-4](https://www.php-fig.org/psr/psr-4/) `Bridge\` → `sr
 The following native CLI example uses `var/local`, separate from both Docker projects. Use the [Docker workflow commands](docs/DOCKER.md#operate-the-workflow) to operate container state. Local mode is the default; the sample links issue `101` and ticket `501`:
 
 ```bash
+export BRIDGE_MODE=local
 php bin/bridge.php init
 php bin/bridge.php sync
 php bin/bridge.php local-edit zendesk 501 state closed

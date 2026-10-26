@@ -16,6 +16,7 @@ The full gate lints PHP and runs pure policies, durable reconciliation/governanc
 ## Explore a linked escalation
 
 ```bash
+export BRIDGE_MODE=local
 php bin/bridge.php init
 php bin/bridge.php sync
 php bin/bridge.php local-edit zendesk 501 title 'Export fails above 100k rows'
