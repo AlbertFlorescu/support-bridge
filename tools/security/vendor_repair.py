@@ -13,6 +13,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
@@ -27,6 +28,8 @@ MAX_ASSET_BYTES = 8 * 1024 * 1024
 MAX_PACKAGE_BYTES = 1024 * 1024
 MAX_MANIFEST_BYTES = 48 * 1024 * 1024
 MAX_API_BYTES = 20 * 1024 * 1024
+CONFIRMATION_ATTEMPTS = 5
+CONFIRMATION_DELAY = 1
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 SEMVER = re.compile(r"[~^]?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\Z")
 PACKAGE_NAME = re.compile(r"(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*\Z")
@@ -140,9 +143,9 @@ class GitHubAPI:
         return strict_json(raw) if raw else None
 
 
-def checked_pr(api, repository, number, manual=False, expected_head=None):
+def _checked_pr_identity(api, repository, number, manual=False, expected_head=None, observed=None):
     require(type(number) is int and 0 < number < 1000000000, "Invalid pull request number.")
-    pull = api.request("GET", f"repos/{repository}/pulls/{number}")
+    pull = observed if observed is not None else api.request("GET", f"repos/{repository}/pulls/{number}")
     require(isinstance(pull, dict) and pull.get("number") == number, "Invalid pull request response.")
     eligible(pull.get("state") == "open", "Pull request is not open.")
     eligible(pull.get("base", {}).get("ref") == "main" and pull.get("base", {}).get("repo", {}).get("full_name") == repository, "Pull request must target this repository's main branch.")
@@ -161,8 +164,13 @@ def checked_pr(api, repository, number, manual=False, expected_head=None):
         eligible(isinstance(permission, dict) and permission.get("permission") in ("admin", "maintain", "write"), "Manual repair requires a maintainer-authored pull request.")
     else:
         eligible(native_bot, "Only native dependency-update pull requests are eligible.")
+    return pull
+
+
+def checked_pr(api, repository, number, manual=False, expected_head=None, allow_empty=False, *, observed=None):
+    pull = _checked_pr_identity(api, repository, number, manual, expected_head, observed)
     changed = pull.get("changed_files")
-    eligible(type(changed) is int and 0 < changed <= len(ALLOWED_PATHS), "Pull request file count is outside the repair boundary.")
+    eligible(type(changed) is int and (0 if allow_empty else 1) <= changed <= len(ALLOWED_PATHS), "Pull request file count is outside the repair boundary.")
     files = api.request("GET", f"repos/{repository}/pulls/{number}/files?per_page=100&page=1")
     require(isinstance(files, list) and len(files) == changed, "Changed-file response is incomplete.")
     names = set()
@@ -311,7 +319,22 @@ def validate_manifest(manifest, repository):
     return decoded
 
 
-def publish(api, repository, manifest):
+def confirm_commit(api, repository, manifest, new_head, sleeper=time.sleep):
+    """Retry only an otherwise eligible cached pre-commit observation."""
+    for attempt in range(CONFIRMATION_ATTEMPTS):
+        observed = _checked_pr_identity(api, repository, manifest["pr"], manifest["manual"])
+        require(observed["head"]["ref"] == manifest["head_ref"], "Updated branch identity could not be verified.")
+        head = observed["head"]["sha"]
+        if head == new_head:
+            return checked_pr(api, repository, manifest["pr"], manifest["manual"], new_head,
+                              allow_empty=True, observed=observed)
+        require(head == manifest["head_sha"], "Pull request changed again after the atomic commit; inspect its current head.")
+        if attempt < CONFIRMATION_ATTEMPTS - 1:
+            sleeper(CONFIRMATION_DELAY)
+    raise RepairError("Atomic commit succeeded but its new pull request head was not confirmed within the read-only retry limit; inspect the branch and run Verify manually.")
+
+
+def publish(api, repository, manifest, sleeper=time.sleep):
     files = validate_manifest(manifest, repository)
     pull = checked_pr(api, repository, manifest["pr"], manifest["manual"], manifest["head_sha"])
     require(pull["head"]["ref"] == manifest["head_ref"], "Pull request branch changed.")
@@ -331,8 +354,7 @@ def publish(api, repository, manifest):
     commit = data["createCommitOnBranch"].get("commit")
     require(isinstance(commit, dict), "Atomic asset commit response is incomplete; inspect the current branch head.")
     new_head = commit_sha(commit.get("oid"))
-    observed = checked_pr(api, repository, manifest["pr"], manifest["manual"], new_head)
-    require(observed["head"]["ref"] == manifest["head_ref"], "Updated branch identity could not be verified.")
+    confirm_commit(api, repository, manifest, new_head, sleeper)
     api.request("POST", f"repos/{repository}/actions/workflows/ci.yml/dispatches", {"ref": manifest["head_ref"]})
     return {"changed": True, "head_sha": new_head, "ci_dispatched": True}
 
