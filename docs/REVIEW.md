@@ -1,6 +1,6 @@
 # Verification record
 
-We verify the service with synthetic local data on Ubuntu/WSL and PHP 8.3. The results below were checked through 2026-10-26. The opening summary describes the current gate; dated sections retain earlier evidence. We distinguish executable checks, actual local monitoring and provider-account validation.
+We verify the service with synthetic local data on Ubuntu/WSL and PHP 8.3. Evidence is dated by section. The opening summary describes the current gate; dated sections retain earlier results. We distinguish executable checks, actual local monitoring and provider-account validation.
 
 ## Automated checks
 
@@ -139,6 +139,21 @@ A separate AI-assisted source review inspected command/query dispatch, authentic
 We checked the README and operating guides against both Compose definitions and the actual published bindings. The traffic project exposes API/Swagger 8081, Prometheus 9091 and Grafana 3001; the default project exposes 8080, 9090 and 3000. Both Swagger pages, Prometheus readiness endpoints and Grafana database-health endpoints responded successfully. These checks do not validate a Grafana user's login.
 
 We validated 95 local documentation links/anchors, 52 shell blocks and two PowerShell examples. The guides distinguish project-specific accounts and volumes, native filesystem state, internal service addresses and host-port overrides. We also corrected the current check summary, persistence description and observed repository-control status. This was a documentation change; the checks did not approve plans, run business commands, reset credentials or change repository settings.
+
+## Primary scenario evidence: 2026-10-26
+
+The [CSV-export scenario](SCENARIO.md), documented on 2026-10-27, is our main narrative for customer, design and workflow review. The dated observations below come from the 2026-10-26 inspection. Its checkpoints describe expected behavior; we have not executed a new manual, checkpoint-by-checkpoint container run of the complete narrated sequence.
+
+| Evidence | What it supports | What it does not establish |
+| --- | --- | --- |
+| Existing reliability demo and application/governance tests | Equal baselines, title-only propagation, whole-plan state review, fresh approval, independent merges, uncertain-write recovery, conflict selection and no-op behavior. | A live vendor integration or a new execution of every narrative checkpoint. The executable demo selects GitHub for its conflict; the narrative illustrates an explicit Zendesk choice. |
+| Read-only traffic-project inspection on 2026-10-26 | Nine existing linked pairs; the sample `escalation-1` had the original open baseline and no pending plan. Audit history contained approval requests/grants, conflicts, source selections, retries and write/convergence events. The inspected generator settings were five seconds and scripted review. | Verified human decisions, customer traffic, measured value or a stable current count of waiting records. Background activity continued during inspection. |
+| Actual Prometheus query | `up{job="support_bridge"}=1` and queryable pair-state/pending-plan gauges at inspection time. | Health of every pair, a successful Grafana user login or customer/vendor validation. |
+| Focused REA artifact inspection | Matching served initializer identity and a parsed, selected JavaScript source with an unresolved route trace; see the [tooling evidence](TOOLING-INSTALLATION.md#scenario-shipped-artifact-check-2026-10-26). | PHP engine execution or complete Swagger/browser analysis. |
+
+Documentation review on 2026-10-27 checked 119 local links/anchors, syntax for 52 shell blocks and two PowerShell examples. A separate source review confirmed the narrative boundaries and qualified aggregate metrics, global provider counters and handler responsibilities.
+
+The documentation work changes no runtime workflow, records, approvals, credentials or deployment settings. A guided run must retain its own execution evidence and use the ordinary approval, freshness and recovery boundaries.
 
 ## Validation still required
 

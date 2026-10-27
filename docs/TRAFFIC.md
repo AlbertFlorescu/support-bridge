@@ -2,6 +2,8 @@
 
 The traffic stack simulates support and engineering work on local ticket/issue pairs. A separate container edits synthetic source records and sends authenticated HTTP requests to the application. The normal engine reconciles them; Prometheus and Grafana show the resulting outcomes and pending work.
 
+The [primary CSV-export scenario](SCENARIO.md) explains one complete escalation and the evidence to inspect at each decision. This operating guide covers the eight-pair continuous generator, its timing and its synthetic review modes.
+
 ## Start
 
 From the repository root, with Docker Engine and Compose 2.24.4 or later:

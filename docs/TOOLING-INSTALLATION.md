@@ -62,6 +62,17 @@ A focused initializer pass read 345 bytes, parsed one file, visited 45 AST nodes
 
 Direct source inspection confirmed local `/openapi.json`, disabled external validation, disabled query configuration, disabled credential persistence and disabled submit methods. Those are source configuration facts. REA did not prove browser network behavior, run PHP, inspect customer records or call either provider. We reuse this evidence while the artifacts are unchanged; repeated analysis would not expand its coverage.
 
+## Scenario shipped-artifact check: 2026-10-26
+
+We checked the Swagger bootstrap served by the traffic API against the source artifact. The served file was 345 bytes and matched the initializer SHA-256 recorded above. We then selected only `initializer.js` from the Swagger artifact directory for REA static analysis. It parsed one JavaScript file, visited 45 AST nodes and reported zero parse failures. The vendor bundle was outside this selected analysis; application and semantic graph coverage remained partial.
+
+| Operation | Local evidence ID | Result and boundary |
+| --- | --- | --- |
+| Selected-source application analysis | `ev_fb2fd064c7ebd5126b92fbcf7075f913be77bc5643a36116fa0c619c8500f198` | Parsed the inert bootstrap; incomplete graph coverage. |
+| Outgoing literal `/openapi.json` feature trace | `ev_af8f9a65dfa41a3753ddafec359900bab3fbbf65a0ff48deb65020a93dda4e9e` | No graph match within that partial analysis. This does not establish route absence. |
+
+These IDs identify local retained analysis records, not a publicly hosted or portable evidence bundle. Source inspection establishes the bootstrap configuration; its matching served bytes corroborate artifact identity. We did not use these records to claim browser execution, PHP workflow tracing, provider compatibility or compliance. The [primary scenario](SCENARIO.md) derives application behavior from PHP source and existing verification, with runtime observations recorded separately in [REVIEW.md](REVIEW.md#primary-scenario-evidence-2026-10-26).
+
 ## Reusable project guidance
 
 Our development, API and observability skills keep the recovery, transport and metric contracts together. The Git-versioned [escalation-review skill](../skills/support-bridge-escalation-review/SKILL.md) documents read-only business review. It cannot authorize execution or establish compliance, and its Markdown allowlist is not server-enforced access control. [AGENTS.md](../AGENTS.md) records our engineering and documentation conventions.

@@ -2,6 +2,8 @@
 
 We use synthetic local records to explore reconciliation, approval, conflicts and recovery without provider accounts or network access. Start with PHP 8.2+, PDO SQLite and cURL. Run commands from the repository root.
 
+Read the [primary CSV-export scenario](SCENARIO.md) for the complete customer story, checkpoint evidence, monitoring interpretation and design decisions. This guide supplies the native commands and maintainer procedures; [Docker operation](DOCKER.md) and [traffic operation](TRAFFIC.md) cover the container projects.
+
 ## Run the verified demonstration
 
 ```bash
