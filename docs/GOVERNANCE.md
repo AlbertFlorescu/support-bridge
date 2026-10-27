@@ -8,6 +8,8 @@ Each escalation must already have one ticket and one issue, linked by an operato
 
 Before live use, agree on field ownership, state semantics, permitted transfers, approvers and freshness targets. The [assumptions register](ASSUMPTIONS.md) records these open requirements.
 
+The [primary customer scenario](SCENARIO.md) shows how these controls apply to an export escalation. The story's support, engineering and review roles describe the assumed business process; our shared credential does not enforce those individual identities.
+
 ## Workflow decisions
 
 | Step | Rule | Evidence |

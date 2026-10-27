@@ -6,6 +6,8 @@ Support Bridge keeps the summary and resolution state of linked Zendesk tickets 
 
 An operator links two existing records. We synchronize title/subject and a binary open/closed state; we do not infer matching records, create remote records or copy descriptions, comments, attachments or requester details. Titles can still contain confidential information and are stored locally.
 
+The [primary CSV-export scenario](SCENARIO.md) follows these boundaries through one escalation, including exact-plan review, a lost response after commit, conflict handling and the monitoring evidence.
+
 CLI and HTTP use the same fixed workflow. Our [governance model](GOVERNANCE.md) defines approval and operating ownership. **Never rely on AI in compliance:** policy owners must validate data transfers and controls; model output cannot authorize a write.
 
 ## Architecture overview

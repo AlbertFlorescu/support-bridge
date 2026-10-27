@@ -6,6 +6,10 @@ Keep the title and resolution state of linked GitHub issues and Zendesk tickets 
 
 Our assumed customer is a support team that tracks tickets in Zendesk and engineering escalations in GitHub. Copying updates between them takes time and leaves stale records. Support Bridge merges independent edits, stops on conflicts and recovers interrupted writes. We expect it to reduce copying and follow-ups; we have not measured that benefit with a customer.
 
+## Primary customer scenario
+
+Follow the [CSV-export escalation](docs/SCENARIO.md) from the customer's first report through summary updates, whole-plan approval, resolution, reopening, lost-response recovery and conflicting edits. This is our main case for explaining the workflow, architecture, operator decisions and monitoring. The guide separates implemented behavior, existing verification evidence and the proposed guided run.
+
 ## Run with Docker
 
 ```bash
