@@ -12,7 +12,7 @@ From a shell with Docker Engine, Compose 2.24.4 or later and `sh`, run:
 sh docker/check-traffic.sh
 ```
 
-The check creates a uniquely named `support-bridge-traffic-check-<process-id>` project with both `compose.yaml` and `compose.traffic.yaml`. It runs a finite 50-tick workload at one-second intervals in scripted mode, checks application/audit evidence and monitoring, exercises restart/termination, then removes only its own disposable volumes. It refuses to adopt an existing test project. Never substitute a parked or live project name.
+The check creates a uniquely named `support-bridge-traffic-check-<process-id>` project with both `compose.yaml` and `compose.traffic.yaml`. It runs a finite 50-tick workload at one-second intervals in scripted mode, checks application/audit evidence and monitoring, exercises restart/termination, then removes only its own disposable volumes. It rejects a project with existing test containers; that guard does not inventory orphaned named volumes. Never substitute a parked or live project name.
 
 Temporary test ports default to API 18081, Prometheus 19091 and Grafana 13001. If occupied, set `BRIDGE_TRAFFIC_CHECK_HTTP_PORT`, `BRIDGE_TRAFFIC_CHECK_PROMETHEUS_PORT` and `BRIDGE_TRAFFIC_CHECK_GRAFANA_PORT` before running the script. Internal service addresses stay `api:8080`, `prometheus:9090` and `grafana:3000`. Host listeners bind to loopback. The script does not change normal demo bindings or credentials.
 
