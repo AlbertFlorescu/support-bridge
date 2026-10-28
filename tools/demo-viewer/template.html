@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="__CSP__">
+  <title>Support Bridge · Recorded workflow</title>
+  <style>__CSS__</style>
+</head>
+<body>
+  <header class="masthead">
+    <div class="brand"><span class="brand-symbol" aria-hidden="true">↔</span><div>Support Bridge<span class="brand-subtitle">Recorded workflow</span></div></div>
+    <div class="recording-mark"><span class="recording-dot" aria-hidden="true"></span> Recorded observations · read-only</div>
+  </header>
+  <div class="workspace">
+    <aside class="sidebar">
+      <p class="eyebrow">Scenario evidence</p>
+      <h1 id="run-id">Loading captured run</h1>
+      <p id="run-meta" class="muted"></p>
+      <p id="run-captured" class="small muted"></p>
+      <nav id="checkpoints" class="checkpoint-nav" aria-label="Recorded checkpoints"></nav>
+      <div class="sidebar-note"><strong>Playback only</strong><p>These controls navigate captured evidence. They cannot edit records, select a source or approve a plan.</p></div>
+    </aside>
+    <main>
+      <section class="playback-bar" aria-label="Replay controls">
+        <div class="playback-buttons"><button id="previous" type="button" aria-label="Previous checkpoint">← Previous</button><button id="play" class="primary" type="button">Play replay</button><button id="next" type="button" aria-label="Next checkpoint">Next →</button></div>
+        <div class="progress-wrap"><span id="position" class="small"></span><progress id="progress" max="1" value="1" aria-label="Replay progress"></progress></div>
+      </section>
+      <section class="checkpoint-heading" aria-live="polite">
+        <p class="eyebrow" id="checkpoint-number"></p>
+        <h2 id="checkpoint-label"></h2>
+        <p id="operation" class="operation"></p>
+        <p id="observed-at" class="small muted"></p>
+      </section>
+      <section class="bridge-strip" aria-label="Workflow status">
+        <div><span class="eyebrow">Linked pair</span><strong id="pair-id"></strong></div>
+        <span id="pair-status" class="status-badge"></span>
+        <p id="status-explanation"></p>
+      </section>
+      <section class="providers" aria-label="Captured provider records"><article id="github-record" class="panel provider github"></article><article id="zendesk-record" class="panel provider zendesk"></article></section>
+      <section class="panel comparison-panel">
+        <div class="section-heading"><div><p class="eyebrow">Common agreement and intended result</p><h3>What the bridge knows</h3></div><span id="plan-indicator" class="neutral-badge"></span></div>
+        <div id="comparison" class="table-scroll"></div>
+        <div id="plan-evidence"></div>
+      </section>
+      <section id="conflict-panel" class="panel conflict-panel" hidden></section>
+      <div class="detail-grid"><section class="panel"><p class="eyebrow">Decision boundary</p><h3>Governance</h3><div id="governance"></div></section><section class="panel"><p class="eyebrow">Separate scrape observation</p><h3>Aggregate metrics</h3><div id="metrics" class="metric-grid"></div><p class="small muted">Scraped aggregates may lag this pair's state and include other pairs. Counters include successful no-op polls.</p><div id="monitoring-links" class="monitoring-links"></div></section></div>
+      <section class="panel"><div class="section-heading"><div><p class="eyebrow">Recorded business evidence</p><h3>Pair audit timeline</h3></div><span id="event-count" class="neutral-badge"></span></div><ol id="events" class="audit-timeline"></ol><p class="small muted">Only allowlisted operational details appear here. Approval rationale and unstructured error text are omitted.</p></section>
+      <footer><span id="revision"></span><p>This replay displays timestamped observations. External dashboards show their current data independently. A shared-operator attestation does not establish a verified person or compliance.</p></footer>
+    </main>
+  </div>
+  <noscript>This self-contained replay needs JavaScript to navigate its captured checkpoints. It makes no API calls.</noscript>
+  <script id="evidence-data" type="application/json">__EVIDENCE__</script>
+  <script>__JS__</script>
+</body>
+</html>

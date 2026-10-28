@@ -8,6 +8,7 @@
     <file>bin</file>
     <file>public/router.php</file>
     <file>docker</file>
+    <file>tools/oauth</file>
     <file>bootstrap.php</file>
     <exclude-pattern>docker/verify-stack.php</exclude-pattern>
     <rule ref="PSR12"/>

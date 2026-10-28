@@ -2,7 +2,7 @@
 
 Our main scenario follows one customer escalation from its first shared summary through a verified fix, reopening, an uncertain write and a conflicting update. It explains the business decisions and the evidence we retain at each boundary.
 
-The scenario uses our actual PHP application, API, persistence and monitoring with synthetic GitHub and Zendesk records. It does not claim a live vendor integration or a completed customer rollout. The guided container sequence described here is a checkpoint plan; it has not been executed as one recorded manual run.
+The scenario uses our actual PHP application, API, persistence and monitoring with fictional records. A [bounded live run](REVIEW.md#live-demonstration-verification-2026-10-28) verified both title directions, an explicitly approved mixed title/state update and a no-op sweep. The broader reopening, conflict and uncertain-write narrative remains separate from that execution and from customer validation. [LIVE_DEMO.md](LIVE_DEMO.md) describes the isolated live project and recorded replay.
 
 ## Customer context and expected value
 
@@ -142,7 +142,7 @@ The engine patches only changed fields, currently GitHub first and Zendesk secon
 
 There is no cross-vendor transaction. One patch can succeed while the other fails. Persisting intent before either effect makes that partial result inspectable and recoverable.
 
-Returned HTTP responses are not the final proof of completion. The engine reads both records again. Only matching the full canonical target advances the baseline, clears the pending plan and approval, and marks the pair `synced`. Audit events remain, but complete historical plan snapshots are not archived after convergence.
+Returned HTTP responses are not the final proof of completion. The engine reads both records again. Only matching the full canonical target advances the baseline, clears the pending plan and approval, and marks the pair `synced`. Audit events remain, but the business store does not automatically archive complete historical plan snapshots after convergence. Explicit private checkpoints can retain selected snapshots; they are a separate presentation archive.
 
 At this checkpoint, both records have the verified-fix summary and closed canonical state. This pair no longer contributes to operator attention or pending-plan gauges after the next successful scrape. Aggregate totals can remain nonzero while other pairs still require work.
 
@@ -221,17 +221,27 @@ A manual sweep still processes all eligible pairs. Pausing background processes 
 
 At each checkpoint, we show both local provider records, the baseline and pending decision, per-pair audit events, monitoring observations and, when isolated from other writes, provider write counts. After a guided run, process settings and unfinished work need to be recorded before resuming background operation. The maintained [walkthrough](WALKTHROUGH.md), [API guide](API.md) and [traffic guide](TRAFFIC.md) contain execution and configuration instructions; this narrative is not an automatic approval script.
 
-| Surface | Traffic project | Default project |
-| --- | --- | --- |
-| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
-| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) |
-| Grafana | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
+| Surface | Traffic project | Default project | Explicit live demo |
+| --- | --- | --- | --- |
+| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) | [127.0.0.1:8082/docs](http://127.0.0.1:8082/docs) |
+| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) | [127.0.0.1:9092](http://127.0.0.1:9092/) |
+| Grafana | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) | [127.0.0.1:3002](http://127.0.0.1:3002/d/supportbridge-overview) |
 
 Use one project's URLs, credentials and volumes together. Internal service addresses remain `api:8080`, `prometheus:9090` and `grafana:3000`. Host overrides and native filesystem state are documented in the [canonical connection guide](DOCKER.md#choose-a-stack-and-its-ports). Swagger is configured as reference documentation with submission disabled; operational actions use the authenticated API or CLI.
+
+## Guided live records and replay
+
+The [live demonstration guide](LIVE_DEMO.md) uses separately created, owned fictional source records, explicit mappings and manual sweeps in `support-bridge-live-demo`. Its initializer supplies no fixture or mapping, and its worker is disabled by default. Source setup actors may create or edit the authorized vendor records but receive no bridge operator credential or approval capability. A source-side close already performed in Zendesk is outside the bridge's outbound state-change gate.
+
+At a deliberate checkpoint, `bin/capture-demo.php` reads local inspection under the canonical lock and fetches both provider records sequentially. It records actual titles, states, versions, baseline, durable plan and selected audit details. Provider edits remain possible between reads, so the evidence is not a cross-vendor atomic snapshot. Optional aggregate Prometheus samples are separate observations, omitted on failure.
+
+The offline viewer presents the captured stages side by side. **Next and Play navigate recorded data only:** they cannot synchronize, choose a source or approve work. Optional record links identify the observed records, while monitoring links show the current deployment independently of the replay timestamp. Captures and video must identify local versus live provenance and remain private when they retain titles, tenant links or operational evidence. A later approval still requires the current durable plan and fresh provider evidence.
 
 ## Evidence and execution status
 
 The source implements the merge, approval, recovery and conflict rules described above. Our executable [reliability demo](../src/Simulation/ReliabilityDemo.php) covers the same progression with synthetic providers, including restart recovery, but selects GitHub as the final conflict source. It is not a recording of this narrative's exact Zendesk-selection sequence or a manual container walkthrough.
+
+The [live source cases](LIVE_DEMO.md#customer-context-and-value) include three fictional records created and freshly read back in each system. All three established matching baselines. The CSV-export case then verified both title directions, a whole-plan approval wait, explicit exact-plan approval, the resulting destination update and a repeated sweep without another write attempt. Eleven private checkpoints retain those observations. The [dated verification record](REVIEW.md#live-demonstration-verification-2026-10-28) distinguishes these executed stages from the remaining narrative and customer acceptance.
 
 Read-only local inspection on 2026-10-26 observed nine linked pairs, approval/conflict/retry audit events, the untouched sample baseline and a healthy authenticated Prometheus scrape. Status counts changed as the scripted driver continued. Those observations establish local activity, not completion of this guided case.
 
@@ -247,12 +257,13 @@ REA inspected the selected shipped Swagger bootstrap, whose bytes matched the se
 | Minimal patches | Preserves fields outside our contract | Does not eliminate every concurrent-write race |
 | Synchronous CQRS and scoped dependencies | Shared use cases with explicit ownership | More classes and wiring; one serial business store remains |
 | Local providers and manual checkpoints | Repeatable failure cases with visible decisions | Does not reproduce actual vendor latency, permissions or triggers |
+| Isolated live records and recorded replay | Explains actual observations without repeatedly changing sources | Additional credentials and private artifacts; captures can become stale |
 
 ## Known limitations and policy ownership
 
-GitHub has a preflight-read-to-patch race, and provider timestamps have finite precision. Neither SQLite nor the file lock makes two vendors atomic. Actual sandbox accounts, custom Zendesk statuses, permissions, required fields and triggers remain unvalidated.
+GitHub has a preflight-read-to-patch race, and provider timestamps have finite precision. Neither SQLite nor the file lock makes two vendors atomic. Selected fictional records exercised live account access and ordinary updates; custom Zendesk statuses, other permission/required-field combinations and broader trigger behavior remain unvalidated.
 
-The shared credential cannot establish verified human identity or separation of duties. Approval has no expiry, revocation or rejection workflow. Audit events are mutable, retention is unbounded, completed full plans are not archived, and restoration has not been rehearsed. Single-host SQLite and the PHP development server do not establish production capacity or availability.
+The shared credential cannot establish verified human identity or separation of duties. Approval has no expiry, revocation or rejection workflow. Audit events are mutable, retention is unbounded, completed full plans are not automatically archived, and restoration has not been rehearsed. Optional checkpoint captures preserve selected observed review stages rather than a complete audit archive. Single-host SQLite and the PHP development server do not establish production capacity or availability.
 
 **Never rely on AI in compliance.** Accountable policy owners must determine permitted transfers, review requirements and whether our controls satisfy their obligations. A rationale, hash, alert, passing test or model explanation cannot establish those facts. Code enforces the declared workflow; it does not verify that every prerequisite for customer closure has been fulfilled.
 

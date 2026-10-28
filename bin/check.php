@@ -8,7 +8,7 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 chdir($root);
 $files = [__DIR__ . '/../bootstrap.php'];
-foreach (['src', 'bin', 'tests', 'public', 'docker'] as $directory) {
+foreach (['src', 'bin', 'tests', 'public', 'docker', 'tools/oauth'] as $directory) {
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(
         $root . '/' . $directory,
         FilesystemIterator::SKIP_DOTS
@@ -51,6 +51,10 @@ foreach (
         'tests/persistence.php',
         'tests/application.php',
         'tests/adapters.php',
+        'tests/oauth-auth.php',
+        'tests/live-bootstrap.php',
+        'tests/live-credentials.php',
+        'tests/replay.php',
         'tests/http.php',
         'tests/observability.php',
         'tests/api.php',

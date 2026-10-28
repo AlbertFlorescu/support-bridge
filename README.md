@@ -8,7 +8,9 @@ Our assumed customer is a support team that tracks tickets in Zendesk and engine
 
 ## Primary customer scenario
 
-Follow the [CSV-export escalation](docs/SCENARIO.md) from the customer's first report through summary updates, whole-plan approval, resolution, reopening, lost-response recovery and conflicting edits. This is our main case for explaining the workflow, architecture, operator decisions and monitoring. The guide separates implemented behavior, existing verification evidence and the proposed guided run.
+Follow the [CSV-export escalation](docs/SCENARIO.md) from the customer's first report through summary updates, whole-plan approval, resolution, reopening, lost-response recovery and conflicting edits. This is our main case for explaining the workflow, architecture, operator decisions and monitoring. The guide separates implemented behavior, existing verification evidence and the proposed guided run. The [live demonstration guide](docs/LIVE_DEMO.md) adds isolated vendor setup, manual checkpoints and a read-only replay of captured observations.
+
+The versioned [live demo operating skill](skills/support-bridge-live-demo/SKILL.md) keeps the repeatable procedure with its source, review and evidence boundaries. It supplies guidance, not authorization for effects.
 
 ## Run with Docker
 
@@ -20,15 +22,15 @@ For continuous synthetic activity, use this traffic stack. It runs the API, work
 
 Choose links from the same column. Each project has separate records, credentials and monitoring history:
 
-| Service | Traffic stack (`support-bridge-traffic`) | Default stack (`support-bridge`) |
-| --- | --- | --- |
-| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
-| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) |
-| Grafana dashboard | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
-| Worker | Immediate sweep, then every five seconds | Immediate sweep, then every minute |
-| Traffic generator | Every five seconds by default | Absent |
+| Service | Traffic stack (`support-bridge-traffic`) | Default stack (`support-bridge`) | Explicit live demo (`support-bridge-live-demo`) |
+| --- | --- | --- | --- |
+| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) | [127.0.0.1:8082/docs](http://127.0.0.1:8082/docs) |
+| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) | [127.0.0.1:9092](http://127.0.0.1:9092/) |
+| Grafana dashboard | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) | [127.0.0.1:3002](http://127.0.0.1:3002/d/supportbridge-overview) |
+| Worker | Immediate sweep, then every five seconds | Immediate sweep, then every minute | Disabled unless `live-worker` is selected |
+| Traffic generator | Every five seconds by default | Absent | Absent |
 
-These are default host ports, all bound to loopback. The initializer creates separate API, metrics and Grafana bootstrap credentials for each project. Use that project's [credential instructions](docs/DOCKER.md#credentials-and-isolation); an existing Grafana account may have been renamed or its password changed. Neither stack makes vendor calls.
+These are default host ports, all bound to loopback. The initializer creates separate API, metrics and Grafana bootstrap credentials for each project. Use that project's [credential instructions](docs/DOCKER.md#credentials-and-isolation); an existing Grafana account may have been renamed or its password changed. The default and traffic stacks make no vendor calls. The live overlay requires explicit account configuration and access tokens imported into its separate vendor credential volume; follow [its setup guide](docs/LIVE_DEMO.md) before starting it.
 
 Inspect the running traffic stack with its full command prefix:
 
@@ -47,7 +49,7 @@ docker compose -p support-bridge -f compose.yaml up --build -d --wait
 docker compose -p support-bridge -f compose.yaml run --rm --no-deps cli status
 ```
 
-Keep the project name and Compose files with every operation. Changing only a URL or host port does not select another project's data. Named volumes retain data and credentials across restarts and ordinary `down`. See [Docker operation](docs/DOCKER.md) for both port sets, overrides, credential handling and verification.
+Keep the project name and Compose files with every operation. Changing only a URL or host port does not select another project's data. Named volumes retain data and credentials across restarts and ordinary `down`. See [Docker operation](docs/DOCKER.md) for all port sets, overrides, credential handling and verification.
 
 ## Run with PHP
 
@@ -151,10 +153,14 @@ Any outbound state change holds every effect in the plan until approval. The app
 | Vendor payloads, version checks and HTTP | `src/Provider/`, `src/HttpClient.php` |
 | CLI, HTTP and container adapters | `src/Console/`, `src/Http/`, `src/Runtime/` |
 | Persistent aggregate metrics | `src/Observability/` |
+| Locked provider observation and private checkpoint archive | `src/Simulation/Replay/`, `bin/capture-demo.php` |
+| Offline HTML replay and development-only OAuth issuance | `tools/demo-viewer/`, `tools/oauth/` |
 
 Entry scripts delegate to adapter objects. CLI and HTTP dispatch the same typed application use cases: commands initialize/link/edit/reconcile/resolve/approve/retry; queries read status, pair details and metrics without contacting providers. Both sides share SQLite. This is synchronous CQRS without a queue, event sourcing or separate read database.
 
 `Context` wires constructor dependencies and creates one scoped `SqliteConnection` for its repository. Reusing that connection keeps transaction ownership explicit while separate contexts can use separate databases. A process-global Singleton would hide that dependency and risk coupling local, live and test state. Provider adapters handle vendor semantics; pure domain policies use plain inputs and decisions without network or storage access. The [architecture guide](docs/ARCHITECTURE.md) covers these boundaries and recovery in detail.
+
+The guided-demo capture operation takes the canonical lock and reads both providers sequentially without reconciling. It records bounded, allowlisted checkpoints outside source. The offline viewer's Next and Play controls only navigate those observations; they never call a write, source-selection or approval endpoint. Provider snapshots, local inspection and aggregate monitoring samples are not one atomic observation.
 
 ## Trade-offs
 
@@ -169,16 +175,19 @@ Entry scripts delegate to adapter objects. CLI and HTTP dispatch the same typed 
 | Injected connection and repository infrastructure | Clear connection, transaction and lock ownership | Each context must be composed correctly; no global service lookup |
 | Vendored Swagger | Local API reference without a CDN | Assets must match the lockfile; Try it out is disabled |
 | Separate worker and monitoring containers | Independent processes and persistent data | More images, credentials and volumes to maintain |
+| Isolated live project and short OAuth access tokens | Explicit account/state boundaries and limited token lifetime | Separate secret ownership, manual reissuance and container recreation |
+| Recorded checkpoint replay | Explains observed workflow stages without repeating effects | Selected evidence can become stale and needs private storage |
 
 ## Known limitations
 
 - **Concurrent edits:** GitHub issue writes have a preflight/PATCH gap that can overwrite an intervening edit. Zendesk supports `safe_update`; timestamps still have finite precision.
-- **Live compatibility:** sandbox accounts, Zendesk triggers/required fields/custom statuses and customer data-sharing rules have not been validated. Titles can contain sensitive data and are not redacted.
+- **Live compatibility:** the selected fictional records verified bidirectional title transfer, an approved state update and convergence. Broader Zendesk triggers, required fields, custom statuses and customer data-sharing rules still need account-specific validation. Titles can contain sensitive data and are not redacted.
 - **Deployment:** the PHP development server, shared operator token and local SQLite lock are for a single-host setup. Public ingress, per-user authorization, distributed workers and production capacity remain deployment work.
 - **Approval and audit:** approval has no expiry or revocation. The shared token does not verify human identity or separation of duties. Audit events are mutable local records with unbounded retention.
 - **Data and recovery:** SQLite stores title snapshots without application encryption. Only narrow additive migrations are implemented; general rollback and backup restoration have not been rehearsed.
 - **Monitoring:** metric writes can be lost around a crash. Local scrape/dashboard tests do not verify alert delivery. Containers and digest pins do not establish complete vulnerability coverage.
 - **Development tooling:** PSR formatting checks and locked development-package audits need Composer and XML extensions. They add maintenance work without proving domain correctness or a stronger concurrency model.
+- **Live demo and replay:** vendor credential scopes are not per-pair authorization. OAuth renewal is manual. Captured JSON/HTML can retain titles and vendor links; presentation artifacts do not replace fresh approval evidence or a tamper-evident audit.
 
 See [governance](docs/GOVERNANCE.md) for policy ownership and approval limits, and [verification evidence](docs/REVIEW.md) for tested cases and outstanding checks.
 
@@ -192,9 +201,11 @@ Dependabot exposes available update PRs. GitHub Actions also scans built images 
 
 ## Live sandbox setup
 
-Use a dedicated state directory and sandbox accounts. Restrict the GitHub token to Issues read/write in the chosen repository, and use a dedicated Zendesk agent token. Only GitHub.com and ordinary Zendesk tenant API hosts are supported.
+Use a dedicated state directory and sandbox accounts. Restrict the GitHub token to Issues read/write in the chosen repository. For Zendesk, select OAuth bearer authentication with ticket read/write scopes; email is unnecessary in OAuth mode. Legacy API-token mode remains supported where the account permits it and requires an agent email. Only GitHub.com and ordinary Zendesk tenant API hosts are supported.
 
-The CLI reads environment variables; it does not load `.env` automatically. In bash/WSL:
+For containers, use the explicit [live overlay and credential procedure](docs/LIVE_DEMO.md). Its initializer creates no fixtures or links, and its worker is disabled by default. The development OAuth helper requests a four-hour access token; the application does not automatically renew it. Keep the client identifier/secret on the issuance host. An explicit network-isolated importer receives only the two access tokens through JSON stdin and writes a separate `vendor-secret` volume as UID10001; API, CLI and the optional worker mount it read-only. These protected plaintext files are not an encrypted secret manager. Reimport rotated tokens and recreate their reading containers, because startup processes load credentials into their environment once.
+
+The native CLI reads environment variables and supported `*_FILE` secret paths; it does not load `.env` automatically. Configure either a value or its file, not both. In bash/WSL:
 
 ```bash
 cp .env.example .env
@@ -224,10 +235,12 @@ node check-vendor.cjs
 node validate.cjs
 ```
 
-The tests cover merge decisions, stale approvals, partial writes, lost responses, scoped persistence, command/query behavior, locks, HTTP contracts, metrics and vulnerability tooling. Style checks enforce the configured coding standard separately. The [verification record](docs/REVIEW.md) contains executed counts and hosted results. Live vendor behavior, customer benefit and production load still need validation.
+The dependency-free replay checks also run with `node --test tools/demo-viewer/viewer.test.cjs` from the repository root. Rendering requires Node on the development host; the runtime image contains neither the renderer nor the OAuth issuance helper.
+
+The tests cover merge decisions, stale approvals, partial writes, lost responses, scoped persistence, command/query behavior, locks, HTTP contracts, metrics and vulnerability tooling. Style checks enforce the configured coding standard separately. The [verification record](docs/REVIEW.md) separates executed checks from the selected live transfers and approval. Broader vendor behavior, customer benefit and production load still need validation.
 
 ## AI use
 
-AI assisted design exploration, code generation/refactoring, failure tests, reviews and documentation. Agency Agents profiles guided reviews; REA inspected the vendored Swagger JavaScript with partial coverage. We checked the work with the tests listed above. The [tooling record](docs/TOOLING-INSTALLATION.md) describes what ran and what it covered.
+AI assisted design exploration, code generation/refactoring, failure tests, reviews and documentation, including the guided-demo presentation. Agency Agents profiles guided reviews; REA inspected the vendored Swagger JavaScript with partial coverage. We checked the work with the tests listed above. The [tooling record](docs/TOOLING-INSTALLATION.md) describes what ran and what it covered. Replay labels and generated explanations describe observations; they cannot supply missing vendor evidence.
 
 The application calls no LLM. Linking, conflict selection, merge/retry rules and approvals use PHP policies and explicit operator commands. **Never rely on AI in compliance:** policy owners must define the controls and review their adequacy; generated explanations or rationales cannot authorize writes. The shared operator token records an attestation, not verified human review.

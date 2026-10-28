@@ -8,8 +8,8 @@ Require **`Required checks`** on `main`. This unique aggregate check passes only
 
 | Check | Coverage |
 | --- | --- |
-| `PHP checks` | Locked Composer development install and audit, strict PSR-4 autoload verification, configured PSR-12 style check, PHP syntax/application tests, synthetic demo, vulnerability-tool tests, Swagger asset freshness, OpenAPI parsing and real loopback response-fixture validation |
-| `Container checks` | Image builds, isolated PHP/style/OpenAPI verification, stack startup, service-network smoke checks, synthetic HTTP traffic, graceful shutdown and pending-plan/credential persistence through recreation |
+| `PHP checks` | Locked Composer development install and audit, strict PSR-4 autoload verification, configured PSR-12 style check, PHP syntax/application tests, synthetic demo, OAuth/bootstrap/checkpoint contracts, dependency-free replay checks, vulnerability-tool tests, Swagger asset freshness, OpenAPI parsing and real loopback response-fixture validation |
+| `Container checks` | Image builds, isolated PHP/style/OpenAPI/replay verification, local stack startup, service-network smoke checks, synthetic HTTP traffic, graceful shutdown, pending-plan/credential persistence through recreation and a disposable live-overlay import/bootstrap check without vendors |
 | `Required checks` | Both jobs succeeded for the revision under review |
 
 Verify runs for PRs targeting `main`, pushes to `main`, manual dispatch and merge groups. It has no path filters, so documentation changes also produce the required status. [Concurrency settings](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) cancel outdated runs for the same PR or ref. Merge-group checks support a future merge queue; they do not enable one.
@@ -39,6 +39,8 @@ The verification image pins Composer 2.10.3 and installs PHP_CodeSniffer 4.0.4 f
 | Prepared asset repair | 1 day |
 
 API fixtures contain controlled test responses, not vendor records or deployment configuration. Failed container jobs print bounded diagnostics. Disposable runner volumes hold CI credentials and state and are removed after the job. Credential volumes, Compose environment dumps and application state directories are never uploaded.
+
+OAuth issuance tests inject a controlled transport; live-bootstrap tests verify empty bound initialization without provider effects. `docker/check-live-demo.sh` exercises the live overlay's credential import/bootstrap boundaries in a disposable project with controlled tokens and no vendor access. It must leave normal project volumes intact. Checkpoint and viewer tests use controlled evidence and check bounds, exclusions and read-only navigation. CI does not issue real OAuth credentials, create vendor records, enable the live worker or publish private demonstration JSON/HTML/video. A green replay or import check is separate from evidence that a vendor workflow was actually executed.
 
 [Dependabot](../.github/dependabot.yml) schedules daily version checks at 08:00 UTC for GitHub Actions, npm API tooling, root Composer development packages, PHP/Node/Composer/monitoring images and the Trivy scanner. Each ecosystem entry allows ten version-update PRs. A wildcard cooldown exclusion removes release-age delay for tracked dependencies; locally built image names are excluded by the Docker allowlist. See [open proposals](https://github.com/AlbertFlorescu/support-bridge/pulls?q=is%3Apr+is%3Aopen+author%3Aapp%2Fdependabot) and [configuration options](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
 

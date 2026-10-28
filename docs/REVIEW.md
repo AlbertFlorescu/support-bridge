@@ -8,7 +8,7 @@ We verify the service with synthetic local data on Ubuntu/WSL and PHP 8.3. Evide
 php bin/check.php
 ```
 
-The current gate passes **170 PHP checks**, **nine demo assertions** and syntax checks for **112 PHP files**, including container helpers. The separate Composer gate checks **99 files** against PSR-12 and verifies optimized PSR-4 autoloading for **89 classes**:
+The current gate passes **211 PHP checks**, **nine demo assertions**, **13 replay checks** and syntax checks for **129 PHP files**, including container helpers. The separate Composer gate checks **112 files** against PSR-12 and verifies optimized PSR-4 autoloading for **98 classes**:
 
 | Suite | Checks | Coverage |
 | --- | ---: | --- |
@@ -17,7 +17,11 @@ The current gate passes **170 PHP checks**, **nine demo assertions** and syntax 
 | Governance | 17 | Whole-plan approval, stale evidence, policy binding, capabilities, migration and audit failures |
 | Persistence | 6 | Scoped connections, atomic audit rollback, canonical locks and legacy-plan preservation |
 | Application use cases | 8 | Typed command/query dispatch, local reads without provider access and shared workflow behavior |
-| Console/runtime | 8 | CLI parsing/exit codes, secret loading, local-edit locking, heartbeats and termination |
+| Console/runtime | 9 | CLI parsing/exit codes, native file-secret loading, local-edit locking, heartbeats and termination |
+| OAuth authentication | 9 | Bearer/legacy compatibility, ticket-only issuance, expiry, private output and rejected grants |
+| Live bootstrap | 8 | Explicit opt-in, identity, credential preservation and initialization without source records |
+| Vendor credential import | 10 | Isolated import, strict input, private files, rotation and sanitized failures |
+| Recorded evidence | 13 | Observation without effects, tenant binding, bounded archives, ordering and redaction limits |
 | Synthetic traffic | 12 | Bounded owned records, normal HTTP workflow, delayed review, faults and uncertain outcomes |
 | Provider HTTP | 20 | Payload/status mapping, safe updates, rate guidance and response validation |
 | Observability | 16 | Persistence, concurrent increments, histogram consistency, upgrades and failed storage |
@@ -26,7 +30,21 @@ The current gate passes **170 PHP checks**, **nine demo assertions** and syntax 
 
 The [post-refactor main Verify run](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40390702419) and [vulnerability inventory](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40390702405) passed. The [PHP application design section](#php-application-design-verification-2026-10-26) records the scope and local container evidence.
 
-Provider tests use controlled transports rather than vendor accounts. Wire tests create isolated state, start a loopback PHP server and stop their own process. Demo approvals use synthetic data; they are not human approval evidence.
+Provider tests use controlled transports rather than vendor accounts. Wire tests create isolated state, start a loopback PHP server and stop their own process. Automated reliability-demo approvals use synthetic data; they are not evidence of a human decision.
+
+## Live demonstration verification: 2026-10-28
+
+We created and freshly read three fictional issues and three fictional tickets, retained their numeric mappings privately, and established equal baselines through the live adapters. The CSV-export pair exercised a Zendesk subject change reaching GitHub and a GitHub title change reaching Zendesk while preserving the ticket's open status.
+
+A later engineering source edit changed both title and state. Reconciliation persisted the mixed plan and withheld both destination changes. After an explicit operator decision over its exact hash, the normal approval command and execution freshness checks ran; Zendesk then received the subject and solved-state update, and both records converged. The shared-operator record does not establish a verified person, independent review or customer confirmation. A repeated sweep left the pair's audited write-attempt count unchanged at three.
+
+The separate live project passed all nine API, exporter, Prometheus and Grafana smoke groups. Its host endpoints returned HTTP200 on 8082/9092/3002. Prometheus observed one approval wait while the plan was held and zero after convergence. The background live worker remained disabled. Private evidence retains eleven timestamped checkpoints; replay renders those observations without executing the workflow. Account-specific mappings, tenant links, credentials and media remain outside source.
+
+Browser verification traversed all eleven replay checkpoints with zero script errors or external requests. Desktop and mobile screenshots were inspected; the 390-pixel mobile viewport had no page overflow. A recorded 1440×1000 WebM decoded and played successfully. The replay explicitly marks scrape lag: aggregate samples can differ from the inspected pair's newer state. Playback performs no business operation and is not a recording of live browser execution.
+
+The rebuilt offline image passed the current PHP, PSR-12, replay and API-contract gates. The disposable live credential check exercised the actual isolated importer, guarded initialization, empty CLI state, private read-only mounts and a fresh reader after fake-token rotation without vendor requests. Separate lifecycle and traffic checks preserved pending work and credentials across recreation and removed only their own disposable projects. Composer's locked development-package audit reported no advisories at the time checked.
+
+The Zendesk access token expired between runs. Manual reissuance with the same ticket-only scopes, private reimport and API recreation restored access without changing business state. These results cover the selected fictional records and local deployment. They do not measure customer benefit, certify notification delivery, establish production capacity or prove every vendor rule and failure mode. Hosted results for the published revision remain a separate verification step.
 
 ## API schema validation
 
@@ -157,4 +175,4 @@ The documentation work changes no runtime workflow, records, approvals, credenti
 
 ## Validation still required
 
-We have not validated live GitHub/Zendesk sandbox accounts, customer-specific statuses/triggers, production load, restore procedures, customer outcomes or notification delivery. The shared operator token does not establish individual or human identity. Approval has no expiry/revocation workflow. GitHub's preflight/PATCH race and provider timestamp granularity remain material limitations. Our governance controls do not determine whether customer obligations have been fulfilled.
+Live validation covers the selected fictional records and ordinary updates described above. Customer-specific statuses and triggers beyond those observations, production load, restore procedures, customer outcomes and notification delivery remain unvalidated. The shared operator token does not establish individual or human identity. Approval has no expiry/revocation workflow. GitHub's preflight/PATCH race and provider timestamp granularity remain material limitations. Our governance controls do not determine whether customer obligations have been fulfilled.

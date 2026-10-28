@@ -89,6 +89,20 @@ $tests['Secret loading accepts one configured source and rejects conflicting or 
         adapterReject(static fn() => (new SecretLoader())->load());
     } finally { putenv('BRIDGE_API_TOKEN'); putenv('BRIDGE_API_TOKEN_FILE'); }
 };
+$tests['Native CLI loads file credentials once after parsing and rejects ambiguous sources before state'] = static function () use ($home): void {
+    $path = $home . '/native-token'; file_put_contents($path, str_repeat('n', 40));
+    $state = $home . '/native-file-state'; $blocked = $home . '/ambiguous-file-state';
+    $app = new Application(new ArgumentParser(), new JsonOutput($home . '/native-output', $home . '/native-error'));
+    putenv('BRIDGE_API_TOKEN_FILE=' . $path);
+    try {
+        adapterCheck($app->run(['help']) === 0 && getenv('BRIDGE_API_TOKEN') === false, 'Help loaded a credential.');
+        adapterCheck($app->run(['init', '--mode=local', '--home=' . $state]) === 0, 'Native CLI did not load its file.');
+        adapterCheck(getenv('BRIDGE_API_TOKEN') === str_repeat('n', 40), 'Native credential value differs.');
+        putenv('BRIDGE_API_TOKEN=' . str_repeat('x', 40));
+        adapterCheck($app->run(['init', '--mode=local', '--home=' . $blocked]) === 1 && !file_exists($blocked), 'Ambiguous credentials opened state.');
+        adapterCheck(!str_contains(file_get_contents($home . '/native-error'), str_repeat('x', 40)), 'A credential reached the error output.');
+    } finally { putenv('BRIDGE_API_TOKEN'); putenv('BRIDGE_API_TOKEN_FILE'); }
+};
 $tests['Shared heartbeat checks reject stale or future progress and preserve atomic writes'] = static function () use ($home): void {
     putenv('BRIDGE_HOME=' . $home);
     try {

@@ -21,6 +21,10 @@
 !tools/api-docs/package.json
 !tools/api-docs/package-lock.json
 !tools/api-docs/*.cjs
+!tools/demo-viewer/
+!tools/demo-viewer/**
+!tools/oauth/
+!tools/oauth/**
 !docker/
 !docker/**
 !monitoring/

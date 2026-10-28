@@ -1,0 +1,9 @@
+{
+  "name": "support-bridge-demo-viewer",
+  "private": true,
+  "type": "commonjs",
+  "description": "Dependency-free renderer for captured Support Bridge workflows",
+  "scripts": {
+    "test": "node --test viewer.test.cjs"
+  }
+}

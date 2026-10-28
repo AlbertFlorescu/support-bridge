@@ -25,6 +25,10 @@ final readonly class ProviderFactory
         }
 
         $http = new HttpClient();
+        $authentication = getenv('BRIDGE_ZENDESK_AUTH');
+        $authentication = $authentication === false ? 'api-token' : $authentication;
+        $email = getenv('BRIDGE_ZENDESK_EMAIL');
+        $email = $email === false ? '' : $email;
 
         try {
             return [
@@ -36,8 +40,9 @@ final readonly class ProviderFactory
                 new Zendesk(
                     $http,
                     $this->configuration->subdomain,
-                    Configuration::required('BRIDGE_ZENDESK_EMAIL'),
-                    Configuration::required('BRIDGE_ZENDESK_TOKEN')
+                    $email,
+                    Configuration::required('BRIDGE_ZENDESK_TOKEN'),
+                    $authentication
                 ),
             ];
         } catch (InvalidArgumentException) {

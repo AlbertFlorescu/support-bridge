@@ -58,11 +58,21 @@ The gate does not classify confidential titles, decide data-sharing permission o
 
 The opt-in [traffic simulation](TRAFFIC.md) uses a separate local stack and a fixed pool of owned synthetic pairs. In `scripted` mode, a deterministic driver waits at least ten seconds before choosing a conflict source or submitting the current exact-plan hash through the normal API. It receives that project's broad operator credential. The approval gate and freshness checks still run; the resulting attestation is scripted, not human review or compliance evidence. `manual` mode leaves conflicts and approval waits for the operator. The simulator refuses live mode and does not call a model.
 
+### Live source setup and recorded replay
+
+The [guided live demonstration](LIVE_DEMO.md) uses a separate, explicitly configured project. Its initializer performs no provider request or record linking, and scheduled reconciliation is disabled by default. An authorized source setup actor may create or edit owned fictional vendor records, but receives no bridge operator credential or approval capability. Vendor ticket scopes are not limited to the demonstrated pair IDs. A source-side resolution already performed in Zendesk is outside the bridge's outbound gate; every resulting bridge state-changing plan still requires its exact-plan approval.
+
+Checkpoint capture reads provider records and local inspection under the canonical lock without reconciling or approving. Those provider reads are sequential, and optional monitoring samples are separate; the result is selected observation evidence, not an atomic transaction. The offline viewer's Next and Play controls only navigate embedded checkpoints. A record link, captured approval flag, screenshot or video cannot authorize a fresh effect or establish that a later plan still matches.
+
+Keep captures in private artifact storage and review them before sharing. They omit free-form approval rationale and credentials, but can retain titles, versions, hashes and tenant-bearing record links. Their bounded snapshots supplement the current business state and audit; they are not a complete automatic archive, nonrepudiation control or compliance decision.
+
 ## Audit and identity boundaries
 
-Local events record plan hashes, approval rationale/policy, write attempts and changed field names. The pending plan is cleared after convergence, so full completed review snapshots are not archived. Events are mutable and retention is unbounded.
+Local events record plan hashes, approval rationale/policy, write attempts and changed field names. The pending plan is cleared after convergence, so full completed review snapshots are not automatically archived. Optional explicit checkpoint capture can retain selected observed stages outside the business store. Events and presentation artifacts are mutable; business audit retention remains unbounded.
 
 Service credentials are bound to one GitHub repository and Zendesk tenant. Operator and scrape tokens have different capabilities, but there are no individual roles or scoped agent credentials. Deployment owners must provide record access controls, secret rotation, storage encryption, retention and incident ownership. Audit failures must prevent subsequent effects; metrics are best effort and cannot decide business correctness.
+
+OAuth bearer authentication does not change the operator principal or policy boundary. The confidential-client token acts through the client-associated Zendesk account, not a verified individual bridge approver. Our manual helper requests ticket read/write access for at most four hours and supplies no automatic renewal. Client identifier/secret remain on the issuance host. An explicit network-isolated UID10001 importer receives only access tokens through JSON stdin and writes a separate protected plaintext volume; API, CLI and the optional worker mount it read-only. This importer has no business state or operator capability and supplies no encrypted secret-manager guarantee. Reimport and recreate credential-reading containers after rotation, since startup processes retain their loaded values.
 
 ## Rollout and operating ownership
 
@@ -84,6 +94,7 @@ Measure copying effort, convergence lag, conflict/dead-work age, approval wait t
 - Strict version checks catch stale plans but can stop work after unrelated edits. Timestamp granularity and GitHub's read/PATCH race remain.
 - A small code policy is testable. Expanding it requires reviewed code and a policy version change.
 - A shared operator simplifies setup at the cost of individual attribution, independent approval and agent scopes.
+- A separate live project and short access-token lifetime make account selection explicit, at the cost of manual credential maintenance. Recorded replay avoids repeating effects, but later decisions still need fresh evidence.
 
 ## Known limitations
 
