@@ -4,15 +4,15 @@ Support Bridge exposes Prometheus text metrics from framework-free PHP. Promethe
 
 ## Open the right monitoring stack
 
-Use the traffic stack to watch continuous synthetic activity. Its Grafana is on **3001**. The default Compose project uses **3000**; the explicitly configured live demo uses **3002**. Each has its own records, time series and login database.
+Use the single normal `support-bridge-live-demo` deployment for the three linked real-provider cases. Its worker is disabled by default; monitoring remains available between deliberate manual checkpoints.
 
-| Service | Traffic project: `support-bridge-traffic` | Default project: `support-bridge` | Explicit live demo: `support-bridge-live-demo` |
-| --- | --- | --- | --- |
-| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) | [127.0.0.1:8082/docs](http://127.0.0.1:8082/docs) |
-| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) | [127.0.0.1:9092](http://127.0.0.1:9092/) |
-| Grafana dashboard | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) | [127.0.0.1:3002](http://127.0.0.1:3002/d/supportbridge-overview) |
+| Service | Normal host address |
+| --- | --- |
+| API and Swagger | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
+| Prometheus | [127.0.0.1:9090](http://127.0.0.1:9090/) |
+| Grafana dashboard | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
 
-These are default published host ports; an environment override can change them. Confirm the selected project's `ps` output and use its matching credentials. See the [canonical stack/port guide](DOCKER.md#choose-a-stack-and-its-ports), [traffic operation](TRAFFIC.md), [live demonstration](LIVE_DEMO.md) and [Docker credentials](DOCKER.md#credentials-and-isolation). The optional native helper below is another deployment with separate private state and its own default ports.
+Keep the private deployment file's live host ports at 8080/9090/3000 and confirm actual bindings with the full live `ps` command in [Docker operation](DOCKER.md#choose-a-stack-and-its-ports). Former local and traffic deployments stay stopped, retaining their parked data. Their histories are never imported or combined with live observations. [Synthetic traffic](TRAFFIC.md) and the optional native helper below are isolated verification tools.
 
 Use the selected project's [Grafana sign-in procedure](DOCKER.md#sign-in-to-grafana). A fresh database uses `admin` and its generated password; an existing database retains its current account credentials. The bootstrap file may be stale after account changes. Compose uses a project-specific login cookie name; recreating Grafana to apply it requires one fresh sign-in and preserves account/data state. Keep `127.0.0.1` consistent, and use independent browser sessions when diagnosing older shared-cookie deployments. Verify an actual browser login before reporting that the intended account works; health, provisioning and bootstrap smoke checks establish different facts.
 
@@ -51,27 +51,20 @@ The exporter reads all aggregate values in one SQLite snapshot and checks histog
 
 ## Docker Compose stack
 
-Our local stacks package the API, reconciliation worker, Prometheus and Grafana in containers. For continuous activity on ports 8081/9091/3001:
+Start or inspect the one normal deployment using its private env file and both Compose files:
 
 ```bash
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml up --build -d --wait
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml ps
+docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml up --build -d --wait
+docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml ps
 ```
 
-For the default stack on ports 8080/9090/3000:
+[Docker operation](DOCKER.md) covers volumes, credentials and verification. The live initializer creates no fixture or mapping and accesses no provider. The worker stays disabled unless its effectful profile is explicitly enabled. Startup, port changes and monitoring queries authorize no source edits, synchronization or approval. The [read-only smoke command](DOCKER.md#verification) checks existing connections without recreating dependencies. It requires an explicit linked pair and assumes Grafana's unchanged bootstrap account; never reset a rotated account to satisfy it.
 
-```bash
-docker compose -p support-bridge -f compose.yaml up --build -d --wait
-docker compose -p support-bridge -f compose.yaml ps
-```
+Prometheus scrapes `api:8080` with its own read-only credential; Grafana queries `prometheus:9090`. Host ports bind to loopback. API and explicit CLI share business state and the canonical lock. The optional worker receives no monitoring or operator credentials and never grants approval.
 
-See [Docker operation](DOCKER.md) for credentials, volumes and the complete container verification gate. Use the same project and Compose files for every operation. Against an already running default stack, `docker compose -p support-bridge -f compose.yaml --profile test run --rm --no-deps smoke` checks actual service connections without recreating dependencies. For traffic, use the traffic prefix shown above. The verifier assumes Grafana's bootstrap account; it cannot validate a renamed account or rotated password, as explained in the [traffic login guide](TRAFFIC.md).
+Prometheus, Grafana and smoke receive no `vendor-secret` volume or vendor token values; scraping never calls GitHub or Zendesk. The network-isolated importer writes only that credential volume, while application readers mount it read-only. [LIVE_DEMO.md](LIVE_DEMO.md) covers manual issuance, import and reader recreation after rotation. Successful scrapes prove exporter access, not vendor convergence or customer acceptance.
 
-Prometheus scrapes `api:8080` through Compose DNS with its own read-only credential file; Grafana queries `prometheus:9090`. Host ports are bound to loopback. In local projects, the initializer creates synthetic application state and distinct credentials in dedicated named volumes, while API and worker share the same state directory and canonical database lock. The worker does not receive monitoring or operator credentials and never grants approval.
-
-The explicit [live overlay](LIVE_DEMO.md) retains this monitoring topology on host ports 9092/3002. Its initializer creates no fixture or mapping, and its worker is disabled by default. Prometheus, Grafana and smoke receive no `vendor-secret` volume or vendor token values; scraping never calls GitHub or Zendesk. The separate network-isolated importer writes only that credential volume, while application readers mount it read-only. Read-only smoke requires an explicit existing link and still assumes Grafana's bootstrap account. Successful scrapes prove exporter access, not a completed vendor integration.
-
-The [traffic stack](TRAFFIC.md) produces ongoing synthetic activity in its own project. Its one-second, five-second or random tick delay is independent of the five-second Prometheus scrape and Grafana refresh; multiple edits can contribute to one scrape. Scripted review is synthetic operator activity, not a metric-derived or human approval.
+The [bounded traffic check](TRAFFIC.md#verify-the-scenario) uses disposable local providers and temporary monitoring services. Tick delay is independent of the five-second scrape and dashboard refresh; multiple edits can occur between samples. Scripted review supplies synthetic operator activity, not human approval. This is not another continuously running operating dashboard.
 
 Container restart preserves the business database, aggregate metrics, monitoring data and credentials. An ordinary `docker compose down` retains the volumes. Credentials are not baked into images or included in committed configuration. The volume-backed files are not encrypted Docker Secrets; Docker administrators can read them. The isolated smoke verifier reads the credentials needed to check actual authentication, scrapes, queries, rules and Grafana provisioning, and makes no business writes.
 
@@ -85,7 +78,7 @@ Replay controls navigate embedded observations only. Their Grafana/Prometheus li
 
 ## Optional native stack
 
-The repository includes pinned, checksum-verified user-local binaries, provisioning, a dashboard and example alert rules under [`monitoring/`](../monitoring/). From the repository root in Ubuntu/WSL:
+This is an explicit isolated verification alternative, not a second operating stack. Do not start it on ports occupied by the normal demo; prefer the [disposable checks](DOCKER.md#verification). The repository includes pinned, checksum-verified user-local binaries, provisioning, a dashboard and example rules under [`monitoring/`](../monitoring/). With the required ports free, from the repository root in Ubuntu/WSL:
 
 ```bash
 bash monitoring/install.sh
@@ -96,7 +89,7 @@ python3 monitoring/stack.py status
 
 `up --demo` starts an isolated local PHP application with synthetic records and private credentials, Prometheus on `127.0.0.1:9090`, and Grafana on `127.0.0.1:3000`. It does not use live provider credentials. The helper refuses to take over occupied service ports. Default private state is `~/.local/share/supportbridge/monitoring/`; `BRIDGE_MONITORING_HOME` can select another directory. `status` reports file locations without printing credential values. Read the Grafana password from its private file when signing in locally; do not paste it into logs or documentation.
 
-For this native helper, open [native Prometheus](http://127.0.0.1:9090/) and the provisioned [native Grafana overview](http://127.0.0.1:3000/d/supportbridge-overview). The local verification checks real scrape/query behavior, Grafana datasource health and dashboard provisioning. Installation or PHP tests alone do not prove those connections are working. Record what `verify` actually reports rather than claiming success from configuration files alone.
+In this isolated check, use the native helper's configured Prometheus and Grafana addresses. Verification checks real scrape/query behavior, Grafana datasource health and dashboard provisioning. Installation or PHP tests alone do not prove those connections are working. Record what `verify` actually reports rather than claiming success from configuration files alone.
 
 Stop only the processes owned by the helper:
 

@@ -211,23 +211,23 @@ Prometheus scrapes every five seconds; Grafana refreshes independently. Several 
 
 ## Guided case and continuous traffic
 
-The continuous traffic driver is a separate mechanism. It rotates through eight owned pairs, selects one per tick, and then requests a sweep across eligible pairs. An independent worker also sweeps every five seconds. Five-second ticks imply a nominal forty-second revisit for a given pair, plus processing and contention; they do not mean each pair changes every five seconds.
+Our normal demonstration runs in the existing `support-bridge-live-demo` project with three explicitly linked fictional cases: CSV export, duplicate webhook and SSO. There is one API, one Prometheus and one Grafana. Its background worker is disabled and no continuous generator runs against vendor records. We inspect current state and advance through deliberate authorized operations; infrastructure or port changes grant no new source-edit, synchronization or approval authority.
 
-In `scripted` mode, the driver begins its review timer when it observes waiting evidence and acts on a later visit at least ten seconds afterwards. It explicitly selects GitHub for synthetic conflicts and submits synthetic approvals through the normal APIs. This is neither human review nor a compliance decision. `manual` mode leaves those decisions pending.
+A manual sweep still processes every eligible pair. We inspect the complete link set before advancing it. We do not reset baselines, rewrite plans, backdate retries or change stored approvals to make the story progress. Unexpected evidence requires inspection and an adapted sequence, preserving existing work and the normal exact-plan gates.
 
-For the guided case, we plan to pause automatic generation and scheduled sweeps in the selected project, inspect the sample's existing state, and advance through deliberate application operations. Manual review must remain visible. We do not reset baselines, rewrite plans, backdate retries or change stored approvals to make the story progress. Unexpected starting evidence needs inspection and an adapted sequence or a separate isolated scenario, preserving existing state.
+At each checkpoint, we compare both provider records, baseline, pending decision and audit evidence with monitoring observations. Grafana shows aggregate operational state; it does not decide which source is correct or prove that a particular write occurred. The maintained [live guide](LIVE_DEMO.md) supplies the full private-env/project/Compose command prefix. [WALKTHROUGH.md](WALKTHROUGH.md) is an isolated local walkthrough, and the [API guide](API.md) documents the operator contract.
 
-A manual sweep still processes all eligible pairs. Pausing background processes does not make an existing multi-pair project isolated. We inspect other work before advancing it; if it must remain untouched, we prepare a separate isolated scenario and document its project, ports and state.
+| Surface | Normal host address |
+| --- | --- |
+| API and Swagger | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
+| Prometheus | [127.0.0.1:9090](http://127.0.0.1:9090/) |
+| Grafana | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
 
-At each checkpoint, we show both local provider records, the baseline and pending decision, per-pair audit events, monitoring observations and, when isolated from other writes, provider write counts. After a guided run, process settings and unfinished work need to be recorded before resuming background operation. The maintained [walkthrough](WALKTHROUGH.md), [API guide](API.md) and [traffic guide](TRAFFIC.md) contain execution and configuration instructions; this narrative is not an automatic approval script.
+Keep URLs, credentials and retained volumes bound to `support-bridge-live-demo`. Internal addresses remain `api:8080`, `prometheus:9090` and `grafana:3000`. The [connection guide](DOCKER.md#choose-a-stack-and-its-ports) covers port overrides and the persisted Grafana account. Swagger is reference documentation with submission disabled; operations use the authenticated API or CLI.
 
-| Surface | Traffic project | Default project | Explicit live demo |
-| --- | --- | --- | --- |
-| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) | [127.0.0.1:8082/docs](http://127.0.0.1:8082/docs) |
-| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) | [127.0.0.1:9092](http://127.0.0.1:9092/) |
-| Grafana | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) | [127.0.0.1:3002](http://127.0.0.1:3002/d/supportbridge-overview) |
+Continuous synthetic activity is an **optional disposable verification tool**, described in [TRAFFIC.md](TRAFFIC.md). It rotates through eight owned local pairs, requests sweeps, and runs an independent five-second worker. Five-second ticks imply a nominal forty-second revisit per pair plus processing and contention. Scripted review waits at least ten seconds after observing waiting evidence before a synthetic source choice or exact-plan approval; it is neither human review nor a compliance decision. Manual mode leaves those decisions pending. These tests never use vendor credentials or real mappings.
 
-Use one project's URLs, credentials and volumes together. Internal service addresses remain `api:8080`, `prometheus:9090` and `grafana:3000`. Host overrides and native filesystem state are documented in the [canonical connection guide](DOCKER.md#choose-a-stack-and-its-ports). Swagger is configured as reference documentation with submission disabled; operational actions use the authenticated API or CLI.
+The former local and traffic deployments stay stopped with their volumes parked. Their sample records, baselines, accounts and time series are not imported or merged into the real demo. A disposable check creates its own temporary project; it does not resume those deployments or add normal operating dashboards.
 
 ## Guided live records and replay
 

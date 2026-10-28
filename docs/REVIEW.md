@@ -54,6 +54,16 @@ Compose now derives the authentication-cookie name from its project name. The pr
 
 The rebuilt isolated verification gate passed, including PSR-12 and replay checks. A Windows checkout had exposed CRLF files that failed the style gate; the LF checkout policy and normalized working files removed that host/CI difference. The disposable lifecycle check passed all nine integration groups and preserved its pending plan and credentials through recreation. It cleaned only its own project. This repair performed no operator or provider writes.
 
+## Single operating deployment verification: 2026-10-28
+
+The earlier three-project port checks describe the prior configuration. Our operating demonstration now consists of one API on 8080, one Prometheus on 9090 and one Grafana on 3000, all on loopback in the existing `support-bridge-live-demo` project. The sample and traffic containers were removed with ordinary Compose `down`; their named volumes were retained as parked test state. We did not rename the live project, merge datasets or reset Grafana.
+
+All seven live-volume identities were retained, and complete inspection output for the three linked pairs matched before and after recreation. Fresh vendor reads confirmed matching titles for all three pairs: CSV export remained closed/solved, while webhook and SSO remained open. These are three linked customer cases; the previously recorded CSV transfer/approval sequence is the executed full-flow evidence. The background live worker remains disabled, and this infrastructure change performed no synchronization or source edits.
+
+Actual host health checks passed on 8080/9090/3000. Prometheus returned `up=1`; authenticated Grafana reads returned datasource health `OK` and eight panels. A fresh Chrome login reached the dashboard on 3000 and displayed three linked pairs. The former ports 8081/8082/9091/9092/3001/3002 had no listeners after consolidation. Current documentation and the reusable live-demo skill use the canonical addresses.
+
+The rebuilt isolated gate passed, including PHP behavior/style, API fixtures and replay checks. The disposable lifecycle check passed all nine integration groups and preserved pending work and credentials; the isolated live-overlay check passed fake-token import, guarded bootstrap and reader rotation without vendor requests. Both removed only their own disposable projects. The original private checkpoint archive remains unchanged; a separate presentation copy points its monitoring links at the current deployment.
+
 ## API schema validation
 
 After the wire tests generate their synthetic response fixtures:

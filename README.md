@@ -15,43 +15,37 @@ The versioned [live demo operating skill](skills/support-bridge-live-demo/SKILL.
 ## Run with Docker
 
 ```bash
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml up --build -d --wait
+docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml up --build -d --wait
 ```
 
-For continuous synthetic activity, use this traffic stack. It runs the API, worker, traffic generator, Prometheus and Grafana. The generator changes synthetic records every five seconds and exercises conflicts, approval waits and interrupted-write recovery. Compose 2.24.4 or later is required. Choose one-second or random delays and manual or scripted reviews in the [traffic guide](docs/TRAFFIC.md).
+Normal operation uses **one real demo deployment**, `support-bridge-live-demo`, with the application API, Prometheus and Grafana. It retains the existing live project's accounts, mappings and named volumes. The three linked cases cover a large CSV export, duplicate webhook delivery and an expired SSO session. Compose 2.24.4 or later is required; use the [live setup guide](docs/LIVE_DEMO.md) for the private deployment file and access-token import before first startup.
 
-Choose links from the same column. Each project has separate records, credentials and monitoring history:
+Use these canonical loopback addresses:
 
-| Service | Traffic stack (`support-bridge-traffic`) | Default stack (`support-bridge`) | Explicit live demo (`support-bridge-live-demo`) |
-| --- | --- | --- | --- |
-| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) | [127.0.0.1:8082/docs](http://127.0.0.1:8082/docs) |
-| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) | [127.0.0.1:9092](http://127.0.0.1:9092/) |
-| Grafana dashboard | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) | [127.0.0.1:3002](http://127.0.0.1:3002/d/supportbridge-overview) |
-| Worker | Immediate sweep, then every five seconds | Immediate sweep, then every minute | Disabled unless `live-worker` is selected |
-| Traffic generator | Every five seconds by default | Absent | Absent |
+| Service | Address |
+| --- | --- |
+| API and Swagger | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
+| Prometheus | [127.0.0.1:9090](http://127.0.0.1:9090/) |
+| Grafana dashboard | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
 
-These are default host ports, all bound to loopback. The initializer creates separate API, metrics and Grafana bootstrap credentials for each project. Use that project's [credential instructions](docs/DOCKER.md#credentials-and-isolation); an existing Grafana account may have been renamed or its password changed. The default and traffic stacks make no vendor calls. The live overlay requires explicit account configuration and access tokens imported into its separate vendor credential volume; follow [its setup guide](docs/LIVE_DEMO.md) before starting it.
+The worker remains disabled by default and no traffic generator runs against these records. Startup, monitoring and port consolidation do not authorize a new sweep, source edit or approval. Subsequent workflow effects use the normal explicit commands and exact-plan gates.
 
-For [Grafana sign-in](docs/DOCKER.md#sign-in-to-grafana), a new database uses `admin` and its generated password; existing databases retain their current account credentials. Compose gives each project a separate login cookie name. Use `127.0.0.1` consistently and sign in once again after recreating Grafana to apply the cookie setting; accounts and data are retained. Older shared-cookie deployments may need independent browser sessions for diagnosis. The bootstrap password file does not prove a changed account's current login.
+For [Grafana sign-in](docs/DOCKER.md#sign-in-to-grafana), use the retained live project's current account credentials. Only a new database uses `admin` and its generated bootstrap password. Keep `127.0.0.1` consistent; a cookie-name change requires a fresh login and preserves accounts/data. The bootstrap file does not prove a changed account's current login.
 
-Inspect the running traffic stack with its full command prefix:
+Inspect the same deployment with its full command prefix:
 
 ```bash
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml ps
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm --no-deps cli status
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm --no-deps cli inspect escalation-1
+docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml ps
+docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml run --rm --no-deps cli status
 ```
 
-### Default stack without generated traffic
+The former `support-bridge` and `support-bridge-traffic` projects stay stopped with their volumes parked. Their local records, accounts and monitoring history are not imported or merged into the real demo. Keep the live project name when recreating containers so its data remains attached.
 
-To run the API, worker and monitoring without the generator, use the default project instead:
+### Optional isolated verification
 
-```bash
-docker compose -p support-bridge -f compose.yaml up --build -d --wait
-docker compose -p support-bridge -f compose.yaml run --rm --no-deps cli status
-```
+The safe local base, synthetic [traffic generator](docs/TRAFFIC.md), native reliability demo and disposable lifecycle checks remain development tools. They do not supply additional normal dashboards. Follow [isolated verification](docs/DOCKER.md#verification) for bounded runs that preserve the live deployment and remove only their own disposable state.
 
-Keep the project name and Compose files with every operation. Changing only a URL or host port does not select another project's data. Named volumes retain data and credentials across restarts and ordinary `down`. See [Docker operation](docs/DOCKER.md) for all port sets, overrides, credential handling and verification.
+The base `compose.yaml` deliberately retains local mode for those checks. Normal startup always selects the live overlay and private env file. Named volumes survive ordinary stop/down; see [Docker operation](docs/DOCKER.md) for ownership, credential handling and verification.
 
 ## Run with PHP
 
@@ -79,7 +73,7 @@ Classes follow the [PSR-4](https://www.php-fig.org/psr/psr-4/) `Bridge\` → `sr
 
 ## Review a state change
 
-The following native CLI example uses `var/local`, separate from both Docker projects. Use the [Docker workflow commands](docs/DOCKER.md#operate-the-workflow) to operate container state. Local mode is the default; the sample links issue `101` and ticket `501`:
+The following optional native CLI example uses synthetic `var/local`, separate from the normal real-demo volume. Use the [Docker workflow commands](docs/DOCKER.md#operate-the-workflow) to operate that deployment. Native local mode is the default; the sample links issue `101` and ticket `501`:
 
 ```bash
 export BRIDGE_MODE=local

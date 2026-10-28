@@ -1,75 +1,41 @@
-# Continuous synthetic traffic
+# Synthetic traffic verification
 
-The traffic stack simulates support and engineering work on local ticket/issue pairs. A separate container edits synthetic source records and sends authenticated HTTP requests to the application. The normal engine reconciles them; Prometheus and Grafana show the resulting outcomes and pending work.
+The traffic configuration is an optional isolated test tool for support/engineering workflows on local ticket/issue pairs. It is not part of the one normal [real demonstration](LIVE_DEMO.md), which uses `support-bridge-live-demo` on API 8080, Prometheus 9090 and Grafana 3000 with manual sweeps and no generator. Former local/traffic deployments remain stopped with their volumes parked; test runs never import their state or live mappings.
 
-The [primary CSV-export scenario](SCENARIO.md) explains one complete escalation and the evidence to inspect at each decision. This operating guide covers the eight-pair continuous generator, its timing and its synthetic review modes.
+The [primary CSV-export scenario](SCENARIO.md) explains the customer flow. This guide describes bounded synthetic verification of the same engine and API without vendor accounts. Temporary monitoring services belong only to a disposable check, not additional operating dashboards.
 
 ## Start
 
-From the repository root, with Docker Engine and Compose 2.24.4 or later:
+From a shell with Docker Engine, Compose 2.24.4 or later and `sh`, run:
 
 ```bash
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml up --build -d --wait
+sh docker/check-traffic.sh
 ```
 
-Both files and the explicit `-p support-bridge-traffic` flag are required. The flag takes precedence over `COMPOSE_PROJECT_NAME` in the shell or `.env`, keeping the traffic project's volumes and network separate from the ordinary stack. The overlay uses `!override` to replace host ports. Keep this command prefix for every traffic operation; changing or omitting it can address another project's data.
+The check creates a uniquely named `support-bridge-traffic-check-<process-id>` project with both `compose.yaml` and `compose.traffic.yaml`. It runs a finite 50-tick workload at one-second intervals in scripted mode, checks application/audit evidence and monitoring, exercises restart/termination, then removes only its own disposable volumes. It refuses to adopt an existing test project. Never substitute a parked or live project name.
 
-| Service | Host address or role |
-| --- | --- |
-| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) |
-| Traffic | Generates source edits and API requests; no published port |
-| Worker | Reconciles independently every five seconds |
-| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) |
-| Grafana | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) |
+Temporary test ports default to API 18081, Prometheus 19091 and Grafana 13001. If occupied, set `BRIDGE_TRAFFIC_CHECK_HTTP_PORT`, `BRIDGE_TRAFFIC_CHECK_PROMETHEUS_PORT` and `BRIDGE_TRAFFIC_CHECK_GRAFANA_PORT` before running the script. Internal service addresses stay `api:8080`, `prometheus:9090` and `grafana:3000`. Host listeners bind to loopback. The script does not change normal demo bindings or credentials.
 
-These are traffic-project host ports. The default project uses 8080, 9090 and 3000; see the [stack comparison](DOCKER.md#choose-a-stack-and-its-ports). Inside both projects, service addresses remain `api:8080`, `prometheus:9090` and `grafana:3000`. Changing a browser URL does not switch or combine their records.
-
-The project has its own application data, credentials, monitoring data and network. It can run beside the ordinary stack. Host ports remain on loopback; `BRIDGE_TRAFFIC_HTTP_PORT`, `BRIDGE_TRAFFIC_PROMETHEUS_PORT` and `BRIDGE_TRAFFIC_GRAFANA_PORT` select alternatives if needed.
-
-For a fresh stack, Grafana login is `admin`. Read its generated bootstrap password locally with the command below; keep the value out of logs and source:
-
-```bash
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml exec grafana cat /run/secrets/grafana/password
-```
-
-Renamed accounts and changed passwords persist in Grafana's database. After account rotation, this bootstrap file may no longer match the login. Verify the current credentials in the browser at the traffic host port (3001 by default). The standard smoke check assumes the bootstrap account; its authentication result does not validate a rotated account.
-
-Use `127.0.0.1` consistently. Compose gives the traffic project its own login cookie name, separate from default and live Grafana. Recreate its Grafana service to apply that setting and sign in once again; existing credentials and data remain. When diagnosing older shared-cookie deployments, use an independent browser session because cookies can cross ports. See [Grafana sign-in](DOCKER.md#sign-in-to-grafana) for all three login URLs and matching credential commands; preserve the current Grafana database while diagnosing a login failure.
+The older traffic overlay's published defaults remain available for explicit test development, but starting the parked `support-bridge-traffic` project is not normal operation. Keep it stopped. For routine work, use the finite disposable check rather than resuming continuous generation.
 
 ## Choose timing and review mode
 
-Set variables in the shell that runs Compose, then run the start command again to recreate the traffic container with those settings.
+The generator supports these settings for explicitly isolated test development. The disposable check deliberately fixes one-second scripted activity and 50 ticks rather than inheriting an unbounded shell configuration.
 
-| Setting | Default | Accepted values |
+| Setting | Generator default | Accepted values |
 | --- | --- | --- |
 | `BRIDGE_TRAFFIC_INTERVAL` | `5` | `1`, `5` or `random` |
 | `BRIDGE_TRAFFIC_RANDOM_MIN` | `1` | Whole seconds, 1–60 |
 | `BRIDGE_TRAFFIC_RANDOM_MAX` | `5` | Whole seconds, minimum through 60 |
 | `BRIDGE_TRAFFIC_REVIEW` | `scripted` | `scripted` or `manual` |
 
-For one-second activity in bash:
+The interval is a delay after each tick completes, not a fixed request rate. A tick can issue several requests or wait on existing work. Lock contention, API duration and persisted retry due times affect progress; the driver respects `next_run` rather than bypassing backoff. One-second, five-second and random delays simulate different arrival patterns, not measured customer traffic distributions.
 
-```bash
-export BRIDGE_TRAFFIC_INTERVAL=1
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml up --build -d --wait
-```
-
-For random delays in PowerShell:
-
-```powershell
-$env:BRIDGE_TRAFFIC_INTERVAL = 'random'
-$env:BRIDGE_TRAFFIC_RANDOM_MIN = '1'
-$env:BRIDGE_TRAFFIC_RANDOM_MAX = '5'
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml up --build -d --wait
-```
-
-Use `5` for fixed five-second activity. The interval is a delay after each tick completes, not a fixed request rate. A tick can issue several HTTP requests or wait on existing work. Lock contention, API duration and persisted retry times also affect progress; the generator respects `next_run` rather than bypassing backoff.
-
-In `scripted` mode, pending conflicts and state-change reviews remain visible for at least ten seconds before the driver submits a synthetic source choice or exact-plan approval. This keeps the scenario cycling through the normal API. In `manual` mode, the driver leaves those decisions pending. Change the variable to `manual` and recreate the traffic container to practice reviewing them yourself.
+Scripted mode leaves a conflict or state-change review visible for at least ten seconds after observing it, then submits a synthetic source choice or exact-plan approval through the normal API. Manual mode leaves those decisions pending for explicit test review. A conflict source choice never supplies state-change approval. The script does not edit pending plans, approvals or retry schedules to force progress.
 
 ## Scenarios and observation
 
-The generator uses eight reusable pairs, `traffic-1` through `traffic-8`, with local GitHub IDs 91001–91008 and Zendesk IDs 95001–95008. The initializer's sample pair remains present. First setup creates the owned records and links; later starts preserve their edits, baselines, pending plans and approvals. The generator will not adopt arbitrary existing records.
+The generator owns eight reusable pairs, `traffic-1` through `traffic-8`, with local GitHub IDs 91001–91008 and Zendesk IDs 95001–95008. The initializer's sample pair remains, giving nine linked pairs. Setup creates only marked synthetic records/links; restarts within a test preserve edits, baselines, plans and approvals. The generator refuses arbitrary existing records and live mode.
 
 | Scenario | Workflow exercised |
 | --- | --- |
@@ -77,76 +43,45 @@ The generator uses eight reusable pairs, `traffic-1` through `traffic-8`, with l
 | Independent title and state edits | Field merge followed by whole-plan state review |
 | Close or reopen an escalation | Exact-plan approval and freshness checks |
 | Both sides change a summary differently | Conflict quarantine and explicit source choice |
-| An injected write fails before committing | Persisted retry and due-time scheduling |
-| A write commits but loses its response | Read-before-retry recovery without blind resend |
+| Injected write fails before committing | Persisted retry and due-time scheduling |
+| Write commits but loses its response | Read-before-retry without blind resend |
 | No new edit | Convergence checks without remote writes |
 
-Follow traffic logs and inspect stored work:
+The check inspects these outcomes, audit evidence and the untouched sample. Test logs report structured progress without titles, tokens or raw vendor responses. Container health indicates loop progress, not convergence, verified human review or policy satisfaction.
 
-```bash
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml logs --follow --tail=50 traffic
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli status
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli inspect traffic-1
-```
+Prometheus scrapes and Grafana refreshes every five seconds. Multiple one-second events can fall between samples. Outcome counters measure reconciliation observations, including no-op polls, rather than source edits or guaranteed effects. Use pair-state gauges and authenticated inspection together. Rate and histogram panels need multiple samples. [Observability semantics](OBSERVABILITY.md) explains these limits.
 
-In manual mode, `traffic-5` generates title conflicts and `traffic-4` generates state-change reviews. Once each reaches the corresponding pending status, inspect its evidence before acting:
-
-```bash
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli inspect traffic-5
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli resolve traffic-5 github
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli inspect traffic-4
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml run --rm cli approve traffic-4 PLAN_HASH 'Reviewed this synthetic plan'
-```
-
-Run only the command appropriate to the stored status; source selection does not grant approval. Replace `PLAN_HASH` with the inspected `governance.plan_hash`. The independent worker applies eligible work on a later sweep.
-
-Prometheus scrapes every five seconds and the dashboard refreshes every five seconds, with a fifteen-minute default view. Several one-second events can fall between scrapes. Outcome counters measure reconciliation observations, including no-op polls; they do not count source edits or prove every pair is healthy. Use pair-state gauges, logs and inspection together. Rate and histogram panels need multiple samples.
-
-Traffic logs report structured progress without titles, tokens or raw vendor responses. Container health reports loop progress, not convergence, human review or policy satisfaction.
+Fresh disposable Grafana uses `admin` and its generated test password, which smoke reads privately. This account is separate from the normal demo's persisted account. The [sign-in guide](DOCKER.md#sign-in-to-grafana) distinguishes bootstrap inputs from stored credentials. Tests must not reset a normal account or share its operator token to satisfy smoke.
 
 ## Architecture overview
 
-The driver edits owned local provider records and installs one-shot faults while holding the canonical application lock. It releases that lock before HTTP calls. A separate generator lock prevents duplicate traffic drivers. Requests go only to the internal application API; the local providers make no GitHub or Zendesk requests. Explicit enablement and a local-mode guard prevent the driver from running against live providers.
+The source driver edits only owned local records and installs record-targeted one-shot faults while holding the canonical application lock, then releases it before HTTP calls. A separate generator lock rejects duplicate drivers. The worker independently sweeps every five seconds. Local providers never call GitHub or Zendesk; explicit enablement and local-mode guards reject live configuration.
 
-The traffic container receives its project's operator credential read-only. It uses the ordinary API for sweeps, inspection, conflict resolution and exact-hash approval. It does not bypass governance or change retry policy. The worker remains a separate process with no operator credential. Injected faults target the selected synthetic record. Separate application volumes keep simulated edits, approvals and faults away from the ordinary stack.
+The driver receives only its disposable project's operator credential read-only. It calls ordinary sweep, inspection, conflict-resolution and exact-hash approval endpoints, with the normal governance and retry policies. The independent worker has no operator credential. Separate disposable volumes prevent simulated edits, approvals and faults from affecting parked or live state.
 
 ## Trade-offs
 
-- Reusing the local providers exercises the real engine and HTTP surface without accounts. It does not reproduce vendor network latency, permissions, triggers or rate limits.
-- A fixed eight-pair pool keeps source data bounded and produces repeated recovery cases. Audit history and monitoring storage still grow during long runs.
-- Scripted review keeps activity moving but supplies no human decision. Manual mode is useful for reviewing evidence and can leave much of the pool waiting.
-- The driver and independent worker share one lock. Contention is expected; this setup does not add parallel business workers or measure production capacity.
+- Local providers exercise the real engine and HTTP boundary without accounts, but do not reproduce vendor permissions, triggers, latency or rate limits.
+- Eight reusable pairs bound source data and repeat recovery cases. Audit and monitoring data still grow during a run, so routine checks use finite ticks.
+- Scripted review keeps test progress moving but supplies no human decision. Manual mode supports deliberate evidence review and can leave much of the pool waiting.
+- The driver and worker share one lock. Expected contention tests serialization; it does not demonstrate parallel business workers or production capacity.
 
 ## Known limitations
 
-These scenarios are synthetic workflow traffic, not a live-provider integration or load benchmark. Their cadence and distribution are demonstration choices. Fault injection covers specific before-write and lost-response cases, not arbitrary failures of Docker, storage or a vendor.
+This is synthetic workflow verification, not a live integration or load benchmark. Fault injection covers particular before-write and lost-response cases, not arbitrary Docker, storage or vendor failures. The deterministic driver has broad **test** operator authority. Scripted attestations verify neither a human nor separation of duties or compliance. Never rely on AI in compliance. The [governance model](GOVERNANCE.md) and its missing identity, retention and approval-lifetime controls still apply.
 
-The deterministic driver has broad local operator authority. Its scripted attestations do not verify a human, separation of duties or compliance. **Never rely on AI in compliance.** The [governance model](GOVERNANCE.md) and its missing identity, retention and approval-lifetime controls still apply.
-
-The container and workflow checks described in [Docker operation](DOCKER.md) are separate from live-account, customer and capacity validation. Record actual test and stack results when verifying a change; configuration alone is not evidence that the workload or monitoring works.
+Container tests, actual vendor runs and customer validation are separate evidence. Record executed results, not success inferred from configuration. [Docker operation](DOCKER.md#verification) documents the companion offline, lifecycle and no-vendor live-bootstrap checks.
 
 ## Verify the scenario
-
-With a shell that can run Docker, execute the disposable traffic check:
 
 ```bash
 sh docker/check-traffic.sh
 ```
 
-It creates a uniquely named project, generates a bounded workload through the API, checks scenario and audit evidence, runs the monitoring smoke check, and checks restart and graceful termination. Its cleanup removes only that disposable project's volumes. It uses host ports 18081, 19091 and 13001 by default; `BRIDGE_TRAFFIC_CHECK_HTTP_PORT`, `BRIDGE_TRAFFIC_CHECK_PROMETHEUS_PORT` and `BRIDGE_TRAFFIC_CHECK_GRAFANA_PORT` select alternatives.
+The finite check verifies all action markers, stored pair/audit state, actual monitoring connections, persistence through recreation, generator restart, duplicate-driver rejection and graceful termination. Its cleanup addresses only its own unique project. These results establish the tested local workload, not real-provider convergence or customer acceptance.
 
 ## Stop and resume
 
-Stop only generation while leaving API, worker and monitoring available:
+The normal workflow is a finite check that exits and cleans up its disposable resources. Do not resume the old parked traffic deployment for routine demonstration. Its volumes remain retained and separate; no automatic migration or merge occurs.
 
-```bash
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml stop traffic
-```
-
-Stop the whole traffic stack while keeping its data and credentials:
-
-```bash
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml down
-```
-
-Run the start command to resume. Do not add `--volumes` as routine cleanup: existing pending work and credentials must survive. Keep the explicit project flag and both files when stopping or resuming this stack.
+For a deliberately managed test development run, always retain that run's explicit unique `-p` value and both Compose files for every operation. Stop the generator before investigating pending work. Ordinary stop/down preserves that run's state. Volume removal is appropriate only for a confirmed disposable project owned by the check, never the live deployment or parked historical volumes.

@@ -9,7 +9,7 @@ Read [the live guide](../../docs/LIVE_DEMO.md), [customer walkthrough](../../doc
 
 ## Deployment and records
 
-Select `support-bridge-live-demo` with both Compose files explicitly. Verify actual host ports against the connection reference; the defaults are API8082, Prometheus9092 and Grafana3002. Keep its state and credentials separate from the default and traffic projects. Bootstrap creates schemas and local operator/monitoring credentials without provider requests, links or fixtures. The live worker is opt-in.
+Use one operating deployment: the existing `support-bridge-live-demo` project with both Compose files explicitly, on API 8080, Prometheus 9090 and Grafana 3000. Verify actual host ports against the connection reference. Keep sample and traffic configurations as isolated verification tools, stopped during the real demonstration, and preserve their parked volumes. Never rename the existing live project or merge sample baselines into it. Bootstrap creates schemas and local operator/monitoring credentials without provider requests, links or fixtures. The live worker is opt-in.
 
 Use the documented private credential import. API, CLI and worker are the runtime credential readers; the isolated importer has the sole writable vendor-volume mount. Keep OAuth client secrets outside runtime containers and source. Reissue an expired access token manually with the narrow ticket scopes, import it, and recreate credential-reading containers. An existing Grafana bootstrap file does not prove the current login after account rotation.
 
