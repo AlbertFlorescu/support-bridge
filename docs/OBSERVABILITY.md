@@ -1,148 +1,101 @@
-# Prometheus and Grafana observability
+# Demo observability
 
-Support Bridge exposes Prometheus text metrics from framework-free PHP. Prometheus pulls the authenticated `/metrics` endpoint, and Grafana queries Prometheus. Normal reconciliation/exporting requires no PHP extension agent, Pushgateway, remote write or outbound telemetry request. The optional demonstration capture tool can query local Prometheus to attach observed aggregate values to a checkpoint.
+One Prometheus and one Grafana monitor the three linked cases in `support-bridge-live-demo`. The dashboard reads actual stored workflow evidence. There is no traffic generator, automatic ticket creation or native monitoring alternative.
 
-## Open the right monitoring stack
-
-Use the single normal `support-bridge-live-demo` deployment for the three linked real-provider cases. Its worker is disabled by default; monitoring remains available between deliberate manual checkpoints.
-
-| Service | Normal host address |
+| Service | Address |
 | --- | --- |
-| API and Swagger | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
+| Grafana | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
 | Prometheus | [127.0.0.1:9090](http://127.0.0.1:9090/) |
-| Grafana dashboard | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
+| API and Swagger | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
 
-Keep the private deployment file's live host ports at 8080/9090/3000 and confirm actual bindings with the full live `ps` command in [Docker operation](DOCKER.md#choose-a-stack-and-its-ports). Former local and traffic deployments stay stopped, retaining their parked data. Their histories are never imported or combined with live observations. [Synthetic traffic](TRAFFIC.md) and the optional native helper below are isolated verification tools.
+Use the full project/env-file prefix in [Docker operation](DOCKER.md). Grafana uses its persisted account; its bootstrap file may not represent a rotated password. [Sign-in guidance](DOCKER.md#sign-in-to-grafana) separates account authentication from service health.
 
-Use the selected project's [Grafana sign-in procedure](DOCKER.md#sign-in-to-grafana). A fresh database uses `admin` and its generated password; an existing database retains its current account credentials. The bootstrap file may be stale after account changes. Compose uses a project-specific login cookie name; recreating Grafana to apply it requires one fresh sign-in and preserves account/data state. Keep `127.0.0.1` consistent, and use independent browser sessions when diagnosing older shared-cookie deployments. Verify an actual browser login before reporting that the intended account works; health, provisioning and bootstrap smoke checks establish different facts.
+## Read the dashboard
 
-## Metrics and meaning
-
-`Bridge\Observability\Prometheus` consumes the existing reconciliation logger's `event`, `status` and `duration_ms` fields. Unknown events/outcomes and invalid durations are ignored. It never exports titles, IDs, request IDs, tokens, headers, exception messages or arbitrary log fields. The only labels are fixed outcome/status values and histogram boundaries.
-
-| Metric | Type and meaning |
+| Panel | Meaning |
 | --- | --- |
-| `support_bridge_reconciliations_total{outcome}` | Cumulative observed reconciliations, initialized to zero for `synced`, `retry`, `conflict`, `dead`, `skipped`, `awaiting_approval` |
-| `support_bridge_reconciliation_duration_seconds` | Aggregate classic histogram of per-pair reconciliation duration, converted from milliseconds to seconds |
-| `support_bridge_pairs{status}` | Current stored pair counts for `new`, `synced`, `retry`, `conflict`, `dead`, `awaiting_approval` |
-| `support_bridge_pending_plans` | Current durable plans awaiting convergence |
-| `support_bridge_last_success_timestamp_seconds` | Latest observed convergence as Unix seconds; zero when none exists |
-| `support_bridge_telemetry_storage_available` | One when this successful scrape read valid durable metric storage |
+| Metrics connection | Prometheus can scrape the bridge. It does not check vendor credentials or current vendor state. |
+| Actual linked pairs | Total stored mappings, calculated from the database rather than fixed at three. |
+| Operator attention | Stored conflicts, dead work and approval waits requiring inspection. |
+| Demo cases | CSV export, Webhook delivery and SSO sign-in: workflow state, last verified resolution, pending plan, failed attempts and last convergence. |
+| Sampled case-state history | States sampled after these series were introduced. Missing history is not backfilled or inferred. |
 
-The histogram exports cumulative `_bucket` samples with inclusive boundaries `0.005`, `0.01`, `0.025`, `0.05`, `0.1`, `0.25`, `0.5`, `1`, `2.5`, `5`, `10`, `+Inf`, plus `_sum` and `_count`. The `+Inf` bucket equals `_count`. This follows the [Prometheus exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/) and [metric type conventions](https://prometheus.io/docs/concepts/metric_types/). We use classic buckets as a small, inspectable implementation; their boundaries are not customer service objectives.
+The worker is disabled by default. A quiet graph is expected between manual sweeps. **Synced** describes the last observed bridge result, not a continuous vendor-health check. The convergence timestamp shows when that observation occurred. Vendor edits made later may remain undiscovered until an authorized sweep.
 
-An observation is an attempted reconciliation, including successful polls that require no writes. These counters do not count business edits or prove remote effects. Ineligible pairs skipped by the engine appear in sweep counts; they do not currently emit individual reconciliation observations, so the initialized `skipped` telemetry series normally stays zero. The input's current `attempts` field is not accumulated as a misleading retry total; retry outcomes have their own counter.
+**Last verified resolution** comes from the common baseline, never an unapproved target. **Resolved** means canonical closed; it does not prove customer confirmation or Zendesk's immutable closed status. A pending plan is unfinished work, not approval. No panel supplies a review decision or establishes compliance.
 
-`last_success` is the latest success across the configured link set, not the age of every pair. A recent success can coexist with failed work, so inspect status gauges and authenticated operator state together.
+## Fixed case projection
 
-`awaiting_approval` records entry into the deterministic state-change gate. Subsequent scheduled sweeps skip pending reviews, so the counter is not approval wait time or an approval count. Its state gauge contributes to the Grafana operator-attention panel and example rule. Inspect the plan and independently review it; no metric, AI explanation or alert can grant approval or establish compliance. Approval rationale/hash and shared-operator audit evidence remain in authenticated local state, never metric labels.
+The exporter recognizes only these public demonstration aliases:
 
-## Persistence and failure isolation
+| Stored pair key | Exported `case` label |
+| --- | --- |
+| `csv-export` | `CSV export` |
+| `webhook-retry` | `Webhook delivery` |
+| `sso-conflict` | `SSO sign-in` |
 
-Telemetry schema v2 adds the fixed `awaiting_approval` outcome. Upgrade first validates every historical v1 counter/histogram row, then adds only the genuinely new zero series and updates the schema version in one transaction. It neither resets prior observations nor repairs missing historical rows. A damaged v1 registry or missing row in v2 fails scraping. Back up consistently before upgrading; rollback to older code against the upgraded registry is unsupported.
+`DemoCaseMetrics` projects decoded business-store rows without provider access, reconciliation or persistence. Each family has exactly three series. This bounded allowlist adds case-level visibility without exporting arbitrary pair keys, vendor IDs, titles, errors, credentials or approval evidence. Other mappings still contribute to aggregate totals; expanding the case table requires a reviewed allowlist change.
 
-The observer stores aggregate values in `metrics.sqlite` inside the configured `BRIDGE_HOME`, separate from the business database. Counters and histogram values survive CLI exit, HTTP process restarts and Prometheus restarts. The two databases should be backed up and reset deliberately; deleting the metrics database resets its counters. Use a dedicated state directory for each deployment/account configuration.
+| Gauge, prefixed `support_bridge_demo_case_` | Meaning |
+| --- | --- |
+| `present` | One when the named case has a stored mapping; otherwise zero. |
+| `status` | Stored workflow code, defined below. |
+| `resolution` | Last verified baseline: zero unverified, one open, two canonical closed. |
+| `pending_plan` | One when a durable plan exists. |
+| `attempts` | Persisted failed attempts. |
+| `last_success_timestamp_seconds` | Last observed convergence, or zero when never observed. |
 
-Each accepted observation increments its outcome, all matching buckets, histogram count and sum in one SQLite transaction. WAL, full synchronization, and a bounded one-second SQLite lock wait serialize writers. A failed update rolls back the whole observation and marks that observer instance unavailable; it does not interrupt reconciliation or modify its business result. A new process/request can reconnect after the cause is fixed. This does not add support for concurrent business workers, which still use their existing single-worker lock.
+| Status code | Display |
+| ---: | --- |
+| 0 | Not linked |
+| 1 | Ready for sweep |
+| 2 | Synced |
+| 3 | Awaiting approval |
+| 4 | Conflict |
+| 5 | Retry scheduled |
+| 6 | Needs intervention |
+| 7 | Unknown state |
 
-Metric delivery is best effort. The business update and telemetry update are in separate databases and are not one atomic transaction. A process crash between them can omit an observation; replayed application callbacks can count twice. These metrics are operational signals, not an exactly-once audit or billing record. The business store and its audit remain authoritative.
+A missing mapping remains an explicit missing row; its zero-valued fields do not establish successful work. Unknown stored states remain unknown. Invalid numeric or baseline evidence fails the scrape rather than fabricating healthy values. Zero convergence timestamps display **Never verified**. The dashboard converts Unix seconds to milliseconds for date formatting.
 
-The exporter reads all aggregate values in one SQLite snapshot and checks histogram/counter consistency. Only first creation initializes zero series. An existing registry with a missing row or incompatible schema fails visibly instead of silently rebuilding values; restore it from a consistent backup or deliberately reset it after reviewing the loss. If metric storage cannot be opened or read, `/metrics` returns a sanitized failure rather than fabricated zero counters. Prometheus then reports its own scrape metric `up{job="support_bridge"}=0`. The storage gauge is not a provider-health check. Business gauges and telemetry totals come from separate local snapshots, and no vendor is contacted during a scrape.
+## Retained diagnostic metrics
 
-## Docker Compose stack
+| Metric | Meaning |
+| --- | --- |
+| `support_bridge_pairs{status}` | Current stored counts by workflow state. |
+| `support_bridge_pending_plans` | Durable plans awaiting convergence. |
+| `support_bridge_last_success_timestamp_seconds` | Most recent convergence across all pairs; it can hide an older stalled pair. |
+| `support_bridge_reconciliations_total{outcome}` | Observed reconciliations, including no-op polls; not a count of customer edits or remote writes. |
+| `support_bridge_reconciliation_duration_seconds` | Classic duration histogram, converted from milliseconds to seconds. |
+| `support_bridge_telemetry_storage_available` | This successful scrape read valid durable metric storage. |
 
-Start or inspect the one normal deployment using its private env file and both Compose files:
+Counters and histogram values persist in `metrics.sqlite`, separately from business state. Their update is atomic within that database, but not atomic with a business commit. A crash can omit an observation. Metrics are operational signals, not an exactly-once audit, billing record or compliance result.
 
-```bash
-docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml up --build -d --wait
-docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml ps
-```
+Only new metric storage initializes zero series. Existing missing or corrupt rows fail visibly; schema upgrades validate and preserve prior observations. The histogram's cumulative buckets end in `+Inf`, which equals its count. Case gauges are derived at scrape time and require no metric-schema migration or historical backfill.
 
-[Docker operation](DOCKER.md) covers volumes, credentials and verification. The live initializer creates no fixture or mapping and accesses no provider. The worker stays disabled unless its effectful profile is explicitly enabled. Startup, port changes and monitoring queries authorize no source edits, synchronization or approval. The [read-only smoke command](DOCKER.md#verification) checks existing connections without recreating dependencies. It requires an explicit linked pair and assumes Grafana's unchanged bootstrap account; never reset a rotated account to satisfy it.
+Business aggregates, per-case rows and telemetry totals are separate local snapshots. Scrapes make no vendor requests. A storage failure returns sanitized HTTP 503 and Prometheus reports `up=0`; the exporter does not replace failed storage with zero success counts.
 
-Prometheus scrapes `api:8080` with its own read-only credential; Grafana queries `prometheus:9090`. Host ports bind to loopback. API and explicit CLI share business state and the canonical lock. The optional worker receives no monitoring or operator credentials and never grants approval.
-
-Prometheus, Grafana and smoke receive no `vendor-secret` volume or vendor token values; scraping never calls GitHub or Zendesk. The network-isolated importer writes only that credential volume, while application readers mount it read-only. [LIVE_DEMO.md](LIVE_DEMO.md) covers manual issuance, import and reader recreation after rotation. Successful scrapes prove exporter access, not vendor convergence or customer acceptance.
-
-The [bounded traffic check](TRAFFIC.md#verify-the-scenario) uses disposable local providers and temporary monitoring services. Tick delay is independent of the five-second scrape and dashboard refresh; multiple edits can occur between samples. Scripted review supplies synthetic operator activity, not human approval. This is not another continuously running operating dashboard.
-
-Container restart preserves the business database, aggregate metrics, monitoring data and credentials. An ordinary `docker compose down` retains the volumes. Credentials are not baked into images or included in committed configuration. The volume-backed files are not encrypted Docker Secrets; Docker administrators can read them. The isolated smoke verifier reads the credentials needed to check actual authentication, scrapes, queries, rules and Grafana provisioning, and makes no business writes.
-
-## Recorded checkpoint observations
-
-`bin/capture-demo.php` can attach four fixed aggregate observations to a private checkpoint: exporter `up`, pair-state counts, pending-plan count and cumulative reconciliations. It makes bounded GET queries to the selected Prometheus origin without operator/vendor headers or redirects. The browser-facing monitoring links require loopback HTTP; the exact Compose host `prometheus` is allowed only for the internal query address.
-
-An unavailable or malformed query causes telemetry to be omitted, not replaced with zeros. The [offline viewer](../tools/demo-viewer/README.md) displays absent samples as not captured. Capture does not infer metrics from the narrative, change business state or supply review decisions. The provider snapshot and local inspection are collected separately from Prometheus samples, with no shared atomic timestamp or guaranteed scrape alignment.
-
-Replay controls navigate embedded observations only. Their Grafana/Prometheus links open the current deployment, which may differ from the recorded stage. Next or Play does not make dashboards replay historical samples or execute a synchronization. Keep detailed record evidence in private artifacts, because it can contain titles and tenant links even though those values are excluded from aggregate metric labels. [LIVE_DEMO.md](LIVE_DEMO.md#capture-and-render-actual-observations) supplies the capture and render commands.
-
-## Optional native stack
-
-This is an explicit isolated verification alternative, not a second operating stack. Do not start it on ports occupied by the normal demo; prefer the [disposable checks](DOCKER.md#verification). The repository includes pinned, checksum-verified user-local binaries, provisioning, a dashboard and example rules under [`monitoring/`](../monitoring/). With the required ports free, from the repository root in Ubuntu/WSL:
-
-```bash
-bash monitoring/install.sh
-python3 monitoring/stack.py up --demo
-python3 monitoring/stack.py verify
-python3 monitoring/stack.py status
-```
-
-`up --demo` starts an isolated local PHP application with synthetic records and private credentials, Prometheus on `127.0.0.1:9090`, and Grafana on `127.0.0.1:3000`. It does not use live provider credentials. The helper refuses to take over occupied service ports. Default private state is `~/.local/share/supportbridge/monitoring/`; `BRIDGE_MONITORING_HOME` can select another directory. `status` reports file locations without printing credential values. Read the Grafana password from its private file when signing in locally; do not paste it into logs or documentation.
-
-In this isolated check, use the native helper's configured Prometheus and Grafana addresses. Verification checks real scrape/query behavior, Grafana datasource health and dashboard provisioning. Installation or PHP tests alone do not prove those connections are working. Record what `verify` actually reports rather than claiming success from configuration files alone.
-
-Stop only the processes owned by the helper:
-
-```bash
-python3 monitoring/stack.py down
-```
-
-The stack retains its private data and credentials across restarts. It provisions local example alert evaluation; it configures no Alertmanager, recipients or external notification delivery. Thresholds are examples for a pilot, not agreed SLAs. Prometheus retains its scraped time series independently of the PHP aggregate database.
-
-## Scrape authentication and deployment
-
-The operator API uses `BRIDGE_API_TOKEN`. The read-only `/metrics` endpoint uses a different, strong `BRIDGE_METRICS_TOKEN`; neither token grants the other's access. Swagger serves reference documentation without embedding either credential. Keep the scrape token in protected deployment configuration and configure Prometheus with an authorization credentials file, as in [`monitoring/prometheus.yml.in`](../monitoring/prometheus.yml.in). Prometheus supports [file-based bearer authorization](https://prometheus.io/docs/prometheus/latest/configuration/configuration/); do not place the token in a URL or committed configuration.
-
-The demonstration binds to loopback. Production deployment needs a suitable PHP server, TLS/reverse-proxy protection, monitoring access restrictions and a deliberate credential lifecycle. Prometheus and Grafana are additional privileged readers of operational state: protect their data directories and network access. The exporter has no automatic request-header, SQL, exception-body or application-log forwarding. Local structured logs and authenticated inspection remain available for detailed diagnosis.
-
-## PromQL examples
-
-Observed outcomes per second, accounting for counter resets:
+Example queries:
 
 ```promql
+support_bridge_demo_case_status
+support_bridge_demo_case_pending_plan
+sum(support_bridge_pairs)
 sum by (outcome) (rate(support_bridge_reconciliations_total[5m]))
 ```
 
-Approximate 95th-percentile reconciliation duration in seconds:
+Rates and histogram estimates require observations; missing data is not zero latency. See the [Prometheus metric types](https://prometheus.io/docs/concepts/metric_types/) and [histogram guidance](https://prometheus.io/docs/practices/histograms/) for interpretation.
 
-```promql
-histogram_quantile(0.95,
-  sum by (le) (rate(support_bridge_reconciliation_duration_seconds_bucket[5m])))
-```
+## Alerts and access
 
-Average observed duration in seconds:
+Three local rules cover an unavailable scrape, operator attention and pending durable plans. The former elapsed-convergence warning was removed because quiet time is normal for a manual demonstration. Thresholds are operating examples, not agreed service objectives. No Alertmanager or notification recipient is configured.
 
-```promql
-sum(rate(support_bridge_reconciliation_duration_seconds_sum[5m]))
-/
-sum(rate(support_bridge_reconciliation_duration_seconds_count[5m]))
-```
+Prometheus reads a protected metrics token through [its Docker configuration](../docker/prometheus.yml). This token must differ from the broad operator token; neither authorizes the other's endpoint. Grafana, Prometheus and smoke receive no vendor credentials. Host ports bind to loopback, with no remote write, Pushgateway or telemetry agent.
 
-Current work requiring attention and scrape health:
+## Verification and recorded evidence
 
-```promql
-sum(support_bridge_pairs{status=~"conflict|dead|awaiting_approval"})
-up{job="support_bridge"}
-```
+`php tests/observability.php` checks durable counters, histogram consistency, failure isolation and case projections against actual test-store rows. API/wire checks verify authentication and endpoint behavior. [Container verification](DOCKER.md#verification) separately checks real scrapes, rules, datasource queries and dashboard provisioning. These isolated fixtures never populate the operating demo's database.
 
-Rates require several scrapes and observations; a fresh or inactive demo may have no rate/quantile data. Quantiles are bucket estimates, and no observations can produce `NaN`; do not replace that with an invented latency. Use the raw counters and gauges to inspect a newly started demo. See the official [query functions](https://prometheus.io/docs/prometheus/latest/querying/functions/) and [histogram guidance](https://prometheus.io/docs/practices/histograms/) for interpretation.
+Actual deployment checks must confirm presence of the three named cases, reconcile the aggregate total with the entire link set, and verify eighteen case samples, datasource dataframes and the five-panel dashboard. An additional mapping changes the total without creating another allowed case label; inspect it rather than deleting data to fit an expected count. Check current Grafana credentials without resetting its account to satisfy the bootstrap smoke test. Report API/data validation separately from rendered-table verification.
 
-## Verification and review
-
-```bash
-php tests/observability.php
-```
-
-The offline suite checks initialized series, real cross-process durability, concurrent updates, inclusive bucket units, atomic rollback, bounded lock failure, corruption handling, fixed cardinality and text formatting. API/server checks cover authentication, response media type and scrape failures. The Compose smoke verifier and optional native monitoring helper verify actual Prometheus/Grafana connections separately. Neither passing PHP checks nor healthy containers alone prove an authenticated scrape and datasource query.
-
-We use backend and security review guidance to challenge metric meaning, trust boundaries, cardinality and failure isolation. Reconciliation observations are operational counts, not measured customer impact. Review profiles establish no scale, availability, compliance or delivery guarantee. We need to revisit the decisions and limitations with actual customer traffic before a pilot.
+Checkpoint capture can attach four aggregate observations to private evidence. Missing monitoring samples remain absent. [Replay controls](../tools/demo-viewer/README.md) only navigate recorded observations; playback neither feeds metrics nor edits records. The optional replay server is not part of normal operation. [LIVE_DEMO.md](LIVE_DEMO.md#capture-and-render-actual-observations) documents private capture and rendering.

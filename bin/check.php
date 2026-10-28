@@ -59,7 +59,6 @@ foreach (
         'tests/observability.php',
         'tests/api.php',
         'tests/api-server.php',
-        'tests/traffic.php',
         'bin/demo.php',
     ] as $script
 ) {

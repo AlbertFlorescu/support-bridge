@@ -636,7 +636,7 @@
     "/metrics": {
       "get": {
         "operationId": "prometheusMetrics",
-        "summary": "Scrape aggregate Prometheus metrics using the separate read-only token.",
+        "summary": "Scrape aggregate and fixed demo-case metrics using the separate read-only token.",
         "tags": [
           "Operations"
         ],
@@ -647,7 +647,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Prometheus text format 0.0.4, newline terminated. Counters/histogram persist across PHP processes; state values are gauges. No record identifiers or title snapshots.",
+            "description": "Prometheus text format 0.0.4, newline terminated. Counters/histogram persist across PHP processes; state values are gauges. Demo-case gauges use only the fixed public labels CSV export, Webhook delivery and SSO sign-in. Missing links and unverified baselines remain explicit. No vendor identifiers, arbitrary pair identifiers, title snapshots or approval evidence are exported. Scraping reads stored evidence and does not contact providers or execute synchronization.",
             "content": {
               "text/plain": {
                 "schema": {

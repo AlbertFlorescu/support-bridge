@@ -295,9 +295,10 @@ try {
         wireCheck(str_starts_with($response['body'], '# HELP ') && str_ends_with($response['body'], "\n"), 'Export raw newline-terminated text.');
         wireCheck(str_contains($response['body'], 'support_bridge_reconciliations_total{outcome="synced"} 1'), 'Persisted outcome counters must be visible to the scraper.');
         wireCheck(str_contains($response['body'], 'support_bridge_pairs{status="synced"} 1'), 'Current state gauges must be visible to the scraper.');
-        foreach (['CSV export', 'escalation-1', 'github_id', 'zendesk_id', $server->home] as $private) {
+        foreach (['CSV export fails for large reports', 'escalation-1', 'github_id', 'zendesk_id', $server->home] as $private) {
             wireCheck(!str_contains($response['body'], $private), 'Metrics must not contain title snapshots, identifiers, or paths.');
         }
+        wireSame(3, preg_match_all('/^support_bridge_demo_case_status\{case="(?:CSV export|Webhook delivery|SSO sign-in)"\} 0$/m', $response['body']));
         wireSame(null, $response['json']);
         $record('GET', '/metrics', $response);
     });

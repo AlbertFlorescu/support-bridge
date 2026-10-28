@@ -100,7 +100,7 @@ final class Prometheus
         }
     }
 
-    /** The only dynamic label is a fixed outcome. All other log fields are deliberately ignored. */
+    /** Records only the bounded reconciliation outcome; all other log fields are ignored. */
     public function __invoke(array $entry): void
     {
         $duration = $entry['duration_ms'] ?? null;
@@ -141,9 +141,10 @@ final class Prometheus
 
     /**
      * @param array{pairs?:array,pending_plans?:int,last_success?:?int} $state Local business-store gauges.
+     * @param list<array>|null $linkedPairs Actual business rows for the bounded demonstration-case projection.
      * @throws \RuntimeException A failed scrape is preferable to fabricated zero counters.
      */
-    public function render(array $state = []): string
+    public function render(array $state = [], ?array $linkedPairs = null): string
     {
         if ($this->db === null) {
             throw new \RuntimeException('Telemetry storage is unavailable.');
@@ -195,6 +196,9 @@ final class Prometheus
                 'observed convergence as Unix seconds, or zero if none.';
             $lines[] = '# TYPE support_bridge_last_success_timestamp_seconds gauge';
             $lines[] = 'support_bridge_last_success_timestamp_seconds ' . self::gauge($state['last_success'] ?? null);
+        }
+        if ($linkedPairs !== null) {
+            array_push($lines, ...(new DemoCaseMetrics())->render($linkedPairs));
         }
         return implode("\n", $lines) . "\n";
     }

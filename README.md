@@ -28,7 +28,7 @@ Use these canonical loopback addresses:
 | Prometheus | [127.0.0.1:9090](http://127.0.0.1:9090/) |
 | Grafana dashboard | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
 
-The worker remains disabled by default and no traffic generator runs against these records. Startup, monitoring and port consolidation do not authorize a new sweep, source edit or approval. Subsequent workflow effects use the normal explicit commands and exact-plan gates.
+The worker remains disabled by default; changes advance through deliberate manual sweeps. Startup, monitoring and port consolidation do not authorize a new sweep, source edit or approval. Subsequent workflow effects use the normal explicit commands and exact-plan gates.
 
 For [Grafana sign-in](docs/DOCKER.md#sign-in-to-grafana), use the retained live project's current account credentials. Only a new database uses `admin` and its generated bootstrap password. Keep `127.0.0.1` consistent; a cookie-name change requires a fresh login and preserves accounts/data. The bootstrap file does not prove a changed account's current login.
 
@@ -39,11 +39,11 @@ docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live
 docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml run --rm --no-deps cli status
 ```
 
-The former `support-bridge` and `support-bridge-traffic` projects stay stopped with their volumes parked. Their local records, accounts and monitoring history are not imported or merged into the real demo. Keep the live project name when recreating containers so its data remains attached.
+Keep the live project name when recreating containers so its accounts and data remain attached. Retained volumes from former local deployments stay separate and are never imported into this state.
 
 ### Optional isolated verification
 
-The safe local base, synthetic [traffic generator](docs/TRAFFIC.md), native reliability demo and disposable lifecycle checks remain development tools. They do not supply additional normal dashboards. Follow [isolated verification](docs/DOCKER.md#verification) for bounded runs that preserve the live deployment and remove only their own disposable state.
+The local providers, failure fixtures and reliability demo verify merge, review and recovery behavior without vendor accounts. The [isolated container checks](docs/DOCKER.md#verification) exercise the same code and preserve the live deployment. They add no continuously running load generator or alternative monitoring deployment.
 
 The base `compose.yaml` deliberately retains local mode for those checks. Normal startup always selects the live overlay and private env file. Named volumes survive ordinary stop/down; see [Docker operation](docs/DOCKER.md) for ownership, credential handling and verification.
 
@@ -88,7 +88,7 @@ php bin/bridge.php sync
 
 The state-change sweep exits with code `2` and holds the whole plan in `awaiting_approval`. Inspect it and replace `PLAN_HASH` with `governance.plan_hash`. Approval re-reads both records and records an attestation; the next sweep checks freshness before writing. Closing and reopening use the same rule. Source selection and retry do not grant approval.
 
-Title-only updates use the explicit link's opt-in. Conflicting edits stop the whole pair until an operator selects a source over fresh evidence. The [walkthrough](docs/WALKTHROUGH.md) covers titles, conflicts, recovery and CLI status codes.
+Title-only updates use the explicit link's opt-in. Conflicting edits stop the whole pair until an operator selects a source over fresh evidence. The [customer scenario](docs/SCENARIO.md) explains titles, conflicts and recovery; the [API guide](docs/API.md) documents commands and response outcomes.
 
 ## Explicit assumptions
 
@@ -191,7 +191,7 @@ See [governance](docs/GOVERNANCE.md) for policy ownership and approval limits, a
 
 The [OpenAPI specification](docs/api/openapi.json) documents health, linking, inspection, metrics, synchronization, source selection, approval and retry. [API setup](docs/API.md) includes authentication and curl examples.
 
-`GET /metrics` uses a separate read-only scrape token. Prometheus collects aggregate counters, latency histograms and state gauges; Grafana provisions the dashboard. Record IDs, titles, raw errors and tokens are excluded from metric labels. See [observability](docs/OBSERVABILITY.md) and the optional [native monitoring setup](monitoring/README.md).
+`GET /metrics` uses a separate read-only scrape token. Grafana shows five panels: scrape health, actual linked-case count, operator attention, a table for CSV export / Webhook delivery / SSO sign-in, and sampled case-status history. The table reports stored status, last verified baseline resolution, pending plan, attempts and last success. Missing or unknown observations stay explicit; a scrape does not fetch current vendor state. Case labels are limited to these three fixed safe names; arbitrary IDs, titles, raw errors and tokens are excluded. Aggregate counters and histograms remain available for diagnosis. See [monitoring](monitoring/README.md) and [metric semantics](docs/OBSERVABILITY.md).
 
 Dependabot exposes available update PRs. GitHub Actions also scans built images and npm dependencies, enriches detected IDs from the CVE List/NVD and updates a [vulnerability tracker](https://github.com/AlbertFlorescu/support-bridge/issues/10). [Security maintenance](SECURITY.md) explains scanner coverage, vendor fixed versions and the tested Swagger repair workflow. [CI](docs/CI.md) documents checks and branch controls.
 

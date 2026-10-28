@@ -37,16 +37,7 @@ The guarded `live-init` role creates schemas and bootstrap credentials without p
 
 Published ports bind to loopback. Prometheus scrapes `api:8080`; Grafana queries `prometheus:9090`. `localhost` inside a container is not another service. The API uses PHP's development server internally on `0.0.0.0:8080`; it remains a development server. The standard Docker bridge permits outbound vendor requests and is not an egress firewall. API health establishes liveness, not vendor compatibility or convergence.
 
-### Parked local projects
-
-The former `support-bridge` and `support-bridge-traffic` deployments stay stopped. If either is still running, stop it without removing volumes:
-
-```bash
-docker compose -p support-bridge -f compose.yaml stop
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml stop
-```
-
-Their records, baselines, approvals, accounts and monitoring history remain parked in their own volumes. Do not import or merge them into the live project. Do not rename the live project, resume old dashboards as normal operation, or use parked volumes for disposable checks. The safe local base Compose file and traffic overlay remain [isolated verification tools](#verification).
+Retained volumes from former local deployments stay parked and are never imported or merged into live state. Do not rename the live project or use historical volumes for disposable tests. Local providers remain available only for meaningful isolated verification.
 
 ## Operate the workflow
 
@@ -100,7 +91,7 @@ Runtime services use non-root users, read-only root filesystems where supported,
 
 ## Data and lifecycle
 
-Keep the `support-bridge-live-demo` project identity. Its named volumes retain business state, aggregate metrics, credentials, Prometheus time series and Grafana data. Native helper state and the bare PHP CLI's `var/local` are separate and are never automatically imported.
+Keep the `support-bridge-live-demo` project identity. Its named volumes retain business state, aggregate metrics, credentials, Prometheus time series and Grafana data. The bare PHP CLI uses separate filesystem state such as `var/local`; it is never automatically imported.
 
 ```bash
 docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml logs --tail=100 api prometheus grafana
@@ -113,7 +104,7 @@ Ordinary `stop` and `down` preserve named volumes; `up` reuses them. Never add v
 
 ## Verification
 
-The safe `local` base and synthetic traffic overlay support explicit isolated checks. They are not parallel operating deployments or additional recommended dashboards. Run the offline gate with its own project:
+The safe `local` base supports isolated merge, approval, API and recovery checks. It is not a second operating deployment or an additional dashboard. Run the offline gate with its own project:
 
 ```bash
 docker compose -p support-bridge-verification -f compose.yaml --profile test run --build --rm --no-deps verify
@@ -125,11 +116,10 @@ Run the bounded disposable lifecycle checks from a shell with `sh` and Docker:
 
 ```bash
 sh docker/check-lifecycle.sh
-sh docker/check-traffic.sh
 sh docker/check-live-demo.sh
 ```
 
-Each uses a unique test project and removes only its own disposable volumes. The lifecycle check uses temporary ports 18080/19090/13000 and checks shutdown plus pending-plan/credential persistence. The [traffic check](TRAFFIC.md#verify-the-scenario) uses 18081/19091/13001, a finite local workload, monitoring checks and restart/termination checks. Their documented environment overrides select unused test ports. The live check uses controlled fake tokens with network disabled to check import, guarded bootstrap, read-only readers and rotation; it makes no vendor calls, links or synchronization. None adopts parked or live state. Record actual results separately from vendor validation.
+Each uses a unique test project and removes only its own disposable volumes. The lifecycle check uses temporary ports 18080/19090/13000 and checks shutdown plus pending-plan/credential persistence; `BRIDGE_LIFECYCLE_HTTP_PORT`, `BRIDGE_LIFECYCLE_PROMETHEUS_PORT` and `BRIDGE_LIFECYCLE_GRAFANA_PORT` select unused alternatives. The live check uses controlled fake tokens with network disabled to check import, guarded bootstrap, read-only readers and rotation; it makes no vendor calls, links or synchronization. Neither adopts parked or live state. Record results separately from vendor validation.
 
 For an already-running live project with at least one explicit link **and an unchanged Grafana bootstrap account**, the read-only service smoke command is:
 
@@ -143,6 +133,6 @@ Use the full live `ps` prefix and service logs to diagnose health dependencies. 
 
 ## Scope and trade-offs
 
-One operating project makes record ownership, credentials and dashboard interpretation unambiguous. Separate API, monitoring and optional scheduling services still preserve process boundaries. The safe local base prevents an ambient `.env` from silently enabling vendor access; explicit live configuration selects the real account binding and manual operation. Synthetic configurations remain reproducible disposable tools, with old deployment history parked separately.
+One operating project makes record ownership, credentials and dashboard interpretation unambiguous. Separate API, monitoring and optional scheduling services still preserve process boundaries. The safe local base prevents an ambient `.env` from silently enabling vendor access; explicit live configuration selects the real account binding and manual operation. Local provider fixtures and the reliability demo retain reproducible failure checks without a continuous traffic generator.
 
-Broader deployment still needs reviewed data permissions, a suitable PHP server, TLS/ingress, credential lifecycle, operational ownership and customer acceptance. Our [governance model](GOVERNANCE.md), [assumptions](ASSUMPTIONS.md) and [observability semantics](OBSERVABILITY.md) remain authoritative. The [native monitoring helper](../monitoring/README.md) is an optional isolated verification alternative, not another normal dashboard.
+Broader deployment still needs reviewed data permissions, a suitable PHP server, TLS/ingress, credential lifecycle, operational ownership and customer acceptance. Our [governance model](GOVERNANCE.md), [assumptions](ASSUMPTIONS.md) and [observability semantics](OBSERVABILITY.md) remain authoritative. The [monitoring guide](../monitoring/README.md) describes the three-case dashboard and its observation limits.

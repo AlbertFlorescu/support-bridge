@@ -192,42 +192,35 @@ The sweep can still emit a successful reconciliation observation. We count attem
 
 ## Reading the dashboard during the case
 
-We examine the two provider records and authenticated inspection alongside Grafana. Titles, record IDs, plan hashes and rationales intentionally stay out of metric labels. The dashboard does not identify which customer decision to make.
+Grafana focuses on three configured cases: CSV export (`csv-export`), Webhook delivery (`webhook-retry`) and SSO sign-in (`sso-conflict`). These are explicitly linked real-provider records; the case labels do not imply that a retry or conflict currently exists. Titles, vendor IDs, plan hashes and rationales stay out of metric labels.
 
 | Panel | Interpretation and limit |
 | --- | --- |
-| Metrics scrape healthy | Prometheus can retrieve the exporter; it does not prove every pair or vendor is healthy. |
-| Linked pairs | Number of mappings; updating an existing escalation should not increase it. |
-| Operator attention | Current conflicts, dead work and approval waits. Ordinary retries are excluded from this panel's definition. |
-| Pending durable plans | Saved unfinished plans, including approval waits and uncertain-write recovery. |
-| Reconciliation throughput by outcome | Outcome observations, including no-op successful polls; not useful changes per second. |
-| Reconciliation duration p95 | Engine reconciliation duration; not customer resolution time or approval wait time. |
-| Current pair state | Current counts in each workflow status, including retry and approval wait. |
-| Seconds since last observed convergence | Age of the most recent success across the link set, not the oldest unresolved pair. |
+| Scrape health | Prometheus can retrieve the local exporter; this does not prove vendor health or fresh provider reads. |
+| Linked cases | Number of the three configured mappings actually present, rather than an assumed total of three. |
+| Operator attention | Stored approval waits, conflicts and dead work among the cases; a decision still requires inspection. |
+| Case details | Stored workflow status, last verified baseline resolution, pending plan, attempts and last success for each fixed case. |
+| Case status history | Status sampled at scrape times, not a complete event history or an atomic cross-vendor snapshot. |
 
-A conflict may have stored conflict evidence without an executable pending write plan. Operator attention can therefore be nonzero while pending plans is zero. Likewise, one healthy pair can keep the last-success panel fresh while another remains blocked.
+A missing link displays Not linked; an unrecognized state displays Unknown. An absent baseline is Unverified. Neither absence nor uncertainty is successful synchronization. A baseline marked Closed records the last verified agreement, not the present state of either vendor. A pending plan can coexist with an older verified baseline, and conflict evidence need not include an executable plan.
 
-Prometheus scrapes every five seconds; Grafana refreshes independently. Several transitions may occur between scrapes, and rate/histogram panels need multiple samples. Telemetry is best effort and cannot substitute for business audit evidence. See [observability semantics](OBSERVABILITY.md).
+The normal worker is disabled. Vendor edits become visible to the business state only through deliberate provider-reading operations; a successful five-second scrape does not refresh them. Grafana refreshes independently and may miss intermediate status transitions. Aggregate counters and latency histograms remain in Prometheus for diagnosis, outside the five-panel case view. Metrics are best effort and cannot replace current inspection, audit or approval. See [observability semantics](OBSERVABILITY.md) and [the panel guide](../monitoring/README.md#five-dashboard-panels).
 
-## Guided case and continuous traffic
+## Guided case
 
-Our normal demonstration runs in the existing `support-bridge-live-demo` project with three explicitly linked fictional cases: CSV export, duplicate webhook and SSO. There is one API, one Prometheus and one Grafana. Its background worker is disabled and no continuous generator runs against vendor records. We inspect current state and advance through deliberate authorized operations; infrastructure or port changes grant no new source-edit, synchronization or approval authority.
+Our operating deployment is the existing `support-bridge-live-demo` project: one API, one Prometheus and one Grafana. We inspect current state and advance through deliberate authorized operations, with the worker disabled. Reading a dashboard, recreating containers or changing a port grants no source-edit, synchronization or approval authority.
 
-A manual sweep still processes every eligible pair. We inspect the complete link set before advancing it. We do not reset baselines, rewrite plans, backdate retries or change stored approvals to make the story progress. Unexpected evidence requires inspection and an adapted sequence, preserving existing work and the normal exact-plan gates.
+A manual sweep processes every eligible linked pair. Inspect the complete link set before advancing it. Preserve baselines, durable plans, retry schedules and approval evidence. Unexpected starting evidence requires inspection and an adapted sequence; never rewrite it to make the narrative progress.
 
-At each checkpoint, we compare both provider records, baseline, pending decision and audit evidence with monitoring observations. Grafana shows aggregate operational state; it does not decide which source is correct or prove that a particular write occurred. The maintained [live guide](LIVE_DEMO.md) supplies the full private-env/project/Compose command prefix. [WALKTHROUGH.md](WALKTHROUGH.md) is an isolated local walkthrough, and the [API guide](API.md) documents the operator contract.
+At each checkpoint, compare both provider records, the baseline, pending decision and audit evidence with monitoring observations. The [live guide](LIVE_DEMO.md) supplies the full private-env/project/Compose command prefix; [Docker operation](DOCKER.md#operate-the-workflow), the [README](../README.md#review-a-state-change) and [API guide](API.md) provide command examples. This scenario explains the decisions rather than authorizing their execution.
 
-| Surface | Normal host address |
+| Surface | Host address |
 | --- | --- |
 | API and Swagger | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
 | Prometheus | [127.0.0.1:9090](http://127.0.0.1:9090/) |
 | Grafana | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
 
-Keep URLs, credentials and retained volumes bound to `support-bridge-live-demo`. Internal addresses remain `api:8080`, `prometheus:9090` and `grafana:3000`. The [connection guide](DOCKER.md#choose-a-stack-and-its-ports) covers port overrides and the persisted Grafana account. Swagger is reference documentation with submission disabled; operations use the authenticated API or CLI.
-
-Continuous synthetic activity is an **optional disposable verification tool**, described in [TRAFFIC.md](TRAFFIC.md). It rotates through eight owned local pairs, requests sweeps, and runs an independent five-second worker. Five-second ticks imply a nominal forty-second revisit per pair plus processing and contention. Scripted review waits at least ten seconds after observing waiting evidence before a synthetic source choice or exact-plan approval; it is neither human review nor a compliance decision. Manual mode leaves those decisions pending. These tests never use vendor credentials or real mappings.
-
-The former local and traffic deployments stay stopped with their volumes parked. Their sample records, baselines, accounts and time series are not imported or merged into the real demo. A disposable check creates its own temporary project; it does not resume those deployments or add normal operating dashboards.
+Keep URLs, credentials and retained volumes bound to `support-bridge-live-demo`; the [connection guide](DOCKER.md#choose-a-stack-and-its-ports) covers actual bindings and the persisted Grafana account. Internal addresses remain `api:8080`, `prometheus:9090` and `grafana:3000`. Swagger is reference documentation with submission disabled. Local provider fixtures and the reliability demo test failure paths without adding generated traffic or another operating dashboard; their state is never imported into the live project.
 
 ## Guided live records and replay
 
@@ -242,8 +235,6 @@ The offline viewer presents the captured stages side by side. **Next and Play na
 The source implements the merge, approval, recovery and conflict rules described above. Our executable [reliability demo](../src/Simulation/ReliabilityDemo.php) covers the same progression with synthetic providers, including restart recovery, but selects GitHub as the final conflict source. It is not a recording of this narrative's exact Zendesk-selection sequence or a manual container walkthrough.
 
 The [live source cases](LIVE_DEMO.md#customer-context-and-value) include three fictional records created and freshly read back in each system. All three established matching baselines. The CSV-export case then verified both title directions, a whole-plan approval wait, explicit exact-plan approval, the resulting destination update and a repeated sweep without another write attempt. Eleven private checkpoints retain those observations. The [dated verification record](REVIEW.md#live-demonstration-verification-2026-10-28) distinguishes these executed stages from the remaining narrative and customer acceptance.
-
-Read-only local inspection on 2026-10-26 observed nine linked pairs, approval/conflict/retry audit events, the untouched sample baseline and a healthy authenticated Prometheus scrape. Status counts changed as the scripted driver continued. Those observations establish local activity, not completion of this guided case.
 
 REA inspected the selected shipped Swagger bootstrap, whose bytes matched the served artifact. Its JavaScript graph remained partial, and the literal route trace was unresolved. It did not trace the PHP engine or establish vendor behavior. [Development-tool evidence](TOOLING-INSTALLATION.md) records the analysis identity, scope and limits; [verification evidence](REVIEW.md) separates executed checks from outstanding validation.
 

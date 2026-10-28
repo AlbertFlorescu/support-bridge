@@ -4,46 +4,18 @@ The API is an internal single-operator surface over the headless application use
 
 ## Choose the API instance
 
-The Docker traffic stack and default stack are separate deployments with separate records and credentials:
+The operating API belongs to `support-bridge-live-demo` at `http://127.0.0.1:8080`; [Swagger](http://127.0.0.1:8080/docs) and the [JSON specification](http://127.0.0.1:8080/openapi.json) use that same origin. Use the [Docker connection guide](DOCKER.md#choose-a-stack-and-its-ports) and retain the private env file, project name and both Compose files. Container-to-container access uses `http://api:8080`.
 
-| Deployment | API base URL | Swagger |
-| --- | --- | --- |
-| Continuous synthetic traffic: `support-bridge-traffic` | `http://127.0.0.1:8081` | [Traffic Swagger](http://127.0.0.1:8081/docs) |
-| Default Compose: `support-bridge` | `http://127.0.0.1:8080` | [Default Swagger](http://127.0.0.1:8080/docs) |
-
-Use the [traffic guide](TRAFFIC.md) or [Docker stack/port guide](DOCKER.md#choose-a-stack-and-its-ports) to start the intended project and locate its credentials. A token from one stack cannot authenticate to the other. Confirm the published port with the corresponding Compose command's `ps` output when ports have been overridden. Container-to-container requests still use `http://api:8080` in either project's network.
-
-The examples below use a selected `BASE_URL` and that instance's existing `BRIDGE_API_TOKEN`. Generating a new token in a host shell does not change an already running container's token.
-
-For the running traffic stack, load its operator token into a bash variable without printing it:
+Load that running project's existing operator token privately in bash/WSL:
 
 ```bash
-BRIDGE_API_TOKEN="$(docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml exec -T api cat /run/secrets/operator/token)"
-BASE_URL=http://127.0.0.1:8081
-```
-
-For the running default stack, use its own token and URL instead:
-
-```bash
-BRIDGE_API_TOKEN="$(docker compose -p support-bridge -f compose.yaml exec -T api cat /run/secrets/operator/token)"
+BRIDGE_API_TOKEN="$(docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml exec -T api cat /run/secrets/operator/token)"
 BASE_URL=http://127.0.0.1:8080
 ```
 
-These commands assume the chosen stack has completed initialization. Keep the token out of shell tracing, logs and source. It grants broad operator authority; it is separate from both the metrics token and the Grafana login.
+Initialization must already have completed. Keep the token out of shell tracing, logs and source. It grants broad operator authority and is separate from the scrape token and Grafana account. Generating a new host token does not change the running API. Local test fixtures use separate state and credentials; their IDs and tokens must not be substituted for live mappings.
 
-## Optional native PHP server
-
-For a server outside Docker, run from the repository root in bash/WSL. Port 8080 must be free; this command does not connect to or replace either Compose stack:
-
-```bash
-export BRIDGE_MODE=local
-export BASE_URL=http://127.0.0.1:8080
-php bin/bridge.php init
-export BRIDGE_API_TOKEN="$(php -r 'echo bin2hex(random_bytes(32));')"
-php -S 127.0.0.1:8080 -t public public/router.php
-```
-
-This native server and native CLI use `BRIDGE_HOME`, defaulting to `var/local` in the checkout. They do not read either Docker project's named data volume. Keep the server shell open. A separate client shell must use the same `BRIDGE_API_TOKEN` and `BASE_URL`; generating another token in that shell will not authenticate to this server. For this native server, visit [Swagger UI](http://127.0.0.1:8080/docs) or [the JSON specification](http://127.0.0.1:8080/openapi.json). The server is for local demonstration. It binds to loopback, serves only the public router/allowlisted assets, and must not be exposed as a production service.
+The worker stays disabled by default. Reading the API, Swagger or Grafana does not authorize synchronization or approval. `POST /api/sync` can update every eligible linked pair; review the whole link set and intended effects before an authorized sweep. The fixed demonstration pair IDs are `csv-export`, `webhook-retry` and `sso-conflict`. Their safe dashboard labels describe cases rather than guaranteeing those workflows currently have a conflict or retry.
 
 The Swagger assets are vendored from `swagger-ui-dist` **5.34.0** with their license and a locked development dependency. The UI does not need Node/npm to run. Node is only used to refresh the assets and validate OpenAPI during development. It makes no CDN or remote-validator request. Try it out is disabled so visiting a reference page cannot initiate a synchronization command. The bearer token is never embedded in the HTML, specification, URL or initializer.
 
@@ -80,7 +52,7 @@ curl -sS -H "Authorization: Bearer $BRIDGE_API_TOKEN" \
   -H 'Content-Type: application/json' -d '{}' \
   "$BASE_URL/api/sync"
 curl -sS -H "Authorization: Bearer $BRIDGE_API_TOKEN" \
-  "$BASE_URL/api/pairs/escalation-1"
+  "$BASE_URL/api/pairs/csv-export"
 ```
 
 In a live configuration, `sync` can update both vendor accounts. `resolve` reads vendor records but does not write them; the next sweep evaluates its saved plan, including the approval gate. `approve` also reads both records but defers all effects to the next sweep. `link` and `retry` mutate local state only. Repeating link creation returns 409, and repeated source choices/approvals can be invalid after state changes. No client idempotency-key store is implemented.
@@ -98,7 +70,7 @@ curl -sS -H "Authorization: Bearer $BRIDGE_API_TOKEN" \
   -H 'Content-Type: application/json' -d '{}' \
   "$BASE_URL/api/sync"
 curl -sS -H "Authorization: Bearer $BRIDGE_API_TOKEN" \
-  "$BASE_URL/api/pairs/escalation-1"
+  "$BASE_URL/api/pairs/csv-export"
 
 # After reviewing the displayed plan, paste its exact governance.plan_hash.
 # The hash identifies evidence; it is not a credential.
@@ -106,7 +78,7 @@ REVIEWED_PLAN_HASH='paste-the-64-character-hash-you-reviewed'
 curl -sS -H "Authorization: Bearer $BRIDGE_API_TOKEN" \
   -H 'Content-Type: application/json' \
   --data "{\"plan_hash\":\"$REVIEWED_PLAN_HASH\",\"reason\":\"Reviewed the linked escalation and confirmed this resolution should propagate.\"}" \
-  "$BASE_URL/api/pairs/escalation-1/approve"
+  "$BASE_URL/api/pairs/csv-export/approve"
 curl -sS -H "Authorization: Bearer $BRIDGE_API_TOKEN" \
   -H 'Content-Type: application/json' -d '{}' \
   "$BASE_URL/api/sync"

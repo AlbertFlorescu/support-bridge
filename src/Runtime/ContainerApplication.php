@@ -7,9 +7,6 @@ namespace Bridge\Runtime;
 use Bridge\Application\Configuration;
 use Bridge\Application\Context;
 use Bridge\Infrastructure\Logging\JsonLineWriter;
-use Bridge\Simulation\OperatorClient;
-use Bridge\Simulation\TrafficSettings;
-use Bridge\Simulation\Workload;
 use RuntimeException;
 use Throwable;
 
@@ -37,9 +34,6 @@ final class ContainerApplication
                     return 0;
                 case 'worker':
                     $this->worker()->run();
-                    return 0;
-                case 'traffic':
-                    $this->traffic()->run();
                     return 0;
                 default:
                     $command = match ($role) {
@@ -92,21 +86,6 @@ final class ContainerApplication
             (int) $interval,
             new StopSignal(),
             new HeartbeatWriter($context->configuration->home . '/worker-heartbeat.json'),
-            new JsonLineWriter('php://stdout')
-        );
-    }
-
-    private function traffic(): TrafficRunner
-    {
-        $settings = TrafficSettings::fromEnvironment();
-        $context = new Context(Configuration::fromEnvironment());
-        $client = new OperatorClient(Configuration::required('BRIDGE_API_TOKEN'));
-        return new TrafficRunner(
-            $context,
-            $settings,
-            new Workload($context, $client->request(...), $settings->review),
-            new StopSignal(),
-            new HeartbeatWriter('/tmp/traffic-heartbeat.json'),
             new JsonLineWriter('php://stdout')
         );
     }

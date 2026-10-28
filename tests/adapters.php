@@ -26,7 +26,7 @@ function adapterReject(callable $action): void
 }
 $home = sys_get_temp_dir() . '/bridge-adapters-' . bin2hex(random_bytes(8));
 mkdir($home, 0700);
-$environmentNames = ['BRIDGE_MODE', 'BRIDGE_HOME', 'BRIDGE_TRAFFIC_ENABLED'];
+$environmentNames = ['BRIDGE_MODE', 'BRIDGE_HOME'];
 foreach (['BRIDGE_API_TOKEN', 'BRIDGE_METRICS_TOKEN', 'BRIDGE_GITHUB_TOKEN', 'BRIDGE_ZENDESK_TOKEN'] as $name) {
     $environmentNames[] = $name; $environmentNames[] = $name . '_FILE';
 }
@@ -115,14 +115,15 @@ $tests['Shared heartbeat checks reject stale or future progress and preserve ato
         adapterCheck($health->check('worker') === 1 && $health->check('unknown') === 1, 'Invalid health accepted.');
     } finally { putenv('BRIDGE_HOME'); }
 };
-$tests['Invalid container roles and live traffic are rejected before creating business state'] = static function () use ($home): void {
+$tests['Invalid and retired container roles are rejected before creating business state'] = static function () use ($home): void {
     $path = $home . '/must-not-exist'; putenv('BRIDGE_HOME=' . $path);
     try {
         adapterCheck((new ContainerApplication())->run(['worker', 'extra']) === 1, 'Extra role arguments accepted.');
-        putenv('BRIDGE_MODE=live'); putenv('BRIDGE_TRAFFIC_ENABLED=1');
-        adapterCheck((new ContainerApplication())->run(['traffic']) === 1, 'Traffic accepted live mode.');
+        putenv('BRIDGE_MODE=live');
+        adapterCheck((new ContainerApplication())->run(['traffic']) === 1, 'Retired role was accepted.');
+        adapterCheck((new HealthCheck())->check('traffic') === 1, 'Retired role passed its health check.');
         adapterCheck(!file_exists($path), 'Invalid startup opened business state.');
-    } finally { putenv('BRIDGE_HOME'); putenv('BRIDGE_MODE'); putenv('BRIDGE_TRAFFIC_ENABLED'); }
+    } finally { putenv('BRIDGE_HOME'); putenv('BRIDGE_MODE'); }
 };
 $tests['Stop signal interrupts a runner without terminating its in-flight operation'] = static function (): void {
     if (!function_exists('pcntl_signal') || !function_exists('posix_kill')) { return; }

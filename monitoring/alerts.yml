@@ -1,4 +1,4 @@
-# Example thresholds for a small local pilot, not agreed service objectives.
+# Demo signals for connectivity and waiting work, not agreed service objectives.
 # Prometheus evaluates these locally. No Alertmanager or recipient is configured.
 groups:
   - name: supportbridge
@@ -27,11 +27,3 @@ groups:
         annotations:
           summary: Durable reconciliation plans remain pending
           description: Check approval waits, retries, worker scheduling and quarantined work before taking action.
-      - alert: SupportBridgeNoRecentConvergence
-        expr: (sum(support_bridge_pairs) > 0) and ((time() - max(support_bridge_last_success_timestamp_seconds) > 600) or (max(support_bridge_last_success_timestamp_seconds) == 0))
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: No recent observed convergence for a nonempty link set
-          description: This is an example polling-health threshold, not a customer SLA. Confirm scheduler and state.
