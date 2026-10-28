@@ -1,0 +1,90 @@
+name: support-bridge-live-demo
+
+# Select this overlay explicitly; it never imports either local project's state.
+x-live-demo-environment: &live-demo-environment
+  BRIDGE_MODE: live
+  BRIDGE_LIVE_DEMO_ENABLED: "1"
+  BRIDGE_HOME: /var/lib/support-bridge
+  BRIDGE_GITHUB_REPOSITORY: "${BRIDGE_GITHUB_REPOSITORY:?Set the live demo GitHub repository}"
+  BRIDGE_ZENDESK_SUBDOMAIN: "${BRIDGE_ZENDESK_SUBDOMAIN:?Set the live demo Zendesk subdomain}"
+  BRIDGE_ZENDESK_AUTH: "${BRIDGE_ZENDESK_AUTH:-oauth}"
+  BRIDGE_ZENDESK_EMAIL: "${BRIDGE_ZENDESK_EMAIL:-}"
+
+x-live-vendor-files: &live-vendor-files
+  BRIDGE_GITHUB_TOKEN_FILE: /run/secrets/vendor/github-token
+  BRIDGE_ZENDESK_TOKEN_FILE: /run/secrets/vendor/zendesk-token
+
+x-live-vendor-volumes: &live-vendor-volumes
+  - vendor-secret:/run/secrets/vendor:ro
+
+services:
+  # Explicit deployment operation; never mounted into the business state directory.
+  credentials:
+    profiles: [tools]
+    image: support-bridge:local
+    build:
+      context: .
+      target: runtime
+    user: "10001:10001"
+    working_dir: /app
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=16m
+    network_mode: none
+    stdin_open: true
+    entrypoint: [php, /app/docker/import-vendor-credentials.php]
+    environment:
+      BRIDGE_MODE: live
+      BRIDGE_LIVE_DEMO_ENABLED: "1"
+    volumes:
+      - vendor-secret:/var/lib/support-bridge
+    restart: "no"
+
+  init:
+    command: [live-init]
+    environment: *live-demo-environment
+
+  api:
+    ports: !override
+      - "127.0.0.1:${BRIDGE_LIVE_HTTP_PORT:-8082}:8080"
+    environment:
+      <<: [*live-demo-environment, *live-vendor-files]
+    volumes: *live-vendor-volumes
+
+  worker:
+    profiles: [live-worker]
+    environment:
+      <<: [*live-demo-environment, *live-vendor-files]
+      BRIDGE_SWEEP_INTERVAL: "${BRIDGE_LIVE_SWEEP_INTERVAL:-60}"
+    volumes: *live-vendor-volumes
+
+  cli:
+    environment:
+      <<: [*live-demo-environment, *live-vendor-files]
+    volumes: *live-vendor-volumes
+
+  prometheus:
+    ports: !override
+      - "127.0.0.1:${BRIDGE_LIVE_PROMETHEUS_PORT:-9092}:9090"
+
+  grafana:
+    ports: !override
+      - "127.0.0.1:${BRIDGE_LIVE_GRAFANA_PORT:-3002}:3000"
+
+  # Read-only verification can run after explicit links exist; it never enables the worker.
+  # Its Grafana authentication still assumes the generated bootstrap account.
+  smoke:
+    environment: *live-demo-environment
+    depends_on: !override
+      api:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+
+volumes:
+  vendor-secret:

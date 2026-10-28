@@ -45,6 +45,8 @@ Provider calls run outside SQLite transactions. Local commits cannot make GitHub
 
 An opt-in [traffic stack](TRAFFIC.md) adds a synthetic driver in a separate Compose project. It edits eight owned local record pairs, then exercises the ordinary HTTP API for reconciliation and scripted or manual review. Record-targeted faults exercise retries and uncertain outcomes. The driver uses the existing policies; it adds no operator endpoint or runtime model decisions.
 
+The separate [live demonstration overlay](LIVE_DEMO.md) requires explicit repository/tenant identities and access tokens imported into a separate `vendor-secret` named volume. Its guarded `live-init` initializes schemas and bootstrap credentials without provider construction, fetching, fixtures or links. API, CLI and an optional worker share that project's business state and canonical lock, and mount vendor credentials read-only at `/run/secrets/vendor`. The worker's `live-worker` profile is disabled by default. Ports 8082/9092/3002 remain distinct from local sample 8080/9090/3000 and traffic 8081/9091/3001. Source-record creation is a separately authorized setup activity, outside the reconciliation provider interface.
+
 | Files | Responsibility |
 | --- | --- |
 | `src/Domain/MergePolicy.php`, `RetryPolicy.php`, `GovernancePolicy.php` | Decide values, schedules and approval requirements without I/O. Time and jitter are inputs. |
@@ -58,6 +60,10 @@ An opt-in [traffic stack](TRAFFIC.md) adds a synthetic driver in a separate Comp
 | `src/Console/*`, `src/Http/*`, `src/Runtime/*` | Adapt command-line arguments, HTTP requests and container processes to shared application behavior. |
 | `src/Exception/*` | Identify expected application failures without message parsing. |
 | `src/Observability/Prometheus.php` | Persist counters/histograms and expose aggregate metrics and state gauges. |
+| `src/Simulation/Replay/*`, `bin/capture-demo.php` | Observe providers and local state under the canonical lock, sanitize and append private checkpoints without reconciliation. |
+| `tools/demo-viewer/*` | Validate captured evidence and render dependency-free offline HTML; playback performs no workflow operations. |
+| `tools/oauth/*`, `src/Provider/ZendeskAuthentication.php` | Issue a bounded access token manually in development tooling, and select runtime bearer or legacy API-token headers. |
+| `src/Runtime/VendorCredentialImporter.php`, `docker/import-vendor-credentials.php` | Import only vendor access tokens through JSON stdin into a separate protected volume, without network, business state or operator authority. |
 
 Validation, missing-record, state-conflict and worker-busy exceptions let the API distinguish expected outcomes without parsing error messages.
 
@@ -72,6 +78,18 @@ We use CQRS as an application-code boundary. Commands and queries remain synchro
 ### PHP coding standards
 
 The `Bridge\` namespace maps to `src/` under PSR-4. PHP_CodeSniffer is a locked Composer development dependency; [the ruleset](../phpcs.xml.dist) defines PSR-12 coverage and standalone-harness exceptions. `composer style` checks formatting and `composer style:fix` applies supported fixes. Runtime bootstrapping needs no installed Composer package. Style checks complement behavior tests; they cannot verify approval freshness, audit ordering or recovery correctness.
+
+### Live authentication and observation tooling
+
+The live overlay selects Zendesk OAuth bearer mode. The provider factory retains legacy API-token mode by default for compatibility when no auth mode is configured; OAuth needs no email, while legacy mode requires one. Header validation rejects malformed credentials before transport. Runtime adapters still fetch existing records and issue minimal patches; no create or OAuth-token POST operation was added to their transport contract.
+
+The development-only OAuth command has its own bounded HTTPS issuance transport. It reads private client files, requests exactly ticket read/write scope with a four-hour maximum lifetime, validates the response and atomically saves a private access token. It supplies no background renewal, runtime client-secret mount or file-ownership change. OAuth client inputs remain on the private issuance host.
+
+The explicit `credentials` service runs under the `tools` profile as UID10001 with no network and a read-only root filesystem. It mounts only `vendor-secret` read/write at `/var/lib/support-bridge`, where that path refers to the credential volume rather than `app-data`. Bounded JSON stdin supplies exactly `github-token` and `zendesk-token`; the importer validates both before replacement, protects the directory as `0700` and stores token files as `0400`. Runtime API, CLI and worker mount this volume read-only. These are protected plaintext files, not encrypted Docker Secrets or a complete secret-management service. After rotation, reimport the tokens and recreate credential-reading containers because their processes load values into the environment at startup.
+
+`CheckpointCapture` is an explicit effectful observer, keeping provider access outside query handlers. It acquires the application lock, asks the local inspection query, then reads both providers sequentially. It does not change a baseline, execute reconciliation, resolve a conflict or approve work. The local lock cannot freeze remote edits. Optional aggregate Prometheus queries follow separately and fail by omitting telemetry rather than fabricating a business result.
+
+`EvidenceArchive` appends bounded checkpoints under a separate archive lock and uses atomic replacement. Run identity binds mode, repository and Zendesk tenant as well as the run ID. `EvidenceSanitizer` retains supported fields, fixed reason codes and bounded operational event details, excluding raw responses and free-form rationale. Capture is not a complete historical audit or business backup. The [viewer](../tools/demo-viewer/README.md) rebuilds an allowlisted presentation model and renders offline navigation with network/form submission disabled. It strips tenant metadata, but retained record links and titles can still disclose private account context. Neither capture nor playback grants workflow authority.
 
 ## Operator API and documentation
 
@@ -161,16 +179,20 @@ Authenticated scrapes, queries, Grafana health/provisioning and loaded rules wer
 - Polling avoids webhook setup but consumes API calls without changes. The CLI and API share code, while the framework-free HTTP layer leaves authentication and deployment maintenance with us.
 - Command/query objects and handlers make use cases explicit at the cost of more files and constructor wiring. We retain one database and one serial worker until measured requirements justify another execution model.
 - Explicit connection ownership supports reuse and isolated tests. Each composition root must supply the correct database identity and lifetime.
+- A separate live project and manual OAuth issuance make account/credential choices explicit but add another operational lifecycle. Short expiry requires reissuance and container recreation.
+- Captured replay explains observed states without repeating writes, while adding sensitive artifact storage and stale-evidence risks. It is kept outside the execution and approval path.
 
 ## Known limitations
 
 SQLite contains unencrypted title snapshots and unbounded audit history. Restrict access, define retention and back up the database consistently with its WAL. Deployment also needs credential rotation, secret management, TLS, ingress access controls and supervision. General migration/rollback and restore rehearsals are unfinished.
 
-The provider adapters have offline tests but no live-account validation. Before a pilot, test permissions, Zendesk required fields/custom statuses, triggers, rate limits and terminal tickets. Vendor rules can transform or reject a write. Production throughput and customer benefit remain unmeasured.
+The provider adapters have offline tests; a complete live-account reconciliation sequence remains to be validated. Authentication and creation/read-back of three fictional source records in each vendor establish setup access, not bridge adapter writes or complete Zendesk behavior. Before a pilot, test reconciliation permissions, required fields/custom statuses, triggers, rate limits and terminal tickets. Vendor rules can transform or reject a write. Production throughput and customer benefit remain unmeasured.
 
 An unchanged eligible pair needs two provider reads; writes and recovery add more. Synchronous requests, full link scans and serial processing let slow providers or retry backlogs increase lag. There is no distributed lock, job queue, built-in request-rate limiter or provider-wide rate budget. A local filesystem lock cannot coordinate multiple hosts.
 
 CQRS separates use-case code but does not split storage or remove the existing listing/worker bottlenecks. The development formatter, Composer lockfile and dependency audit add tooling dependencies; they are absent from the runtime image and do not validate vendor behavior.
+
+Live credential scopes exceed the two-field/per-pair contract enforced by this application. OAuth access-token refresh is manual. Replay files remain mutable and bounded, omit arbitrary error detail and contain sequential rather than atomic provider observations. Private tenant metadata is not the only sensitive content: vendor URLs and titles still need review before sharing.
 
 Metrics can miss a post-commit crash, and a recent global convergence timestamp can hide a stalled pair. Histogram quantiles are estimates; rate queries need samples, and missing samples are not zero latency. A blocking sweep can delay scrapes on the development server. The dashboard and example rules are not agreed SLOs or a configured incident-response service.
 

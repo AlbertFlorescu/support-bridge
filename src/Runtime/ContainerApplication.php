@@ -20,7 +20,10 @@ final class ContainerApplication
         umask(0077);
         $role = $arguments[0] ?? 'api';
         try {
-            (new SecretLoader())->load();
+            // The CLI entrypoint loads its files after parsing, including for native execution.
+            if ($role !== 'cli') {
+                (new SecretLoader())->load();
+            }
             $extra = array_slice($arguments, 1);
             if ($role !== 'cli' && $extra !== []) {
                 throw new RuntimeException('Only the cli role accepts additional arguments.');
@@ -28,6 +31,9 @@ final class ContainerApplication
             switch ($role) {
                 case 'init':
                     (new Initializer())->run();
+                    return 0;
+                case 'live-init':
+                    (new LiveInitializer())->run();
                     return 0;
                 case 'worker':
                     $this->worker()->run();

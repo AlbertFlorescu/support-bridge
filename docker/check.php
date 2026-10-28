@@ -23,6 +23,11 @@ foreach (
             'node',
             '/app/tools/api-docs/validate.cjs',
         ],
+        [
+            'node',
+            '--test',
+            '/app/tools/demo-viewer/viewer.test.cjs',
+        ],
     ] as $command
 ) {
     $pipes = [];

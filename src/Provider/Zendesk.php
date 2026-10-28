@@ -16,18 +16,16 @@ final class Zendesk implements Provider
     /** @var array<string, string> */
     private readonly array $headers;
 
-    public function __construct(private readonly HttpClient $http, string $subdomain, string $email, string $token)
-    {
-        $subdomain = Identity::subdomain($subdomain);
-        if (
-            !filter_var($email, FILTER_VALIDATE_EMAIL) || trim($token) === ''
-            || preg_match('/[\x00-\x20\x7f]/', $token)
-        ) {
-            throw new \InvalidArgumentException('A valid Zendesk email and API token are required.');
-        }
-        $this->subdomain = $subdomain;
+    public function __construct(
+        private readonly HttpClient $http,
+        string $subdomain,
+        #[\SensitiveParameter] string $email,
+        #[\SensitiveParameter] string $token,
+        string $authentication = 'api-token'
+    ) {
+        $this->subdomain = Identity::subdomain($subdomain);
         $this->headers = [
-            'Authorization' => 'Basic ' . base64_encode($email . '/token:' . $token),
+            'Authorization' => (new ZendeskAuthentication($email, $token, $authentication))->authorizationHeader(),
             'Accept'        => 'application/json',
         ];
     }

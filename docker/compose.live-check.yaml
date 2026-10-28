@@ -1,0 +1,4 @@
+# Only the disposable wiring check uses this network; it publishes no services.
+networks:
+  stack:
+    internal: true

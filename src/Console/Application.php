@@ -16,6 +16,7 @@ use Bridge\Application\Command\RetryPair;
 use Bridge\Application\Query\GetMetrics;
 use Bridge\Application\Query\GetStatus;
 use Bridge\Application\Query\InspectPair;
+use Bridge\Runtime\SecretLoader;
 use PDOException;
 use Throwable;
 
@@ -37,9 +38,12 @@ php bin/bridge.php COMMAND [ARGUMENTS] [--home=var/local] [--mode=local|live]
   metrics                              State counters and Prometheus storage status
   local-edit github|zendesk ID FIELD VALUE   Simulate title/state edit in local mode
 
-Local mode needs no credentials. Live mode requires BRIDGE_GITHUB_REPOSITORY,
-BRIDGE_GITHUB_TOKEN, BRIDGE_ZENDESK_SUBDOMAIN, BRIDGE_ZENDESK_EMAIL,
-BRIDGE_ZENDESK_TOKEN. See README.md. API reference: /docs on the local HTTP server.
+Local mode needs no credentials. Live provider operations require BRIDGE_GITHUB_REPOSITORY,
+BRIDGE_GITHUB_TOKEN, BRIDGE_ZENDESK_SUBDOMAIN and BRIDGE_ZENDESK_TOKEN.
+Tokens can be loaded through their corresponding *_FILE variables.
+Use BRIDGE_ZENDESK_AUTH=oauth for an OAuth access token; legacy api-token mode
+also requires BRIDGE_ZENDESK_EMAIL. See README.md and docs/LIVE_DEMO.md.
+API reference: /docs on the local HTTP server.
 
 TEXT;
 
@@ -58,6 +62,7 @@ TEXT;
                 $this->output->text(self::HELP);
                 return 0;
             }
+            (new SecretLoader())->load();
             $context = new Context(Configuration::fromEnvironment($input->mode, $input->home));
             $values = $input->values;
             switch ($input->command) {

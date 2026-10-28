@@ -43,6 +43,8 @@ RUN composer install --no-interaction --no-progress --no-plugins --no-scripts --
 COPY tools/api-docs/package*.json tools/api-docs/
 RUN cd tools/api-docs && node /opt/npm/bin/npm-cli.js ci --ignore-scripts --no-audit --no-fund
 COPY tools/api-docs/*.cjs tools/api-docs/
+COPY tools/demo-viewer/ tools/demo-viewer/
+COPY tools/oauth/ tools/oauth/
 COPY tests/ tests/
 USER 10001:10001
 CMD ["verify"]
