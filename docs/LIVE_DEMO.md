@@ -54,13 +54,13 @@ Checkpoint capture is an explicit observation operation, not a local query handl
 
 ## Select the isolated live project
 
-Use Docker Engine with Linux containers and Compose 2.24.4 or later. Keep the explicit project name and both files with every live command. The [connection reference](DOCKER.md#choose-a-stack-and-its-ports) compares all three projects.
+This is our one normal operating deployment: the existing `support-bridge-live-demo` project, retaining its linked cases, account, credentials and volumes. Use Docker Engine with Linux containers and Compose 2.24.4 or later. Keep the private env file, explicit project name and both Compose files with every live command. The [connection reference](DOCKER.md#choose-a-stack-and-its-ports) gives the canonical ports. The former local and traffic projects remain stopped with their volumes parked; their state is never imported or merged into this project.
 
 | Service | Live default host address | Inside its network |
 | --- | --- | --- |
-| API and Swagger | [127.0.0.1:8082/docs](http://127.0.0.1:8082/docs) | `api:8080` |
-| Prometheus | [127.0.0.1:9092](http://127.0.0.1:9092/) | `prometheus:9090` |
-| Grafana overview | [127.0.0.1:3002](http://127.0.0.1:3002/d/supportbridge-overview) | `grafana:3000` |
+| API and Swagger | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) | `api:8080` |
+| Prometheus | [127.0.0.1:9090](http://127.0.0.1:9090/) | `prometheus:9090` |
+| Grafana overview | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) | `grafana:3000` |
 
 Create a private deployment env file outside source. It contains account identities, not credential values. For example, after replacing every placeholder:
 
@@ -68,6 +68,9 @@ Create a private deployment env file outside source. It contains account identit
 BRIDGE_GITHUB_REPOSITORY=owner/demo-escalations
 BRIDGE_ZENDESK_SUBDOMAIN=demo-sandbox
 BRIDGE_ZENDESK_AUTH=oauth
+BRIDGE_LIVE_HTTP_PORT=8080
+BRIDGE_LIVE_PROMETHEUS_PORT=9090
+BRIDGE_LIVE_GRAFANA_PORT=3000
 ```
 
 The live project stores its two vendor access tokens in a separate named `vendor-secret` Docker volume. Only API, explicit CLI and the opt-in worker mount that volume read-only at `/run/secrets/vendor`; their file settings point to `github-token` and `zendesk-token` inside it. Initialization, Prometheus, Grafana and smoke verification receive no vendor credential volume. The OAuth client identifier and secret remain private host issuance inputs and are never imported into application containers.
@@ -82,7 +85,7 @@ docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live
 
 The background worker is disabled by default through the `live-worker` profile. No traffic generator is present. Keep sweeps manual while reviewing the demonstration. Enabling that profile starts a worker that sweeps immediately and then waits between sweeps; it is not a read-only action. `BRIDGE_LIVE_SWEEP_INTERVAL` controls its delay, defaulting to 60 seconds. Do not enable it to bypass a review wait.
 
-Host overrides use `BRIDGE_LIVE_HTTP_PORT`, `BRIDGE_LIVE_PROMETHEUS_PORT` and `BRIDGE_LIVE_GRAFANA_PORT`. Loopback bindings and internal service ports remain unchanged. Ordinary stop/down retains this project's volumes; never remove another project's volumes as cleanup.
+Keep the private env file at the canonical 8080/9090/3000 host ports. Shell values for `BRIDGE_LIVE_HTTP_PORT`, `BRIDGE_LIVE_PROMETHEUS_PORT` and `BRIDGE_LIVE_GRAFANA_PORT` can override it, so confirm actual bindings. Loopback bindings and internal service ports remain unchanged. Port consolidation and recreation authorize no new source edits, synchronization or approvals. Ordinary stop/down retains this project's volumes; never remove parked or live volumes as routine cleanup.
 
 ## Credentials and manual OAuth issuance
 
@@ -184,7 +187,7 @@ docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live
   --output=/var/lib/support-bridge/evidence/evidence.json --run=csv-export-live \
   --label='Baseline observed' --operation='Read the linked records after the baseline sweep' \
   --prometheus-query-url=http://prometheus:9090 \
-  --prometheus-url=http://127.0.0.1:9092 --grafana-url=http://127.0.0.1:3002
+  --prometheus-url=http://127.0.0.1:9090 --grafana-url=http://127.0.0.1:3000
 ```
 
 Repeat capture with a label and operation that describe what actually happened. Labels are limited to **200 UTF-8 bytes**, operations to **500**. One archive accepts at most **100 checkpoints** and **2 MiB**. Its run ID, mode, repository and Zendesk subdomain must remain the same; it rejects appending to an older archive without tenant binding. Choose a new output/run for a different deployment rather than modifying recorded identity.
@@ -226,7 +229,7 @@ The renderer omits `run.zendesk_subdomain` from HTML metadata, but optional Zend
 
 ## Monitoring and verification
 
-Open the live project's [Grafana login on port 3002](http://127.0.0.1:3002/login), using the live project's persisted account. Only a fresh database starts with `admin` and its generated password. The [Grafana sign-in guide](DOCKER.md#sign-in-to-grafana) includes the explicit live bootstrap command and account-rotation limits. Keep `127.0.0.1` consistent. Compose assigns a project-specific login cookie name; applying that setting requires Grafana recreation and one fresh sign-in while preserving its accounts and data. For older deployments still sharing a cookie name across ports, diagnose in an independent browser session.
+Open the live project's [Grafana login on port 3000](http://127.0.0.1:3000/login), using the live project's persisted account. Only a fresh database starts with `admin` and its generated password. The [Grafana sign-in guide](DOCKER.md#sign-in-to-grafana) includes the explicit live bootstrap command and account-rotation limits. Keep `127.0.0.1` consistent. Compose assigns a project-specific login cookie name; applying that setting requires Grafana recreation and one fresh sign-in while preserving its accounts and data. For older deployments still sharing a cookie name across ports, diagnose in an independent browser session.
 
 Read [Grafana's panel meanings](SCENARIO.md#reading-the-dashboard-during-the-case) together with the actual provider records and authenticated inspection. A healthy scrape means the exporter is reachable. Operator attention counts current conflicts, dead work and approval waits; throughput includes no-op polls. Per-pair titles, IDs, hashes and rationales remain out of metric labels.
 
@@ -244,7 +247,7 @@ On a shell with Docker, `sh docker/check-live-demo.sh` exercises the actual cred
 
 ## Trade-offs
 
-- A separate live project protects local demonstration history and makes account identity explicit, at the cost of another deployment and credential lifecycle.
+- One live deployment keeps the three linked cases and monitoring together. Retaining its state separately from disposable test fixtures prevents accidental imports, while private credentials still need an explicit lifecycle.
 - Manual sweeps make review checkpoints visible but add operator work. Enabling a worker improves polling continuity while preserving the same review and retry gates.
 - Ticket-only OAuth scopes reduce resource access but still grant broader ticket capabilities than this bridge uses. We have no per-pair vendor credential or per-user operator role.
 - A private credential volume avoids host bind-mount and host UID compatibility requirements, while adding deployed copies that need explicit import, retention and rotation. The importer has write access to that volume; workflow services receive read-only access.

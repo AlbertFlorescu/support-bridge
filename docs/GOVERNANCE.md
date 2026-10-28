@@ -94,7 +94,7 @@ Measure copying effort, convergence lag, conflict/dead-work age, approval wait t
 - Strict version checks catch stale plans but can stop work after unrelated edits. Timestamp granularity and GitHub's read/PATCH race remain.
 - A small code policy is testable. Expanding it requires reviewed code and a policy version change.
 - A shared operator simplifies setup at the cost of individual attribution, independent approval and agent scopes.
-- A separate live project and short access-token lifetime make account selection explicit, at the cost of manual credential maintenance. Recorded replay avoids repeating effects, but later decisions still need fresh evidence.
+- One explicitly selected live project and short access-token lifetime make account selection clear, at the cost of manual credential maintenance. Recorded replay avoids repeating effects, but later decisions still need fresh evidence.
 
 ## Known limitations
 

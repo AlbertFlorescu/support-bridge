@@ -1,31 +1,31 @@
-# Local Prometheus and Grafana
+# Prometheus and Grafana
 
-We run the application and monitoring together with Docker Compose; scheduled workers run where enabled. Choose one deployment's links and credentials:
+The normal deployment is the existing `support-bridge-live-demo` project: one API, one Prometheus and one Grafana for our three linked fictional source cases. Its background worker stays disabled, so monitoring a case does not itself advance reconciliation.
 
-| Service | Continuous traffic: `support-bridge-traffic` | Default Compose: `support-bridge` | Explicit live demo: `support-bridge-live-demo` |
-| --- | --- | --- | --- |
-| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) | [127.0.0.1:8082/docs](http://127.0.0.1:8082/docs) |
-| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) | [127.0.0.1:9092](http://127.0.0.1:9092/) |
-| Grafana dashboard | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) | [127.0.0.1:3002](http://127.0.0.1:3002/d/supportbridge-overview) |
+| Service | Normal host address |
+| --- | --- |
+| API and Swagger | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
+| Prometheus | [127.0.0.1:9090](http://127.0.0.1:9090/) |
+| Grafana dashboard | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
 
-The traffic project's Grafana is on **3001**. Start it from the repository root with both Compose files and the explicit project:
+Start or inspect it from the repository root with its private env file and both Compose files:
 
 ```bash
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml up --build -d --wait
-docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml ps
+docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml up --build -d --wait
+docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml ps
 ```
 
-For the default stack, use `docker compose -p support-bridge -f compose.yaml up --build -d --wait`. The [live demo](../docs/LIVE_DEMO.md) requires its explicit deployment configuration and keeps its worker disabled by default. Environment overrides can change published ports; check the selected project's `ps` output before opening a URL. See the [canonical stack/port guide](../docs/DOCKER.md#choose-a-stack-and-its-ports) and [traffic operation](../docs/TRAFFIC.md) for verification commands.
+Keep the private file's live host-port values at 8080/9090/3000 and check actual bindings for shell overrides. [Docker operation](../docs/DOCKER.md#choose-a-stack-and-its-ports) is the connection reference; [LIVE_DEMO.md](../docs/LIVE_DEMO.md) covers token import and deliberate checkpoints. Startup neither creates source records nor links them, and authorizes no synchronization or approval. Former local and traffic projects stay stopped with volumes parked; their state is never merged into this project.
 
-Follow [Grafana sign-in](../docs/DOCKER.md#sign-in-to-grafana) for the matching project's bootstrap command or persisted account. Fresh databases use `admin` and a generated password; changed accounts retain their current credentials. Compose gives each project a distinct login cookie name. Apply the updated configuration by recreating its Grafana service and signing in once again; accounts and data remain intact. Keep `127.0.0.1` consistent. When diagnosing older deployments that still share a cookie name, use independent browser sessions because cookies can cross ports. The generated password file alone does not prove the current login.
+Follow [Grafana sign-in](../docs/DOCKER.md#sign-in-to-grafana) for the persisted account. Only a fresh database uses `admin` and a generated password. After rotation, the bootstrap file does not prove the current login. Use `127.0.0.1` consistently. Compose assigns a project-specific login cookie; applying that setting requires Grafana recreation and one fresh sign-in while retaining accounts and data. Independent sessions help diagnose older shared-cookie deployments. Actual browser login, health and bootstrap smoke checks establish different facts.
 
-The three container projects use separate persistent data/credential volumes, an authenticated `api:8080` scrape and a provisioned datasource at `prometheus:9090`. These internal service addresses stay the same in each project's network; host-port overrides do not change them. Host ports remain loopback-only. The smoke verifier checks actual scrapes, queries, dashboard provisioning and loaded rules, assuming Grafana's bootstrap account; configuration alone is not verification.
+Prometheus scrapes authenticated `api:8080`; Grafana queries `prometheus:9090`. Internal addresses do not change with host bindings. Neither monitoring service receives vendor tokens, and scraping makes no vendor call. Smoke checks actual connections, rules and provisioning but assumes the unchanged Grafana bootstrap account; do not reset a rotated account to satisfy it.
 
-The rest of this guide describes our optional native alternative. It is a reproducible local monitoring stack for the PHP application's authenticated `/metrics` exporter, using official standalone Linux x86_64 binaries, including on Ubuntu WSL. Docker, sudo, a cloud account and a PHP monitoring extension are not needed for that alternative. Its state and credentials are separate from Compose volumes; do not start it on ports occupied by any Compose project.
+The remainder describes an **optional isolated native verification tool** using pinned standalone Linux x86_64 binaries, including Ubuntu WSL. It is not another normal dashboard. Its state is separate from Compose. Do not start it while the real demo occupies its default ports; prefer [disposable container checks](../docs/DOCKER.md#verification). Docker, sudo, a cloud account and a PHP monitoring extension are not needed for this explicit alternative.
 
 ## Start and verify the native stack
 
-From the repository root in Ubuntu/WSL:
+Only in an explicitly isolated verification environment with the required ports free, from the repository root in Ubuntu/WSL:
 
 ```bash
 bash monitoring/install.sh
@@ -43,7 +43,7 @@ The installer downloads and verifies pinned archives before extracting them. It 
 
 The helper refuses to replace an existing service on these ports. `--demo` explicitly forces local mode and uses separate synthetic application state; it does not call GitHub or Zendesk. It initializes the fixture and runs two sweeps. Those initial events populate persisted counters, not a production benchmark.
 
-For this native helper, open [the native dashboard](http://127.0.0.1:3000/d/supportbridge-overview). Its initial login is `admin`; its generated password is in the private file printed by `status`, rather than in this repository or terminal logs. Read that file locally for the initial login. After account rotation, use the credentials saved in that native Grafana database. Anonymous access and signup are disabled. Initial p95/rate panels need observations after at least two scrapes; a quiet new fixture may legitimately show an empty duration rate.
+For this isolated native check, the dashboard is served at its configured Grafana address. Its initial login is `admin`; its generated password is in the private file printed by `status`, rather than in this repository or terminal logs. Read that file locally for the initial login. After account rotation, use the credentials saved in that native Grafana database. Anonymous access and signup are disabled. Initial p95/rate panels need observations after at least two scrapes; a quiet new fixture may legitimately show an empty duration rate.
 
 ```bash
 python3 monitoring/stack.py status
