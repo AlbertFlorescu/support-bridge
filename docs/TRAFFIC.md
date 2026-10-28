@@ -34,6 +34,8 @@ docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml
 
 Renamed accounts and changed passwords persist in Grafana's database. After account rotation, this bootstrap file may no longer match the login. Verify the current credentials in the browser at the traffic host port (3001 by default). The standard smoke check assumes the bootstrap account; its authentication result does not validate a rotated account.
 
+Use `127.0.0.1` consistently. Compose gives the traffic project its own login cookie name, separate from default and live Grafana. Recreate its Grafana service to apply that setting and sign in once again; existing credentials and data remain. When diagnosing older shared-cookie deployments, use an independent browser session because cookies can cross ports. See [Grafana sign-in](DOCKER.md#sign-in-to-grafana) for all three login URLs and matching credential commands; preserve the current Grafana database while diagnosing a login failure.
+
 ## Choose timing and review mode
 
 Set variables in the shell that runs Compose, then run the start command again to recreate the traffic container with those settings.

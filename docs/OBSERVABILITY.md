@@ -14,6 +14,8 @@ Use the traffic stack to watch continuous synthetic activity. Its Grafana is on 
 
 These are default published host ports; an environment override can change them. Confirm the selected project's `ps` output and use its matching credentials. See the [canonical stack/port guide](DOCKER.md#choose-a-stack-and-its-ports), [traffic operation](TRAFFIC.md), [live demonstration](LIVE_DEMO.md) and [Docker credentials](DOCKER.md#credentials-and-isolation). The optional native helper below is another deployment with separate private state and its own default ports.
 
+Use the selected project's [Grafana sign-in procedure](DOCKER.md#sign-in-to-grafana). A fresh database uses `admin` and its generated password; an existing database retains its current account credentials. The bootstrap file may be stale after account changes. Compose uses a project-specific login cookie name; recreating Grafana to apply it requires one fresh sign-in and preserves account/data state. Keep `127.0.0.1` consistent, and use independent browser sessions when diagnosing older shared-cookie deployments. Verify an actual browser login before reporting that the intended account works; health, provisioning and bootstrap smoke checks establish different facts.
+
 ## Metrics and meaning
 
 `Bridge\Observability\Prometheus` consumes the existing reconciliation logger's `event`, `status` and `duration_ms` fields. Unknown events/outcomes and invalid durations are ignored. It never exports titles, IDs, request IDs, tokens, headers, exception messages or arbitrary log fields. The only labels are fixed outcome/status values and histogram boundaries.

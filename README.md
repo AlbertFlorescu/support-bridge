@@ -32,6 +32,8 @@ Choose links from the same column. Each project has separate records, credential
 
 These are default host ports, all bound to loopback. The initializer creates separate API, metrics and Grafana bootstrap credentials for each project. Use that project's [credential instructions](docs/DOCKER.md#credentials-and-isolation); an existing Grafana account may have been renamed or its password changed. The default and traffic stacks make no vendor calls. The live overlay requires explicit account configuration and access tokens imported into its separate vendor credential volume; follow [its setup guide](docs/LIVE_DEMO.md) before starting it.
 
+For [Grafana sign-in](docs/DOCKER.md#sign-in-to-grafana), a new database uses `admin` and its generated password; existing databases retain their current account credentials. Compose gives each project a separate login cookie name. Use `127.0.0.1` consistently and sign in once again after recreating Grafana to apply the cookie setting; accounts and data are retained. Older shared-cookie deployments may need independent browser sessions for diagnosis. The bootstrap password file does not prove a changed account's current login.
+
 Inspect the running traffic stack with its full command prefix:
 
 ```bash

@@ -32,6 +32,8 @@ Verify has read-only repository contents access, and checkout removes its creden
 
 The verification image pins Composer 2.10.3 and installs PHP_CodeSniffer 4.0.4 from the root lockfile. Native CI installs Composer from the runner's package repository. These are development tools: the runtime image contains neither Composer nor the development `vendor/` tree. [The PSR-12 ruleset](../phpcs.xml.dist) defines checked paths and standalone-harness exceptions, while `composer.json` records PSR-4 namespace mapping and style commands. A passing style check is separate from behavior, recovery and governance evidence.
 
+[Git attributes](../.gitattributes) keep detected text files on LF line endings in both Windows and Linux checkouts. This prevents host Git settings from making a local Docker build fail the PSR-12 line-ending rule while a Linux CI checkout passes. Existing working files with CRLF need normalization before rebuilding; changing attributes does not rewrite already modified files.
+
 | Artifact | Retention |
 | --- | ---: |
 | Synthetic API response fixtures | 7 days |
