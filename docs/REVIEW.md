@@ -46,6 +46,14 @@ The rebuilt offline image passed the current PHP, PSR-12, replay and API-contrac
 
 The Zendesk access token expired between runs. Manual reissuance with the same ticket-only scopes, private reimport and API recreation restored access without changing business state. These results cover the selected fictional records and local deployment. They do not measure customer benefit, certify notification delivery, establish production capacity or prove every vendor rule and failure mode. Hosted results for the published revision remain a separate verification step.
 
+## Grafana session verification: 2026-10-28
+
+We verified host bindings on 3000, 3001 and 3002 against the documented default, traffic and live projects. Each existing account accepted the locally configured credentials through the actual browser login. All three dashboards remained authenticated after signing in to the others and reloading them in the same browser. Authenticated API reads returned datasource health `OK` and the provisioned eight-panel dashboard for each project. Account values remain private deployment settings.
+
+Compose now derives the authentication-cookie name from its project name. The previous common name allowed sessions on different ports of one hostname to overwrite each other's authentication cookie. Recreating only Grafana applied the change while preserving its account database and data volumes; the new name required a fresh login. Bootstrap password files remain initialization inputs, not a record of rotated accounts. The standard smoke command still assumes the bootstrap account; current-account browser/API checks supply the authentication evidence for these rotated deployments.
+
+The rebuilt isolated verification gate passed, including PSR-12 and replay checks. A Windows checkout had exposed CRLF files that failed the style gate; the LF checkout policy and normalized working files removed that host/CI difference. The disposable lifecycle check passed all nine integration groups and preserved its pending plan and credentials through recreation. It cleaned only its own project. This repair performed no operator or provider writes.
+
 ## API schema validation
 
 After the wire tests generate their synthetic response fixtures:

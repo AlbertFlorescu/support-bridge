@@ -1,12 +1,12 @@
 # Local Prometheus and Grafana
 
-We run the application, worker and monitoring together with Docker Compose. Choose one deployment's links and credentials:
+We run the application and monitoring together with Docker Compose; scheduled workers run where enabled. Choose one deployment's links and credentials:
 
-| Service | Continuous traffic: `support-bridge-traffic` | Default Compose: `support-bridge` |
-| --- | --- | --- |
-| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
-| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) |
-| Grafana dashboard | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
+| Service | Continuous traffic: `support-bridge-traffic` | Default Compose: `support-bridge` | Explicit live demo: `support-bridge-live-demo` |
+| --- | --- | --- | --- |
+| API and Swagger | [127.0.0.1:8081/docs](http://127.0.0.1:8081/docs) | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) | [127.0.0.1:8082/docs](http://127.0.0.1:8082/docs) |
+| Prometheus | [127.0.0.1:9091](http://127.0.0.1:9091/) | [127.0.0.1:9090](http://127.0.0.1:9090/) | [127.0.0.1:9092](http://127.0.0.1:9092/) |
+| Grafana dashboard | [127.0.0.1:3001](http://127.0.0.1:3001/d/supportbridge-overview) | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) | [127.0.0.1:3002](http://127.0.0.1:3002/d/supportbridge-overview) |
 
 The traffic project's Grafana is on **3001**. Start it from the repository root with both Compose files and the explicit project:
 
@@ -15,11 +15,13 @@ docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml
 docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml ps
 ```
 
-For the default stack, use `docker compose -p support-bridge -f compose.yaml up --build -d --wait`. Environment overrides can change published ports; check that project's `ps` output before opening a URL. See the [canonical stack/port guide](../docs/DOCKER.md#choose-a-stack-and-its-ports) and [traffic operation](../docs/TRAFFIC.md) for credentials and verification commands. Accounts and data belong to each project: a login on port 3000 need not work on port 3001. Account changes persist in that Grafana database, so a bootstrap password file may no longer match the current login.
+For the default stack, use `docker compose -p support-bridge -f compose.yaml up --build -d --wait`. The [live demo](../docs/LIVE_DEMO.md) requires its explicit deployment configuration and keeps its worker disabled by default. Environment overrides can change published ports; check the selected project's `ps` output before opening a URL. See the [canonical stack/port guide](../docs/DOCKER.md#choose-a-stack-and-its-ports) and [traffic operation](../docs/TRAFFIC.md) for verification commands.
 
-Both container stacks use separate persistent data/credential volumes, an authenticated `api:8080` scrape and a provisioned datasource at `prometheus:9090`. These internal service addresses stay the same in each project's network; host-port overrides do not change them. Host ports remain loopback-only. The smoke verifier checks actual scrapes, queries, dashboard provisioning and loaded rules, assuming Grafana's bootstrap account; configuration alone is not verification.
+Follow [Grafana sign-in](../docs/DOCKER.md#sign-in-to-grafana) for the matching project's bootstrap command or persisted account. Fresh databases use `admin` and a generated password; changed accounts retain their current credentials. Compose gives each project a distinct login cookie name. Apply the updated configuration by recreating its Grafana service and signing in once again; accounts and data remain intact. Keep `127.0.0.1` consistent. When diagnosing older deployments that still share a cookie name, use independent browser sessions because cookies can cross ports. The generated password file alone does not prove the current login.
 
-The rest of this guide describes our optional native alternative. It is a reproducible, accountless monitoring stack for the PHP application's authenticated `/metrics` exporter, using official standalone Linux x86_64 binaries, including on Ubuntu WSL. Docker, sudo, a cloud account and a PHP monitoring extension are not needed for that alternative. Its state and credentials are separate from Compose volumes; do not start it on ports occupied by either Compose deployment.
+The three container projects use separate persistent data/credential volumes, an authenticated `api:8080` scrape and a provisioned datasource at `prometheus:9090`. These internal service addresses stay the same in each project's network; host-port overrides do not change them. Host ports remain loopback-only. The smoke verifier checks actual scrapes, queries, dashboard provisioning and loaded rules, assuming Grafana's bootstrap account; configuration alone is not verification.
+
+The rest of this guide describes our optional native alternative. It is a reproducible local monitoring stack for the PHP application's authenticated `/metrics` exporter, using official standalone Linux x86_64 binaries, including on Ubuntu WSL. Docker, sudo, a cloud account and a PHP monitoring extension are not needed for that alternative. Its state and credentials are separate from Compose volumes; do not start it on ports occupied by any Compose project.
 
 ## Start and verify the native stack
 

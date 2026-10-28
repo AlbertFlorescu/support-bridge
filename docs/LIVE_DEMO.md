@@ -226,6 +226,8 @@ The renderer omits `run.zendesk_subdomain` from HTML metadata, but optional Zend
 
 ## Monitoring and verification
 
+Open the live project's [Grafana login on port 3002](http://127.0.0.1:3002/login), using the live project's persisted account. Only a fresh database starts with `admin` and its generated password. The [Grafana sign-in guide](DOCKER.md#sign-in-to-grafana) includes the explicit live bootstrap command and account-rotation limits. Keep `127.0.0.1` consistent. Compose assigns a project-specific login cookie name; applying that setting requires Grafana recreation and one fresh sign-in while preserving its accounts and data. For older deployments still sharing a cookie name across ports, diagnose in an independent browser session.
+
 Read [Grafana's panel meanings](SCENARIO.md#reading-the-dashboard-during-the-case) together with the actual provider records and authenticated inspection. A healthy scrape means the exporter is reachable. Operator attention counts current conflicts, dead work and approval waits; throughput includes no-op polls. Per-pair titles, IDs, hashes and rationales remain out of metric labels.
 
 After at least one explicit link exists, the live project's smoke check can validate API authentication, inspection, scrapes and Grafana provisioning without provider access or business writes:

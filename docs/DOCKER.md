@@ -117,7 +117,19 @@ The traffic generator receives only its isolated project's operator credential. 
 
 The live overlay adds `github-token` and `zendesk-token` inside its separate `vendor-secret` volume to API, CLI and the opt-in worker through read-only mounts. The explicit importer receives those values through bounded JSON stdin, mounts only this volume read/write and cannot reach vendors or business state. Initialization, smoke, Prometheus and Grafana receive no vendor mounts; no source setup actor receives a bridge approval capability. The ordinary worker still needs no operator, scrape or Grafana credential; a live worker additionally needs the two vendor access tokens. [Live credential operation](LIVE_DEMO.md#credentials-and-manual-oauth-issuance) covers issuance, import, expiry and recreation of readers after rotation. Do not put token values in Compose environment values, command arguments, source or logs.
 
-A fresh Grafana database starts with username `admin`. Read the bootstrap password from the project matching the browser URL. For the default stack on port 3000:
+### Sign in to Grafana
+
+Grafana accounts belong to each project's persisted Grafana database. Confirm the intended project's published port, then use its login page:
+
+| Project | Default login URL |
+| --- | --- |
+| Default: `support-bridge` | [127.0.0.1:3000/login](http://127.0.0.1:3000/login) |
+| Traffic: `support-bridge-traffic` | [127.0.0.1:3001/login](http://127.0.0.1:3001/login) |
+| Live demo: `support-bridge-live-demo` | [127.0.0.1:3002/login](http://127.0.0.1:3002/login) |
+
+Only a **new Grafana database** starts with username `admin` and the generated bootstrap password. An existing database retains its current account name and password, including changes made through Grafana administration. Rebuilding or restarting containers does not restore the bootstrap account. API and metrics bearer tokens authenticate their own endpoints; Grafana uses its separate stored account.
+
+For an unchanged bootstrap account, read the matching project's generated password locally. Default stack on port 3000:
 
 ```bash
 docker compose -p support-bridge -f compose.yaml exec grafana cat /run/secrets/grafana/password
@@ -129,9 +141,19 @@ For the traffic stack on port 3001:
 docker compose -p support-bridge-traffic -f compose.yaml -f compose.traffic.yaml exec grafana cat /run/secrets/grafana/password
 ```
 
-Do not paste that value into logs, screenshots or source. The password file initializes a new Grafana database; changing a file alone does not rotate an existing account. Operator and scrape credentials must remain different. An agent must not receive the broad operator credential.
+For the live demo on port 3002, retain its private deployment env file and both Compose files:
 
-Account changes persist in Grafana's database and can differ from the bootstrap username/password file. Verify login in the browser against the intended stack and port after rotation. The standard smoke verifier uses `admin` and the bootstrap password, so it does not validate rotated accounts. Preserve the existing account and data when adapting deployment checks.
+```bash
+docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml exec grafana cat /run/secrets/grafana/password
+```
+
+Keep the displayed value out of shared terminal recordings, logs, screenshots and source. The file is an initialization input, not proof of an existing account's current password. Changing the file alone does not rotate that account. Preserve Grafana's database and volumes when diagnosing login; use authorized Grafana administration for account changes. Operator and scrape credentials must remain different. An agent must not receive the broad operator credential.
+
+Use **`127.0.0.1` consistently** for these links. Compose derives `GF_AUTH_LOGIN_COOKIE_NAME` from its project name, giving the default, traffic and live Grafana sessions separate cookie names. When applying that setting to an older deployment, recreate the selected Grafana service with the same project/configuration prefix and `up -d --no-deps --force-recreate grafana`, then sign in once again. The changed cookie name does not reset accounts, passwords, dashboards or persisted data.
+
+Browser cookies are not isolated by port. Older containers still using the shared `grafana_session` name can overwrite one another's sessions on the same hostname. For diagnosis, use separate browser profiles or another independent session; a fresh private session requires closing earlier private windows first, since windows in one profile can share cookies. Mixing `localhost` and `127.0.0.1` can also leave different sessions for the same project. Verify the selected project's cookie configuration and current account before changing credentials.
+
+Verify a fresh browser login against the intended project and port after an account change. The standard smoke verifier uses `admin` and the bootstrap password, so its authentication result does not validate rotated accounts. A successful health endpoint or dashboard provisioning check also does not establish that the intended account can sign in.
 
 Runtime containers use non-root users, read-only root filesystems where supported, dropped capabilities and no-new-privileges. Writable paths are named data volumes or temporary filesystems. The stack mounts neither the Docker socket nor the host source tree. Prometheus has no separate user login in this local configuration, so host users able to reach its published port can query aggregate metrics. Grafana signup, anonymous access, analytics and automatic update/plugin checks are disabled.
 
