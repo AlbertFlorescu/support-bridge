@@ -1,196 +1,66 @@
 # Verification record
 
-We verify the service with synthetic local data on Ubuntu/WSL and PHP 8.3. Evidence is dated by section. The opening summary describes the current gate; dated sections retain earlier results. We distinguish executable checks, actual local monitoring and provider-account validation.
+We separate controlled checks, actual deployment evidence and customer validation. The current demo uses one live project and three linked cases. Retired traffic-generation and native-monitoring results are not current capabilities; their implementation and operating guides have been removed.
 
 ## Automated checks
 
-```bash
-php bin/check.php
-```
+The offline gate passed **204 PHP checks**, **nine recovery-demo assertions**, **13 replay checks** and syntax checks for **123 PHP files**. Configured PSR-12 and strict PSR-4 gates passed. Runtime images contain no Composer or Node dependency tree.
 
-The current gate passes **211 PHP checks**, **nine demo assertions**, **13 replay checks** and syntax checks for **129 PHP files**, including container helpers. The separate Composer gate checks **112 files** against PSR-12 and verifies optimized PSR-4 autoloading for **98 classes**:
-
-| Suite | Checks | Coverage |
+| Suite | Checks | Scope |
 | --- | ---: | --- |
 | Domain | 8 | Merge truth table and retry arithmetic |
-| Reconciliation | 30 | Durable plans, versions, locks, retries, conflicts and uncertain outcomes |
-| Governance | 17 | Whole-plan approval, stale evidence, policy binding, capabilities, migration and audit failures |
-| Persistence | 6 | Scoped connections, atomic audit rollback, canonical locks and legacy-plan preservation |
-| Application use cases | 8 | Typed command/query dispatch, local reads without provider access and shared workflow behavior |
-| Console/runtime | 9 | CLI parsing/exit codes, native file-secret loading, local-edit locking, heartbeats and termination |
-| OAuth authentication | 9 | Bearer/legacy compatibility, ticket-only issuance, expiry, private output and rejected grants |
-| Live bootstrap | 8 | Explicit opt-in, identity, credential preservation and initialization without source records |
-| Vendor credential import | 10 | Isolated import, strict input, private files, rotation and sanitized failures |
-| Recorded evidence | 13 | Observation without effects, tenant binding, bounded archives, ordering and redaction limits |
-| Synthetic traffic | 12 | Bounded owned records, normal HTTP workflow, delayed review, faults and uncertain outcomes |
-| Provider HTTP | 20 | Payload/status mapping, safe updates, rate guidance and response validation |
-| Observability | 16 | Persistence, concurrent increments, histogram consistency, upgrades and failed storage |
-| Operator API | 29 | Authentication, strict contracts, approval, privacy and error mapping |
-| Wire HTTP | 16 | Actual loopback server, Swagger assets, exporter and end-to-end approval |
+| Reconciliation | 30 | Durable plans, concurrency guards, retries, conflicts and unknown outcomes |
+| Governance | 17 | Whole-plan approval, freshness, policy binding, migration and audit failures |
+| Persistence | 6 | Scoped connections, transactions, locks and legacy plans |
+| Application | 8 | Typed command/query dispatch and local reads without providers |
+| Console/runtime | 9 | Parsing, file secrets, locking, heartbeats and retired-role rejection |
+| OAuth | 9 | Narrow grants, bearer/legacy authentication, expiry and private output |
+| Live bootstrap | 8 | Explicit identity/opt-in without source access or records |
+| Credential import | 10 | Isolated import, private files, rotation and sanitized failures |
+| Recorded evidence | 13 | Read-only capture, identity, bounds, ordering and exclusions |
+| Provider HTTP | 20 | Controlled transport contracts, updates, versions and rate guidance |
+| Observability | 21 | Durable telemetry, failures and actual-store case projections |
+| Operator API | 29 | Authentication, strict contracts, approval and error mapping |
+| Wire HTTP | 16 | Loopback HTTP, Swagger, exporter and exact-plan workflow |
 
-The [post-refactor main Verify run](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40390702419) and [vulnerability inventory](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40390702405) passed. The [PHP application design section](#php-application-design-verification-2026-10-26) records the scope and local container evidence.
+`php bin/check.php` runs the PHP checks and recovery assertions. The Docker verification target also runs style, Swagger asset equality, **11 OpenAPI paths**, **27 actual loopback response fixtures** under JSON Schema 2020-12 and the dependency-free replay tests. Controlled fixtures stay outside the operating demo's data.
 
-Provider tests use controlled transports rather than vendor accounts. Wire tests create isolated state, start a loopback PHP server and stop their own process. Automated reliability-demo approvals use synthetic data; they are not evidence of a human decision.
+GitHub Actions runs the PHP and container jobs and the aggregate **Required checks** gate. [Actions](https://github.com/AlbertFlorescu/support-bridge/actions) records the result for each published revision. A green workflow does not establish server-side branch protection.
+
+## Three-case dashboard verification: 2026-10-28
+
+The deployed exporter reported exactly eighteen case samples across CSV export, Webhook delivery and SSO sign-in. Each case was present and stored as synced, with zero pending plans and failed attempts. The last verified baseline was resolved for CSV and open for the other two. The aggregate linked count was three, read from actual state rather than a constant.
+
+Authenticated Grafana reads confirmed the five-panel dashboard, datasource health `OK` and the three operating rules. Datasource queries returned all three cases for every table column. A fresh isolated headless Chrome process then verified the shipped Grafana table after its frontend transformations: six columns, three case rows, correct state/resolution mappings and correctly converted convergence dates. The history also displayed mapped workflow labels instead of default numeric threshold ranges; the smoke verifier now guards that configuration. The test did not attach to or control the user's browser. Private screenshots and query evidence remain outside source.
+
+The unchanged live project retains its seven state/credential/monitoring volumes. Pre/post inspection snapshots verify that this cleanup did not rewrite the three business records, baselines, pending work or audit evidence. The worker remains disabled and no source edits, synchronization or extra ticket creation were part of this change. The OAuth credential expired between sessions; same-scope manual renewal and private import restored access without broadening scopes.
+
+The disposable lifecycle check passed all nine service-network groups and preserved an unapproved plan and credentials through recreation. The live-overlay check passed fake-token import, guarded bootstrap, read-only mounts and fresh-reader rotation with vendor requests disabled. Cleanup addressed only the checks' own projects. Actual rotated Grafana credentials were verified separately; bootstrap smoke assumptions were not used to reset the operating account.
 
 ## Live demonstration verification: 2026-10-28
 
-We created and freshly read three fictional issues and three fictional tickets, retained their numeric mappings privately, and established equal baselines through the live adapters. The CSV-export pair exercised a Zendesk subject change reaching GitHub and a GitHub title change reaching Zendesk while preserving the ticket's open status.
+We created and read back three fictional GitHub issues and Zendesk tickets, recorded their mappings privately and established equal baselines. Fresh vendor reads again confirmed matching titles: CSV was closed/solved, while webhook and SSO remained open.
 
-A later engineering source edit changed both title and state. Reconciliation persisted the mixed plan and withheld both destination changes. After an explicit operator decision over its exact hash, the normal approval command and execution freshness checks ran; Zendesk then received the subject and solved-state update, and both records converged. The shared-operator record does not establish a verified person, independent review or customer confirmation. A repeated sweep left the pair's audited write-attempt count unchanged at three.
+The CSV-export case has executed evidence of title propagation in both directions. A later engineering title/state change produced a durable mixed plan and withheld every destination effect. After the operator's explicit decision over its exact hash and policy, the normal approval command and freshness checks ran. The ticket received its subject and solved-state update, and both records converged. A repeated sweep left the audited write-attempt count unchanged at three.
 
-The separate live project passed all nine API, exporter, Prometheus and Grafana smoke groups. Its host endpoints returned HTTP200 on 8082/9092/3002. Prometheus observed one approval wait while the plan was held and zero after convergence. The background live worker remained disabled. Private evidence retains eleven timestamped checkpoints; replay renders those observations without executing the workflow. Account-specific mappings, tenant links, credentials and media remain outside source.
+Eleven private checkpoints preserve those observations. Replay only navigates evidence and cannot supply approval or execute the workflow. The archive is mutable selected evidence, not a complete backup or tamper-evident audit. Source mappings, tenant links, credentials and media remain outside the repository.
 
-Browser verification traversed all eleven replay checkpoints with zero script errors or external requests. Desktop and mobile screenshots were inspected; the 390-pixel mobile viewport had no page overflow. A recorded 1440×1000 WebM decoded and played successfully. The replay explicitly marks scrape lag: aggregate samples can differ from the inspected pair's newer state. Playback performs no business operation and is not a recording of live browser execution.
-
-The rebuilt offline image passed the current PHP, PSR-12, replay and API-contract gates. The disposable live credential check exercised the actual isolated importer, guarded initialization, empty CLI state, private read-only mounts and a fresh reader after fake-token rotation without vendor requests. Separate lifecycle and traffic checks preserved pending work and credentials across recreation and removed only their own disposable projects. Composer's locked development-package audit reported no advisories at the time checked.
-
-The Zendesk access token expired between runs. Manual reissuance with the same ticket-only scopes, private reimport and API recreation restored access without changing business state. These results cover the selected fictional records and local deployment. They do not measure customer benefit, certify notification delivery, establish production capacity or prove every vendor rule and failure mode. Hosted results for the published revision remain a separate verification step.
-
-## Grafana session verification: 2026-10-28
-
-We verified host bindings on 3000, 3001 and 3002 against the documented default, traffic and live projects. Each existing account accepted the locally configured credentials through the actual browser login. All three dashboards remained authenticated after signing in to the others and reloading them in the same browser. Authenticated API reads returned datasource health `OK` and the provisioned eight-panel dashboard for each project. Account values remain private deployment settings.
-
-Compose now derives the authentication-cookie name from its project name. The previous common name allowed sessions on different ports of one hostname to overwrite each other's authentication cookie. Recreating only Grafana applied the change while preserving its account database and data volumes; the new name required a fresh login. Bootstrap password files remain initialization inputs, not a record of rotated accounts. The standard smoke command still assumes the bootstrap account; current-account browser/API checks supply the authentication evidence for these rotated deployments.
-
-The rebuilt isolated verification gate passed, including PSR-12 and replay checks. A Windows checkout had exposed CRLF files that failed the style gate; the LF checkout policy and normalized working files removed that host/CI difference. The disposable lifecycle check passed all nine integration groups and preserved its pending plan and credentials through recreation. It cleaned only its own project. This repair performed no operator or provider writes.
-
-## Single operating deployment verification: 2026-10-28
-
-The earlier three-project port checks describe the prior configuration. Our operating demonstration now consists of one API on 8080, one Prometheus on 9090 and one Grafana on 3000, all on loopback in the existing `support-bridge-live-demo` project. The sample and traffic containers were removed with ordinary Compose `down`; their named volumes were retained as parked test state. We did not rename the live project, merge datasets or reset Grafana.
-
-All seven live-volume identities were retained, and complete inspection output for the three linked pairs matched before and after recreation. Fresh vendor reads confirmed matching titles for all three pairs: CSV export remained closed/solved, while webhook and SSO remained open. These are three linked customer cases; the previously recorded CSV transfer/approval sequence is the executed full-flow evidence. The background live worker remains disabled, and this infrastructure change performed no synchronization or source edits.
-
-Actual host health checks passed on 8080/9090/3000. Prometheus returned `up=1`; authenticated Grafana reads returned datasource health `OK` and eight panels. A fresh Chrome login reached the dashboard on 3000 and displayed three linked pairs. The former ports 8081/8082/9091/9092/3001/3002 had no listeners after consolidation. Current documentation and the reusable live-demo skill use the canonical addresses.
-
-The rebuilt isolated gate passed, including PHP behavior/style, API fixtures and replay checks. The disposable lifecycle check passed all nine integration groups and preserved pending work and credentials; the isolated live-overlay check passed fake-token import, guarded bootstrap and reader rotation without vendor requests. Both removed only their own disposable projects. The original private checkpoint archive remains unchanged; a separate presentation copy points its monitoring links at the current deployment.
-
-## API schema validation
-
-After the wire tests generate their synthetic response fixtures:
-
-```bash
-cd tools/api-docs
-npm ci --ignore-scripts
-node validate.cjs
-```
-
-We validated **11 OpenAPI paths** and **27 actual HTTP response fixtures** with JSON Schema 2020-12. Required approval fixtures cover success, authentication, stale evidence, invalid input and pending/approved inspection. We do not submit specs or fixtures to an online validator.
-
-The repository's Verify workflow runs the PHP gate and schema validation on pushes and pull requests. [GitHub Actions](https://github.com/AlbertFlorescu/support-bridge/actions) records hosted results for the published revision.
-
-## Initial container verification: 2026-10-25
-
-We built and started the complete Compose stack on Docker Desktop's Linux engine. The application image runs PHP 8.3.36 as UID10001 without Node, tests, credentials or host state embedded in its runtime layers. The separate verification target includes Node and the locked API tooling, and passed the then-current 136 tests, nine assertions, 49 lint checks and 27 response fixtures with runtime networking disabled.
-
-`docker compose --profile test run --rm smoke` passed nine read-only groups against the actual API, Prometheus and Grafana service network. The checks include separate credential authority, local Swagger, private-path denial, metric consistency, authenticated scrapes, query results, all four rules and the provisioned eight-panel dashboard. We also verified API liveness, Grafana health and Prometheus readiness through their published host-loopback ports.
-
-The disposable lifecycle check stopped the worker with exit0, prepared a synthetic state-change plan without approving it, recreated every container while retaining named volumes, and confirmed the identical pending plan and operator/scrape credentials. Grafana authentication and monitoring still passed afterwards. The test removed only its uniquely named synthetic project's volumes; the normal local stack retained its state.
-
-Image sources are pinned by verified manifest digests: official PHP8.3 and Node24 images, Prometheus3.13.5 and Grafana13.2.4. Builds still use package repositories for runtime libraries, so those pins do not imply a fully reproducible dependency build or vulnerability certification. Default Compose uses a standard bridge with outbound access and host ports on loopback. An internal-only network did not publish reachable host ports on the tested Docker Desktop engine; the bridge configuration was checked through real host requests.
-
-A separate AI-assisted container review checked secret-volume readers, non-root ownership, read-only filesystems, startup, file-secret failure behavior and worker termination. Its two offline probes confirmed missing secret files and conflicting direct/file values fail with sanitized output. [Docker operation](DOCKER.md) records commands, persistence and deployment limits. CI additionally builds the images and runs the container suite, smoke and lifecycle checks.
-
-## Dependency review: 2026-10-25
-
-We reviewed three candidate image updates. Each candidate passed PHP, container and aggregate checks on GitHub Actions; passing those checks does not itself require adoption.
-
-| Candidate | Evidence and decision |
-| --- | --- |
-| PHP 8.3 → 8.5 | [Candidate CI passed](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40176435376). We retain PHP 8.3.36; registry inspection confirmed our checked-in digest is current for the selected tag. PHP 8.3 remains security-supported through 2027-12-31. PHP 8.5 deprecates `curl_close()`, which we call in `src/HttpClient.php` and `docker/verify-stack.php`. A later migration needs that cleanup and a deprecation-free verification run; the passing candidate suite does not establish that property. [PHP support](https://www.php.net/supported-versions.php), [cURL change](https://www.php.net/manual/en/function.curl-close.php). |
-| Node 24 → 26 | [Candidate CI passed](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40176440617). We retain Node 24 in both native CI and the verification image; registry inspection confirmed its digest is current. Node 26 is Current until its scheduled LTS transition on 2026-10-28. We have no demonstrated requirement to split our verification runtimes or adopt that line now. [Official schedule](https://github.com/nodejs/Release/blob/main/schedule.json). |
-| Prometheus 3.13.5 → 3.15.1 | [Candidate CI passed](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40176444749), including authenticated scrapes/queries, four rules, Grafana provisioning and container recreation. We found no relevant configuration or API blocker, but retain the 3.13 LTS line without a demonstrated need for newer minor features. Both releases include the October 21 security fixes. The candidate used fresh monitoring storage; it does not verify an existing 3.13.5 TSDB upgrade. [3.13.5 release](https://github.com/prometheus/prometheus/releases/tag/v3.13.5), [3.15.1 release](https://github.com/prometheus/prometheus/releases/tag/v3.15.1). |
-
-These dated decisions retained the tested runtime images; they did not validate a customer deployment. On 2026-10-26 we removed the proposal suppressions so newer runtime lines can appear as Dependabot PRs for review. Our [dependency maintenance policy](CI.md#dependency-maintenance-policy) exposes available patch, minor and major proposals while reserving adoption for a deliberate, tested migration. The existing container and native monitoring evidence remains distinct from candidate-version evidence.
-
-## Local monitoring verification
-
-```bash
-bash monitoring/install.sh
-python3 monitoring/stack.py up --demo
-python3 monitoring/stack.py verify
-```
-
-We checked the real local Prometheus/Grafana path:
-
-- Pinned Prometheus 3.13.5 and Grafana OSS 13.2.4 archives matched their checksums.
-- Listeners were loopback-only; credentials and synthetic state stayed outside source control.
-- An unauthenticated scrape returned 401; the separate scrape credential returned metrics.
-- Prometheus reported `up=1`, and counters, histogram observations and state gauges were queryable.
-- Grafana's provisioned datasource reported `OK`, and the eight-panel dashboard was loaded.
-- `promtool` validated the scrape configuration and four rules; Prometheus loaded them.
-- The pending-approval gauge was queryable, and the loaded dashboard/rule expressions included `awaiting_approval`. The monitoring fixture had zero pending approvals; application and wire tests exercise a nonzero approval wait.
-
-The monitoring helper stores a secret-free `verification.json` in its private state directory. No notification recipient is configured. Loaded example rules do not prove notification delivery, production capacity or an incident-response process.
-
-## Review findings addressed
-
-We added tests and controls for these concrete failure cases:
-
-1. Invalid provider configuration must fail before binding a state directory to the wrong identity.
-2. Missing metric rows must fail scraping, rather than silently reset observations to zero.
-3. Pending destinations and original reviewed sources must retain the required version evidence before another effect.
-4. Metrics credentials must not authorize operator commands, and equal configured tokens must fail closed.
-5. State-changing plans must withhold every effect until exact-plan approval; stale fields, versions or hashes cannot reuse it.
-6. Approval audit failures must prevent authorization/effects, while best-effort metric failures must not change business results.
-7. Existing write intents must survive the approval-column migration, and telemetry upgrades must preserve historical counters.
-
-A separate AI-assisted Code Reviewer pass inspected approval, recovery, API and migration paths and independently ran 17 governance, 29 API and 16 observability checks. It found no actionable blocker within that scope. This is bounded review evidence, not a security or compliance certification. [Development tooling](TOOLING-INSTALLATION.md) records the separate, partial REA artifact analysis and its limits.
-
-## Vulnerability automation verification: 2026-10-26
-
-The native repository APIs confirmed Dependabot alerts enabled and automatic security updates enabled and unpaused. The native alert feed reported zero open alerts at setup; that is separate from image-scanner coverage.
-
-Local verification passed 70 Python security-tool tests with one Node-dependent fixture skipped in WSL. The actual Node checker also passed against the committed Swagger assets, and the Docker verification image passed 136 PHP tests, nine demo assertions, 49 lint checks, Swagger byte equality, 11 OpenAPI paths and 27 actual response fixtures. Hosted Verify installs Node 24 before running the security-tool suite so that fixture is exercised there.
-
-The tests cover incomplete scans, stale databases, metadata failures and rejected IDs, unsafe output, exact-head atomic publication, ancestor-reset races, dependency-source restrictions and retention of earlier issue evidence. We verified GitHub's live GraphQL input schema for atomic branch commits. Source metadata and scanner matching remain bounded by the coverage and retention limits in [SECURITY.md](../SECURITY.md).
-
-The [initial main inventory](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40282645536) completed all four image scans, npm audit, native alert reads and managed issue publication. The [main Verify run](https://github.com/AlbertFlorescu/support-bridge/actions/runs/40282645619) also passed. The [tracker](https://github.com/AlbertFlorescu/support-bridge/issues/10) initially recorded 5,941 component/package/advisory observations; observations can repeat a CVE across packages or images. Unfixed findings remain visible. Source enrichment is a bounded subset and does not establish that every observed vulnerability has been analyzed or repaired.
-
-## Synthetic traffic verification: 2026-10-26
-
-The verification image passed 55 PHP syntax checks, 148 application checks (including 12 traffic checks), nine demo assertions, Swagger byte equality, 11 OpenAPI paths and 27 HTTP response fixtures.
-
-The disposable traffic project ran 50 one-second ticks through the actual operator HTTP API. It produced support/engineering title edits, independent field merges, state changes, conflicts, scripted exact-plan approval/source selection, pre-write failures, lost responses and no-op polls. Audit events confirmed the ordinary workflow paths. The eight-pair pool remained bounded and the original sample was unchanged. Pair/provider/credential hashes matched across container recreation with writers stopped; the driver restarted and terminated cleanly.
-
-The separate lifecycle check preserved an unapproved state-change plan and credentials through recreation. Both that project and the traffic project passed all nine API/exporter/Prometheus/Grafana smoke groups. A concurrent second traffic driver was rejected by its generator lock. A three-tick random-interval run also completed without errors.
-
-The ongoing five-second traffic stack reported a healthy authenticated scrape, nine linked pairs, increasing reconciliation observations and nonzero retry and approval-wait counters. Its smoke checks verified the provisioned dashboard and datasource. These are synthetic workflow and local monitoring observations; they do not exercise vendor network behavior or measure production capacity. [Traffic operation](TRAFFIC.md) records the setup and limits.
-
-## PHP application design verification: 2026-10-26
-
-We separated application commands and queries into typed messages and focused handlers. HTTP and CLI map their inputs into those shared use cases; container entry scripts delegate to runtime objects. A scoped injected SQLite connection replaces implicit construction inside the repository, with separate schema, transaction and canonical-lock responsibilities. The existing plan JSON, approval rules and recovery ordering are unchanged.
-
-The rebuilt verification image passed 170 PHP checks, nine demo assertions, syntax checks for 112 PHP files, the PSR-12 ruleset across 99 files, Swagger byte equality, 11 OpenAPI paths and 27 real HTTP response fixtures. The new checks cover persistence rollback and legacy-plan preservation, typed dispatch without provider access on queries, CLI exit behavior, local-edit lock contention, secret loading, heartbeat validation and graceful termination. Strict Composer autoload verification generated 89 classes without PSR-4 violations. Composer metadata validation and the locked development-package audit passed with no advisories at the time checked.
-
-The style ruleset covers application classes and entrypoints. Tests and the standalone stack-verification harness are outside that ruleset; they still receive syntax and behavior checks. Composer and its development packages are present only in development/verification, while the runtime continues to use the existing lightweight PSR-4 loader.
-
-A disposable lifecycle check preserved the exact unapproved plan and credentials through container recreation and confirmed graceful worker termination. Its nine real API/exporter/Prometheus/Grafana smoke groups passed. These checks use synthetic records and newly initialized monitoring credentials; they do not validate a rotated Grafana account or vendor services.
-
-The rebuilt traffic stack completed 50 one-second ticks through the operator API, covering edits, independent merges, conflicts, exact-plan approvals, pre-write failures, lost responses and no-op sweeps. All nine service-network smoke groups passed. The eight-pair pool stayed bounded, the sample remained unchanged, durable state and credential hashes matched across recreation, the duplicate generator was rejected, and the restarted generator stopped with exit code zero.
-
-A separate AI-assisted source review inspected command/query dispatch, authentication before application construction, CLI/runtime parity, lock ownership, transactions and additive migration. It found no blocking regression in that scope. This review did not establish live provider compatibility, customer value or compliance. We retain the limitations listed below and in the [architecture guide](ARCHITECTURE.md).
-
-## Documentation consistency check: 2026-10-26
-
-We checked the README and operating guides against both Compose definitions and the actual published bindings. The traffic project exposes API/Swagger 8081, Prometheus 9091 and Grafana 3001; the default project exposes 8080, 9090 and 3000. Both Swagger pages, Prometheus readiness endpoints and Grafana database-health endpoints responded successfully. These checks do not validate a Grafana user's login.
-
-We validated 95 local documentation links/anchors, 52 shell blocks and two PowerShell examples. The guides distinguish project-specific accounts and volumes, native filesystem state, internal service addresses and host-port overrides. We also corrected the current check summary, persistence description and observed repository-control status. This was a documentation change; the checks did not approve plans, run business commands, reset credentials or change repository settings.
+Webhook and SSO are linked cases prepared for their broader walkthroughs; their proposed conflict/recovery sequences are not claimed as executed live tests. The shared operator credential does not prove individual identity, independent review, customer confirmation or compliance. These results cover selected fictional records, not every vendor rule, notification path, production workload or measured customer benefit.
 
 ## Primary scenario evidence: 2026-10-26
 
-The [CSV-export scenario](SCENARIO.md), documented on 2026-10-27, is our main narrative for customer, design and workflow review. The dated observations below come from the 2026-10-26 inspection. Its checkpoints describe expected behavior; we have not executed a new manual, checkpoint-by-checkpoint container run of the complete narrated sequence.
+The [primary scenario](SCENARIO.md) documents expected source transitions and operator checkpoints. Local recovery and governance checks exercised the engine's failure paths before the selected live CSV run. The [tooling record](TOOLING-INSTALLATION.md) separately describes bounded artifact analysis and its partial coverage. Narrative checkpoints, executable fixtures and live vendor effects remain distinct evidence categories.
 
-| Evidence | What it supports | What it does not establish |
-| --- | --- | --- |
-| Existing reliability demo and application/governance tests | Equal baselines, title-only propagation, whole-plan state review, fresh approval, independent merges, uncertain-write recovery, conflict selection and no-op behavior. | A live vendor integration or a new execution of every narrative checkpoint. The executable demo selects GitHub for its conflict; the narrative illustrates an explicit Zendesk choice. |
-| Read-only traffic-project inspection on 2026-10-26 | Nine existing linked pairs; the sample `escalation-1` had the original open baseline and no pending plan. Audit history contained approval requests/grants, conflicts, source selections, retries and write/convergence events. The inspected generator settings were five seconds and scripted review. | Verified human decisions, customer traffic, measured value or a stable current count of waiting records. Background activity continued during inspection. |
-| Actual Prometheus query | `up{job="support_bridge"}=1` and queryable pair-state/pending-plan gauges at inspection time. | Health of every pair, a successful Grafana user login or customer/vendor validation. |
-| Focused REA artifact inspection | Matching served initializer identity and a parsed, selected JavaScript source with an unresolved route trace; see the [tooling evidence](TOOLING-INSTALLATION.md#scenario-shipped-artifact-check-2026-10-26). | PHP engine execution or complete Swagger/browser analysis. |
+## Dependency review: 2026-10-25
 
-Documentation review on 2026-10-27 checked 119 local links/anchors, syntax for 52 shell blocks and two PowerShell examples. A separate source review confirmed the narrative boundaries and qualified aggregate metrics, global provider counters and handler responsibilities.
+Dated candidate reviews retained PHP 8.3, Node 24 and the Prometheus 3.13 LTS line. Candidate CI was compatibility evidence, not automatic adoption or production validation. The remaining migration concerns were PHP 8.5 cURL deprecation cleanup and existing Prometheus TSDB upgrade testing. Current image pins and reviewed adoption policy live in [CI.md](CI.md#dependency-maintenance-policy).
 
-The documentation work changes no runtime workflow, records, approvals, credentials or deployment settings. A guided run must retain its own execution evidence and use the ordinary approval, freshness and recovery boundaries.
+Dependabot proposals remain visible across runtime lines. The vulnerability workflow scans pinned images and locked tooling, enriches bounded CVE evidence and maintains its tracker. A package's fixed version does not prove that a parent image is available or repaired. [SECURITY.md](../SECURITY.md) states scanner/source limits and the maintenance procedure.
 
-## Validation still required
+## Operating limits
 
-Live validation covers the selected fictional records and ordinary updates described above. Customer-specific statuses and triggers beyond those observations, production load, restore procedures, customer outcomes and notification delivery remain unvalidated. The shared operator token does not establish individual or human identity. Approval has no expiry/revocation workflow. GitHub's preflight/PATCH race and provider timestamp granularity remain material limitations. Our governance controls do not determine whether customer obligations have been fulfilled.
+The PHP development server, shared operator token and SQLite lock support a single-host demonstration. General backup restoration, production ingress/identity, individual approval attribution, provider-wide rate budgets, customer policy validation and production capacity remain unfinished. Titles are stored without application encryption and are not automatically redacted.
+
+Metrics are best effort and independent of the business commit. Case labels are a fixed demonstration allowlist; new cases need a reviewed mapping change. Stored states are last observed, with no provider request during scraping. Quiet manual time is expected and no longer triggers a polling-age alert. Three local rules have no configured notification recipient.
+
+Never rely on AI in compliance. AI assisted development, review and documentation as disclosed in the [README](../README.md#ai-use); it cannot determine policy satisfaction, choose conflicting sources or approve writes.

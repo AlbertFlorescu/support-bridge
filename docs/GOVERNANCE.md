@@ -27,7 +27,7 @@ Merge, approval and recovery follow fixed rules. The application calls no model.
 
 ## Architecture overview
 
-CLI and HTTP share typed application commands/queries, their handlers and `Engine`. `Application/Context` wires explicit dependencies, including a scoped SQLite connection; persistence helpers own schema upgrades, transactions and the canonical lock. Provider adapters fetch records and apply field patches. SQLite stores links, baselines, pending plans, conflicts, approvals and events. Prometheus and Grafana read aggregate metrics through a separate credential.
+CLI and HTTP share typed application commands/queries, their handlers and `Engine`. `Application/Context` wires explicit dependencies, including a scoped SQLite connection; persistence helpers own schema upgrades, transactions and the canonical lock. Provider adapters fetch records and apply field patches. SQLite stores links, baselines, pending plans, conflicts, approvals and events. Prometheus and Grafana read operational metrics through a separate credential. Three fixed case aliases expose stored workflow observations without titles or vendor IDs; dashboard samples cannot establish fresh vendor state or authorize a decision.
 
 Command/query separation organizes use cases without changing authority. Queries read local state without provider access; the approval command still invokes the normal engine gate and fresh provider checks. There is one business database, with the same persisted plan shape and audit ordering. Class boundaries, PSR formatting and a command type cannot themselves authorize an effect.
 
@@ -53,10 +53,6 @@ The shared operator credential can approve a plan but cannot identify a person o
 Approvals have no expiry, revocation or rejection command. `approved_at` records when the attestation occurred; unchanged evidence and policy can remain authorized. Pending reviews wait for an operator, without an automatic approver or reminder delivery. Teams requiring expiring or revocable approval need that workflow before rollout.
 
 The gate does not classify confidential titles, decide data-sharing permission or check every prerequisite for closure. Our [AI-use disclosure](../README.md#ai-use) describes development assistance separately from runtime authority.
-
-### Scripted synthetic review
-
-The opt-in [traffic simulation](TRAFFIC.md) uses a separate local stack and a fixed pool of owned synthetic pairs. In `scripted` mode, a deterministic driver waits at least ten seconds before choosing a conflict source or submitting the current exact-plan hash through the normal API. It receives that project's broad operator credential. The approval gate and freshness checks still run; the resulting attestation is scripted, not human review or compliance evidence. `manual` mode leaves conflicts and approval waits for the operator. The simulator refuses live mode and does not call a model.
 
 ### Live source setup and recorded replay
 

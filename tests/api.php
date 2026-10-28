@@ -587,9 +587,10 @@ $tests['A successful scrape exports raw Prometheus text without private labels o
     apiSame('text/plain; version=0.0.4; charset=utf-8', $response->headers['Content-Type']);
     apiCheck(is_string($response->body) && str_starts_with($response->body, '# HELP '), 'Metrics body must be raw exposition text, not a JSON string.');
     apiCheck(str_ends_with($response->body, "\n"), 'Prometheus text format requires a trailing newline.');
-    foreach ([ApiFixture::TOKEN, ApiFixture::METRICS_TOKEN, 'CSV export', 'escalation-1', 'github_id', 'zendesk_id', $f->home] as $private) {
+    foreach ([ApiFixture::TOKEN, ApiFixture::METRICS_TOKEN, 'CSV export fails for large reports', 'escalation-1', 'github_id', 'zendesk_id', $f->home] as $private) {
         apiCheck(!str_contains($response->body, $private), 'Scrapes must not expose secrets, snapshots, IDs, or filesystem paths.');
     }
+    apiSame(3, preg_match_all('/^support_bridge_demo_case_status\{case="(?:CSV export|Webhook delivery|SSO sign-in)"\} 0$/m', $response->body));
     apiSame($before, [$f->context->store->all(), hash_file('sha256', $f->home . '/github.json'), hash_file('sha256', $f->home . '/zendesk.json')]);
     apiError($f->scrape(null), 401);
     apiError($f->scrape(ApiFixture::TOKEN), 401);

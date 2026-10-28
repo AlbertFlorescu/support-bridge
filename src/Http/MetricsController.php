@@ -25,7 +25,7 @@ final class MetricsController
         }
         try {
             $context = ($this->contextFactory)();
-            $body = $context->telemetry->render($context->store->metrics());
+            $body = $context->telemetry->render($context->store->metrics(), $context->store->all());
         } catch (\Throwable) {
             // A successful scrape must never conceal failed application or metrics storage.
             throw new HttpFailure(503, 'metrics_unavailable', 'Metrics storage is unavailable.');

@@ -6,6 +6,7 @@ namespace Bridge\Tests\Observability;
 require dirname(__DIR__) . '/bootstrap.php';
 
 use Bridge\Observability\Prometheus;
+use Bridge\Store;
 use PDO;
 
 function same(mixed $expected, mixed $actual): void
@@ -318,6 +319,100 @@ $tests['Text exposition has stable metadata, unique samples and a final newline'
     same(count($identities), count(array_unique($identities)));
 };
 
+/** The same SQLite repository consumed by the HTTP scrape, without provider construction. */
+function demoStore(string $metricsPath): Store
+{
+    $store = new Store(dirname($metricsPath) . '/business.sqlite');
+    $store->addPair('csv-export', '101', '501');
+    $store->addPair('webhook-retry', '102', '502');
+    $store->addPair('sso-conflict', '103', '503');
+    return $store;
+}
+
+$tests['Missing demonstration links have exactly three explicit missing case projections'] = static function (): void {
+    $metrics = new Prometheus(database());
+    $text = $metrics->render(['pairs' => []], []);
+    foreach (['CSV export', 'Webhook delivery', 'SSO sign-in'] as $label) {
+        foreach (['present', 'status', 'resolution', 'pending_plan', 'attempts', 'last_success_timestamp_seconds'] as $field) {
+            same(0.0, sample($text, 'support_bridge_demo_case_' . $field, 'case="' . $label . '"'));
+        }
+    }
+    same(3, preg_match_all('/^support_bridge_demo_case_status\{/m', $text));
+    same(false, str_contains($metrics->render(), 'support_bridge_demo_case_'));
+};
+
+$tests['Case gauges project actual persisted state and retain the last verified resolution during review'] = static function (): void {
+    $path = database();
+    $metrics = new Prometheus($path);
+    $store = demoStore($path);
+    $store->update('csv-export', ['status' => 'synced', 'baseline' => ['title' => 'PRIVATE CLOSED TITLE', 'state' => 'closed'],
+        'last_success' => 1_700_000_000]);
+    $store->update('webhook-retry', ['status' => 'awaiting_approval',
+        'baseline' => ['title' => 'PRIVATE OPEN TITLE', 'state' => 'open'],
+        'plan' => ['target' => ['title' => 'PRIVATE NEW TITLE', 'state' => 'closed']], 'last_success' => 1_699_999_900]);
+    $store->update('sso-conflict', ['status' => 'conflict',
+        'baseline' => ['title' => 'PRIVATE CONFLICT TITLE', 'state' => 'open'],
+        'conflict' => ['reason' => 'PRIVATE CONFLICT DETAIL'], 'last_success' => 1_699_999_800]);
+    $before = $store->all();
+    $text = $metrics->render($store->metrics(), $before);
+    same(1.0, sample($text, 'support_bridge_demo_case_present', 'case="CSV export"'));
+    same(2.0, sample($text, 'support_bridge_demo_case_status', 'case="CSV export"'));
+    same(2.0, sample($text, 'support_bridge_demo_case_resolution', 'case="CSV export"'));
+    same(3.0, sample($text, 'support_bridge_demo_case_status', 'case="Webhook delivery"'));
+    same(1.0, sample($text, 'support_bridge_demo_case_resolution', 'case="Webhook delivery"'));
+    same(1.0, sample($text, 'support_bridge_demo_case_pending_plan', 'case="Webhook delivery"'));
+    same(4.0, sample($text, 'support_bridge_demo_case_status', 'case="SSO sign-in"'));
+    same(1_700_000_000.0, sample($text, 'support_bridge_demo_case_last_success_timestamp_seconds', 'case="CSV export"'));
+    same($text, $metrics->render($store->metrics(), $store->all()));
+    same($before, $store->all());
+    same(0.0, sample($text, 'support_bridge_reconciliation_duration_seconds_count'));
+    same(false, str_contains($text, 'PRIVATE'));
+};
+
+$tests['New retry dead and unknown stored states are distinct without invented verification timestamps'] = static function (): void {
+    $path = database();
+    $metrics = new Prometheus($path);
+    $store = demoStore($path);
+    foreach (['new' => 1, 'retry' => 5, 'dead' => 6, 'unrecognized' => 7] as $status => $code) {
+        $store->update('csv-export', ['status' => $status, 'attempts' => 3]);
+        $text = $metrics->render($store->metrics(), $store->all());
+        same(1.0, sample($text, 'support_bridge_demo_case_present', 'case="CSV export"'));
+        same((float) $code, sample($text, 'support_bridge_demo_case_status', 'case="CSV export"'));
+        same(0.0, sample($text, 'support_bridge_demo_case_resolution', 'case="CSV export"'));
+        same(3.0, sample($text, 'support_bridge_demo_case_attempts', 'case="CSV export"'));
+        same(0.0, sample($text, 'support_bridge_demo_case_last_success_timestamp_seconds', 'case="CSV export"'));
+    }
+};
+
+$tests['Arbitrary links and sensitive row fields never expand case labels or escape into exposition'] = static function (): void {
+    $path = database();
+    $metrics = new Prometheus($path);
+    $store = demoStore($path);
+    $store->addPair('PRIVATE_CUSTOMER_ID', '99991', '99992');
+    $store->update('PRIVATE_CUSTOMER_ID', ['status' => 'synced',
+        'baseline' => ['title' => 'PRIVATE CUSTOMER TITLE', 'state' => 'closed'],
+        'error' => 'PRIVATE TOKEN', 'approval' => ['rationale' => 'PRIVATE RATIONALE'], 'last_success' => 1_700_000_001]);
+    $text = $metrics->render($store->metrics(), $store->all());
+    same(3, preg_match_all('/^support_bridge_demo_case_status\{/m', $text));
+    foreach (['PRIVATE', '99991', '99992', 'csv-export', 'webhook-retry', 'sso-conflict', 'github_id', 'zendesk_id'] as $value) {
+        same(false, str_contains($text, $value));
+    }
+    same(1.0, sample($text, 'support_bridge_pairs', 'status="synced"'));
+};
+
+$tests['Corrupt case evidence fails instead of claiming a healthy zero or exposing input'] = static function (): void {
+    foreach ([['attempts' => -1], ['last_success' => -1], ['baseline' => ['state' => 'PRIVATE INVALID']]] as $invalid) {
+        $path = database();
+        $metrics = new Prometheus($path);
+        $store = demoStore($path);
+        $store->update('csv-export', $invalid);
+        $before = $store->all();
+        same('Demo case state is invalid.', raises(static fn(): string => $metrics->render($store->metrics(), $store->all()))->getMessage());
+        same($before, $store->all());
+        same(true, $metrics->status()['storage_available']);
+    }
+};
+
 $failed = 0;
 foreach ($tests as $name => $test) {
     try {
@@ -329,7 +424,8 @@ foreach ($tests as $name => $test) {
     }
 }
 foreach ($directories as $directory) {
-    foreach (['metrics.sqlite', 'metrics.sqlite-wal', 'metrics.sqlite-shm'] as $file) {
+    foreach (['metrics.sqlite', 'metrics.sqlite-wal', 'metrics.sqlite-shm',
+        'business.sqlite', 'business.sqlite-wal', 'business.sqlite-shm'] as $file) {
         if (is_file($directory . '/' . $file)) {
             unlink($directory . '/' . $file);
         }

@@ -1,6 +1,6 @@
 ---
 name: support-bridge-live-demo
-description: Run an authorized Support Bridge demonstration against owned GitHub and Zendesk records and capture a private workflow replay. Use the traffic workflow for isolated synthetic load instead.
+description: Operate the three linked Support Bridge demo cases against owned GitHub and Zendesk records, preserving normal review gates and private evidence.
 ---
 
 # Support Bridge live demonstration
@@ -9,7 +9,7 @@ Read [the live guide](../../docs/LIVE_DEMO.md), [customer walkthrough](../../doc
 
 ## Deployment and records
 
-Use one operating deployment: the existing `support-bridge-live-demo` project with both Compose files explicitly, on API 8080, Prometheus 9090 and Grafana 3000. Verify actual host ports against the connection reference. Keep sample and traffic configurations as isolated verification tools, stopped during the real demonstration, and preserve their parked volumes. Never rename the existing live project or merge sample baselines into it. Bootstrap creates schemas and local operator/monitoring credentials without provider requests, links or fixtures. The live worker is opt-in.
+Use one operating deployment: the existing `support-bridge-live-demo` project with both Compose files explicitly, on API 8080, Prometheus 9090 and Grafana 3000. Verify actual host ports against the connection reference. The traffic generator and native monitoring alternative are removed. Retain isolated recovery/API test fixtures and historical volumes without merging their baselines into live state. Never rename the existing live project. Bootstrap creates schemas and local operator/monitoring credentials without provider requests, links or fixtures. The live worker is opt-in.
 
 Use the documented private credential import. API, CLI and worker are the runtime credential readers; the isolated importer has the sole writable vendor-volume mount. Keep OAuth client secrets outside runtime containers and source. Reissue an expired access token manually with the narrow ticket scopes, import it, and recreate credential-reading containers. An existing Grafana bootstrap file does not prove the current login after account rotation.
 
@@ -24,6 +24,8 @@ A source edit already performed in a vendor is separate from a bridge outbound e
 Use local reliability checks for injected failures; do not fabricate a live vendor outage. Keep the background worker disabled while presenting deliberate checkpoints unless its operation is authorized and understood.
 
 ## Evidence and presentation
+
+The [five-panel dashboard](../../docs/OBSERVABILITY.md) shows CSV export, Webhook delivery and SSO sign-in through fixed public case aliases. Its counts and gauges read actual stored rows. Missing and unknown states remain explicit; resolution is the last verified baseline and timestamps show observation age. Manual sweeps do not provide continuous vendor freshness. Do not create activity or extra records just to fill charts. Keep any rendering test isolated from the user's browser session.
 
 Follow [capture and rendering](../../docs/LIVE_DEMO.md#capture-and-render-actual-observations) and the [viewer contract](../../tools/demo-viewer/README.md). Capture observes under the canonical lock without synchronization or approval. Vendor reads and aggregate telemetry remain sequential observations rather than a distributed snapshot. Missing monitoring data stays absent.
 
