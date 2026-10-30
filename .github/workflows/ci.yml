@@ -8,7 +8,6 @@ on:
   merge_group:
     types: [checks_requested]
   workflow_dispatch:
-  workflow_call:
 
 permissions:
   contents: read
@@ -44,8 +43,6 @@ jobs:
           cache-dependency-path: tools/api-docs/package-lock.json
       - name: Test vulnerability reporting and safe asset repair
         run: python3 -m unittest discover -s tools/security -p 'test_*.py' -v
-      - name: Test exact-revision source publication
-        run: python3 -m unittest discover -s tools/publishing -p 'test_*.py' -v
       - name: Verify read-only demo replay and portable evidence boundaries
         run: node --test tools/demo-viewer/viewer.test.cjs
       - name: Check documentation links and guide structure

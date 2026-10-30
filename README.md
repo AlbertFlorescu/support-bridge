@@ -132,8 +132,6 @@ The displayed subject/resolution are last verified evidence, not continuously fr
 
 The [verification record](docs/REVIEW.md) reports current test totals and dated local/live observations. [CI policy](docs/CI.md) defines GitHub Actions and its stable **Required checks** gate. Local changes are not hosted CI evidence, and a passing workflow does not establish server-side branch protection. [Security maintenance](SECURITY.md) covers Dependabot, CVE List/NVD enrichment, image scans and bounded asset repair.
 
-[Prepared source publication](docs/PUBLISHING.md) uses a real Actions bot to publish verified maintainer revisions through review PRs, preserving authorship. It does not merge or deploy.
-
 Documentation checks run offline:
 
 ```bash

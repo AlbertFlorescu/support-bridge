@@ -8,17 +8,17 @@ Require **`Required checks`** on `main`. This unique aggregate check passes only
 
 | Check | Coverage |
 | --- | --- |
-| `PHP checks` | Locked Composer development install and audit, strict PSR-4 autoload verification, configured PSR-12 style check, PHP syntax/application tests, synthetic demo, OAuth/bootstrap/checkpoint contracts, dependency-free replay checks, vulnerability-tool and exact-revision publisher tests, offline Markdown link/anchor/fence checks and their fixtures, Swagger asset freshness, OpenAPI parsing and real loopback response-fixture validation |
+| `PHP checks` | Locked Composer development install and audit, strict PSR-4 autoload verification, configured PSR-12 style check, PHP syntax/application tests, synthetic demo, OAuth/bootstrap/checkpoint contracts, dependency-free replay checks, vulnerability-tool tests, offline Markdown link/anchor/fence checks and their fixtures, Swagger asset freshness, OpenAPI parsing and real loopback response-fixture validation |
 | `Container checks` | Image builds, isolated PHP/style/OpenAPI/replay verification, local stack startup, service-network smoke checks, four in-memory Prometheus rule cases with labelled inputs, numeric attention-query assertions, graceful shutdown, pending-plan/credential persistence through recreation and a disposable live-overlay import/bootstrap check without vendors |
 | `Required checks` | Both jobs succeeded for the revision under review |
 
-Verify runs for PRs targeting `main`, pushes to `main`, manual dispatch, merge groups and a read-only reusable call from source publication. It has no path filters, so documentation changes also produce the required status. [Concurrency settings](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) cancel outdated runs for the same PR or ref. Merge-group checks support a future merge queue; they do not enable one.
+Verify runs for PRs targeting `main`, pushes to `main`, manual dispatch and merge groups. It has no path filters, so documentation changes also produce the required status. [Concurrency settings](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) cancel outdated runs for the same PR or ref. Merge-group checks support a future merge queue; they do not enable one.
 
-## Source publication
+## Maintainer workflow
 
-[Publish prepared changes](PUBLISHING.md) verifies authorized staging revisions through this reusable workflow, then uses a separate short-lived bot token to publish the exact SHA on a review branch and open a PR. It preserves commit authorship and never approves, merges or deploys. Standalone Verify is explicitly dispatched on the published branch; its named **Required checks** remains the PR gate.
+Create source changes on a product branch under `feature/`, `fix/`, `chore/`, `docs/` or `ci/` using the configured maintainer identity. Review the diff, exclude private files, push the branch and open a PR targeting main. Require the named **Required checks** gate for the current revision before merging. A passing workflow does not authorize deployment or customer-state changes.
 
-The repository must permit Actions-created PRs. That setting also permits approving reviews; our publisher does not call that API. Default workflow tokens stay read-only, and only the publication job requests content/PR/Actions write permissions. See [permission limits](PUBLISHING.md#permissions-and-assumptions).
+There is no general source-publishing bot, special staging pipeline or reusable publication entry point. Verify retains read-only contents access. GitHub Actions PR creation/review approval is disabled at repository level; default tokens remain read-only. Dependabot proposals, the vulnerability tracker and bounded dependency-asset repair retain their separate documented responsibilities and job permissions.
 
 ## Branch protection is a separate setting
 

@@ -101,7 +101,7 @@ The [governance guide](GOVERNANCE.md) defines write controls, policy ownership a
 | A56 | A fixed npm manifest must correspond to the Swagger files actually served. | A lockfile-only patch can leave vulnerable assets deployed. A stale or expanded PR must not receive a repair commit. | Byte equality in native/container CI; trusted-code repair, fixed file allowlist, isolated script-disabled install, exact-head publication and explicit CI dispatch. No automatic approval or merge. |
 | A57 | A daily dependency inventory and one managed issue are sufficient for current repository maintenance. | Scheduling/source outages and artifact retention are not a response SLA or permanent audit archive. Risk acceptance and deployment remain maintainer responsibilities. | Incomplete scans retain prior findings; bounded enrichment and 14-day evidence artifacts. The observed unprotected `main` branch and absent repository ruleset remain documented in `CI.md`; a passing workflow is not server-side enforcement. |
 
-A58–A59 are retired. Remaining assumption IDs are stable.
+A58–A59 and A86 are retired. A86 covered the removed general source-publishing workflow. Remaining assumption IDs are stable.
 
 ## PHP architecture and development
 
@@ -168,9 +168,3 @@ A58–A59 are retired. Remaining assumption IDs are stable.
 | A83 | Grafana viewers may read every linked baseline subject and fixed provider URL through the shared monitoring-read credential. | Subjects can be sensitive; the token has no per-pair restriction. Grafana/Docker admins remain trusted, and provider navigation still needs the viewer's vendor login. | Separate operator token, fixed-host pinned Infinity backend, read-only credential mount and no credential in browser/dashboard/image; query authentication and literal subject checks. |
 | A84 | The last verified common title is enough context for the operating table. | It can lag newer provider edits and review; it is not a live subject query or subject history. A missing baseline must not be filled from a pending target. | Nullable subject, plain-text table cell and explicit explanation; current context ignores history time range; fixed HTTPS links use validated deployment identity and numeric IDs. |
 | A85 | A pinned Infinity 4.1.5 backend plus the existing API suits the small complete-table view. | Adds plugin supply-chain/maintenance and a full snapshot read on refresh; no capacity, tenant isolation or production readiness is established. | Plugin installed at build time in the read-only image, Grafana signature enforcement, API-only allowed host, authenticated backend smoke and isolated rendered-link checks. Prometheus retains numeric gauges only. |
-
-## Prepared source publication
-
-| ID | Assumption or explicit decision | Why it matters; consequence if wrong | Validation or enforcement |
-| --- | --- | --- | --- |
-| A86 | An authorized maintainer staging push may start verified source publication through GitHub Actions. | A source revision is already public before the bot publishes its review branch. Workflow-editing maintainers remain trusted; PR-write authority and repository settings do not establish independent review. | Preserve the exact commit and authorship, reuse Verify, stop on moved inputs or ref collisions, open a PR and explicitly request standalone checks. No approve/merge/deploy operation; see [publication](PUBLISHING.md). |
