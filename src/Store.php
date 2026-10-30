@@ -12,6 +12,8 @@ use Bridge\Infrastructure\Persistence\DatabaseLock;
 use Bridge\Infrastructure\Persistence\SchemaMigrator;
 use Bridge\Infrastructure\Persistence\SqliteConnection;
 use Bridge\Infrastructure\Persistence\TransactionManager;
+use Bridge\Intake\IntakeStatus;
+use Bridge\Comments\DeliveryStatus;
 use PDO;
 use PDOException;
 
@@ -61,7 +63,10 @@ final class Store implements PairRepository
                 $this->event($id, 'linked');
             });
         } catch (PDOException $error) {
-            if ((string) $error->getCode() === '23000') {
+            if (
+                (string) $error->getCode() === '23000'
+                && str_contains($error->errorInfo[2] ?? '', 'UNIQUE constraint failed: pairs.')
+            ) {
                 throw new StateConflict('The pair name or one of its remote records is already linked.', 0, $error);
             }
             throw $error;
@@ -85,6 +90,41 @@ final class Store implements PairRepository
             $this->decode(...),
             $this->db->query('SELECT * FROM pairs ORDER BY id')->fetchAll(PDO::FETCH_ASSOC)
         );
+    }
+
+    /** One read transaction keeps aggregate gauges and the complete link projection consistent. */
+    public function monitoringSnapshot(): array
+    {
+        return $this->transactions->run(function (): array {
+            $state = $this->metrics();
+            $rows = $this->db->query(<<<'SQL'
+                SELECT p.github_id,p.zendesk_id,p.status,p.baseline,p.attempts,p.last_success,
+                    (p.plan IS NOT NULL) AS pending_plan,
+                    COALESCE(n.delivered,0) AS notes_delivered,
+                    COALESCE(n.waiting,0) AS notes_waiting
+                FROM pairs p LEFT JOIN (
+                    SELECT pair_id,SUM(status='delivered') AS delivered,
+                        SUM(status<>'delivered') AS waiting
+                    FROM comment_deliveries GROUP BY pair_id
+                ) n ON n.pair_id=p.id ORDER BY p.github_id
+                SQL)->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as &$row) {
+                $baseline = $row['baseline'] === null
+                    ? null : json_decode($row['baseline'], true, 16, JSON_THROW_ON_ERROR);
+                $row['baseline'] = $baseline === null ? null
+                    : ['state' => $baseline['state'] ?? null, 'title' => $baseline['title'] ?? null];
+            }
+            unset($row);
+            return ['state' => $state, 'linked_pairs' => $rows];
+        });
+    }
+
+    public function findByZendesk(string $ticketId): ?array
+    {
+        $query = $this->db->prepare('SELECT * FROM pairs WHERE zendesk_id=?');
+        $query->execute([$ticketId]);
+        $row = $query->fetch(PDO::FETCH_ASSOC);
+        return $row === false ? null : $this->decode($row);
     }
 
     public function update(string $id, array $values): void
@@ -134,6 +174,26 @@ final class Store implements PairRepository
 
     public function metrics(): array
     {
+        $comments = array_fill_keys(array_column(DeliveryStatus::cases(), 'value'), 0);
+        foreach (
+            $this->db->query('SELECT status,COUNT(*) AS total FROM comment_deliveries GROUP BY status')
+            ->fetchAll(PDO::FETCH_ASSOC) as $row
+        ) {
+            if (!array_key_exists($row['status'], $comments)) {
+                throw new \RuntimeException('The stored comment delivery state is unrecognized.');
+            }
+            $comments[$row['status']] = (int) $row['total'];
+        }
+        $intake = array_fill_keys(array_column(IntakeStatus::cases(), 'value'), 0);
+        foreach (
+            $this->db->query('SELECT status,COUNT(*) AS total FROM escalations GROUP BY status')
+            ->fetchAll(PDO::FETCH_ASSOC) as $row
+        ) {
+            if (!array_key_exists($row['status'], $intake)) {
+                throw new \RuntimeException('The stored intake state is unrecognized.');
+            }
+            $intake[$row['status']] = (int) $row['total'];
+        }
         $counts = array_fill_keys(['new', 'synced', 'retry', 'conflict', 'dead', 'awaiting_approval'], 0);
         $rows = $this->db
             ->query('SELECT status, COUNT(*) AS total FROM pairs GROUP BY status')->fetchAll(PDO::FETCH_ASSOC);
@@ -142,6 +202,12 @@ final class Store implements PairRepository
         }
         return [
             'pairs'         => $counts,
+            'intake'        => $intake,
+            'comments'      => $comments,
+            'comment_stream_errors' => (int) $this->db
+                ->query('SELECT COUNT(*) FROM comment_streams WHERE error IS NOT NULL')->fetchColumn(),
+            'comment_privacy_hold' => $this->db
+                ->query("SELECT value FROM settings WHERE key='comments_privacy_hold'")->fetchColumn() === '1',
             'pending_plans' => (int) $this->db
             ->query('SELECT COUNT(*) FROM pairs WHERE plan IS NOT NULL')->fetchColumn(),
             'last_success'  => $this->db->query('SELECT MAX(last_success) FROM pairs')->fetchColumn() ?: null,

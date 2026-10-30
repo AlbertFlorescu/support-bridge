@@ -578,7 +578,7 @@ $tests['A scrape credential cannot read private records or invoke operator comma
     apiSame($before, [$f->context->store->all(), hash_file('sha256', $f->home . '/github.json'), hash_file('sha256', $f->home . '/zendesk.json')]);
 };
 
-$tests['A successful scrape exports raw Prometheus text without private labels or mutation'] = static function (): void {
+$tests['A successful scrape exports linked numeric IDs without private content or mutation'] = static function (): void {
     $f = apiFixture();
     $f->request('POST', '/api/sync', []);
     $before = [$f->context->store->all(), hash_file('sha256', $f->home . '/github.json'), hash_file('sha256', $f->home . '/zendesk.json')];
@@ -588,9 +588,9 @@ $tests['A successful scrape exports raw Prometheus text without private labels o
     apiCheck(is_string($response->body) && str_starts_with($response->body, '# HELP '), 'Metrics body must be raw exposition text, not a JSON string.');
     apiCheck(str_ends_with($response->body, "\n"), 'Prometheus text format requires a trailing newline.');
     foreach ([ApiFixture::TOKEN, ApiFixture::METRICS_TOKEN, 'CSV export fails for large reports', 'escalation-1', 'github_id', 'zendesk_id', $f->home] as $private) {
-        apiCheck(!str_contains($response->body, $private), 'Scrapes must not expose secrets, snapshots, IDs, or filesystem paths.');
+        apiCheck(!str_contains($response->body, $private), 'Scrapes must not expose secrets, snapshots, internal keys, or filesystem paths.');
     }
-    apiSame(3, preg_match_all('/^support_bridge_demo_case_status\{case="(?:CSV export|Webhook delivery|SSO sign-in)"\} 0$/m', $response->body));
+    apiCheck(str_contains($response->body, 'support_bridge_linked_pair_status{github_issue="101",zendesk_ticket="501"} 2'), 'The scrape includes the actual stored mapping.');
     apiSame($before, [$f->context->store->all(), hash_file('sha256', $f->home . '/github.json'), hash_file('sha256', $f->home . '/zendesk.json')]);
     apiError($f->scrape(null), 401);
     apiError($f->scrape(ApiFixture::TOKEN), 401);
@@ -686,6 +686,45 @@ $tests['Representative real response fixtures match their published OpenAPI sche
         $jsonValue = json_decode(json_encode($response->body, JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR);
         apiValidateSchema($jsonValue, $schema, $document, $method . ' ' . $path . ' ' . $response->status);
     }
+};
+
+
+$tests['Monitoring table requires its read-only credential before context and rejects writes or inputs'] = static function (): void {
+    $f = new ApiFixture();
+    try {
+        foreach ([null, ApiFixture::TOKEN, 'wrong'] as $token) {
+            $response = $f->api->handle(new Request('GET', '/monitoring/pairs',
+                $token === null ? [] : ['Authorization' => 'Bearer ' . $token]));
+            apiSame(401, $response->status);
+        }
+        apiSame(0, $f->contextCalls);
+        foreach ([['POST', [], 405], ['GET', ['host' => 'https://evil.example'], 422]] as [$method, $query, $status]) {
+            $response = $f->api->handle(new Request($method, '/monitoring/pairs',
+                ['Authorization' => 'Bearer ' . ApiFixture::METRICS_TOKEN], '', $query));
+            apiSame($status, $response->status);
+        }
+        apiSame(0, $f->contextCalls);
+    } finally { $f->cleanup(); }
+};
+
+$tests['Authenticated monitoring table is provider-free and exposes only baseline context with safe URLs'] = static function (): void {
+    $f = new ApiFixture();
+    try {
+        $before = $f->context->store->all();
+        $response = $f->api->handle(new Request('GET', '/monitoring/pairs',
+            ['Authorization' => 'Bearer ' . ApiFixture::METRICS_TOKEN]));
+        apiSame(200, $response->status); apiSame(1, count($response->body['items']));
+        apiSame(null, $response->body['items'][0]['subject']);
+        apiSame(null, $response->body['items'][0]['zendesk_url']);
+        apiSame($before, $f->context->store->all());
+        apiCheck(!str_contains(json_encode($response->body), 'escalation-1'), 'Internal pair keys must stay excluded.');
+        $f->context->store->update('escalation-1', ['baseline' => ['title' => str_repeat('x', 501), 'state' => 'open']]);
+        $response = $f->api->handle(new Request('GET', '/monitoring/pairs',
+            ['Authorization' => 'Bearer ' . ApiFixture::METRICS_TOKEN]));
+        apiSame(503, $response->status); apiSame('monitoring_unavailable', $response->body['error']['code']);
+        apiCheck(!str_contains(json_encode($response->body), str_repeat('x', 32)), 'Invalid subject must not leak into errors.');
+        apiSame(200, $f->scrape()->status);
+    } finally { $f->cleanup(); }
 };
 
 $failed = 0;

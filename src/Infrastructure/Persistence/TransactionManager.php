@@ -7,7 +7,7 @@ namespace Bridge\Infrastructure\Persistence;
 use PDO;
 use Throwable;
 
-/** Keeps a repository command and its required audit event atomic. */
+/** Atomic repository writes/audit events, or a consistent snapshot for read-only operations. */
 final readonly class TransactionManager
 {
     public function __construct(private PDO $connection)

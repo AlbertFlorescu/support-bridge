@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Support Bridge Operator API",
-    "version": "1.3.0",
-    "description": "Single-operator internal prototype for linked GitHub Issues and Zendesk Tickets. Local mode is the default. All /api operations require a process-configured bearer token of at least 32 non-whitespace characters. Never expose the built-in PHP development server publicly. No remote base URL, credentials, mode or state path can be supplied through this API. GET /metrics uses a separate strong read-only scrape token; tokens must be different. Deterministic governance policy escalation-state-v1 allows title-only updates for explicitly linked records and requires an operator attestation for any planned outbound open/closed transition before any effects of that plan. Never rely on AI in compliance: AI output cannot authorize an effect, override policy, or certify compliance. The shared operator credential does not prove a human identity or separation of duties."
+    "version": "1.8.0",
+    "description": "Single-operator internal prototype for linked GitHub Issues and Zendesk Tickets. Local mode is the default. All /api operations require a process-configured bearer token of at least 32 non-whitespace characters. Never expose the built-in PHP development server publicly. No remote base URL, credentials, mode or state path can be supplied through this API. GET /metrics uses a separate strong read-only scrape token; tokens must be different. Deterministic governance policy escalation-state-v1 allows title-only updates for explicitly linked records and requires an operator attestation for any planned outbound open/closed transition before any effects of that plan. Never rely on AI in compliance: AI output cannot authorize an effect, override policy, or certify compliance. The shared operator credential does not prove a human identity or separation of duties. Explicit engineering-tag intake can create one open GitHub issue and link it to its Zendesk origin. This creation opt-in does not grant resolution approval or a conflicting-source decision. Explicitly enabled GitHub issue-comment delivery appends internal Zendesk notes only. It preserves source snapshots and unknown-outcome evidence, never approves a state plan, and pauses new notes while reconciliation work is pending. New engineering issues include a one-time copy of the initial Zendesk description and an explicit Zendesk ticket link; later replies and description edits do not rewrite their bodies."
   },
   "servers": [
     {
@@ -28,6 +28,14 @@
     },
     {
       "name": "Documentation"
+    },
+    {
+      "name": "Intake",
+      "description": "Zendesk-origin engineering escalations."
+    },
+    {
+      "name": "Comments",
+      "description": "One-way GitHub issue comments to internal Zendesk notes."
     }
   ],
   "paths": {
@@ -286,7 +294,7 @@
     "/api/metrics": {
       "get": {
         "operationId": "metrics",
-        "summary": "Read local status counters and Prometheus storage status.",
+        "summary": "Read local business counts and diagnostic metric-registry availability.",
         "tags": [
           "Operations"
         ],
@@ -636,7 +644,7 @@
     "/metrics": {
       "get": {
         "operationId": "prometheusMetrics",
-        "summary": "Scrape aggregate and fixed demo-case metrics using the separate read-only token.",
+        "summary": "Scrape aggregate and complete linked-pair metrics using the separate read-only token.",
         "tags": [
           "Operations"
         ],
@@ -647,7 +655,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Prometheus text format 0.0.4, newline terminated. Counters/histogram persist across PHP processes; state values are gauges. Demo-case gauges use only the fixed public labels CSV export, Webhook delivery and SSO sign-in. Missing links and unverified baselines remain explicit. No vendor identifiers, arbitrary pair identifiers, title snapshots or approval evidence are exported. Scraping reads stored evidence and does not contact providers or execute synchronization.",
+            "description": "Prometheus text format 0.0.4, newline terminated. Counters/histograms persist separately; business aggregates and complete linked-pair gauges come from one read-only SQLite snapshot. Every mapping has seven gauges using validated numeric GitHub issue/Zendesk ticket labels; no internal pair keys, titles, note text or approval evidence. Numeric IDs are monitoring data and series grow seven per link. Baseline-only resolution, unknown states and zero never-verified timestamps remain explicit. Retired demo-case series are not backfilled. No provider reads, reconciliation, approval or business writes occur.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -673,7 +681,8 @@
           "503": {
             "$ref": "#/components/responses/Error503"
           }
-        }
+        },
+        "description": "Read-only authenticated Prometheus exposition. Aggregate gauges and all linked-pair metadata share one local read transaction. Dynamic pair gauges expose numeric github_issue and (on status only) zendesk_ticket labels, with seven series per link plus a stored total. Internal pair keys, titles, descriptions, comments, errors and approval evidence are excluded. Scraping never contacts providers or executes commands. The old fixed demonstration-case families are retired; retained historical samples are not rewritten."
       }
     },
     "/api/pairs/{id}/approve": {
@@ -781,6 +790,420 @@
           }
         }
       }
+    },
+    "/api/intake": {
+      "post": {
+        "operationId": "intakeEscalations",
+        "summary": "Discover explicitly tagged Zendesk tickets and create/link their engineering issues.",
+        "tags": [
+          "Intake"
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded intake completed; waiting work can remain.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeCounts"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          }
+        },
+        "description": "Explicitly enabled live operation. Discovers one bounded ticket-list page, prepares durable creation intents, and processes at most five prepared plus five recovery intents. Only open tickets retaining the configured engineering tag can initiate creation. The marker and source snapshot are durable before POST. Unknown creation outcomes are searched by their exact marker; absence never causes another POST. Counts describe this invocation; GET /api/escalations and metrics describe the stored queue. No approval, conflict source selection or reconciliation is performed by this operation. Existing linked records are preserved. Before its first POST, a fresh supported initial description (at most 30000 UTF-8 bytes) is saved with the snapshot and copied as literal text into the issue body. Existing attempted snapshots remain unchanged and existing bodies are not automatically backfilled.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              },
+              "example": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/escalations": {
+      "get": {
+        "operationId": "listEscalations",
+        "summary": "Read durable engineering-escalation intents without contacting providers.",
+        "tags": [
+          "Intake"
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EscalationPage"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            }
+          }
+        ],
+        "description": "Operator-only evidence, including source snapshots and creation correlation markers. No vendor requests or writes."
+      }
+    },
+    "/api/comments/sync": {
+      "post": {
+        "operationId": "syncGitHubComments",
+        "summary": "Deliver linked GitHub issue comments as internal Zendesk notes.",
+        "tags": [
+          "Comments"
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded pass completed; unavailable or waiting work can remain.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentRunCounts"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          }
+        },
+        "description": "Explicitly enabled live command. Scans bounded issue-comment histories for existing links, saves first-observed snapshots, and processes up to five recovery and five pending deliveries. Existing comments are included once; later edits/deletion do not rewrite notes. New appends require a synced pair without pending plan/conflict/approval and matching fresh canonical fields. An attempted append is never blindly repeated: recovery searches a durable marker and requires public=false. No request-supplied note, public flag, identity, provider URL, source choice or approval is accepted. Counts describe this pass, not the complete ledger.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              },
+              "example": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/comment-deliveries": {
+      "get": {
+        "operationId": "listCommentDeliveries",
+        "summary": "Read comment delivery and discovery evidence without provider requests.",
+        "tags": [
+          "Comments"
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDeliveryPage"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            }
+          }
+        ],
+        "description": "Operator-only sensitive note snapshots and delivery markers. Items and streams are independently paged using the same limit/offset; total and stream_total describe each collection. Queries never discover, append or approve anything."
+      }
+    },
+    "/monitoring/pairs": {
+      "get": {
+        "operationId": "monitoringPairs",
+        "summary": "Read complete linked-pair context for the Grafana table.",
+        "description": "Read-only complete business-store snapshot, without provider requests, reconciliation, approval or business writes. Uses the same read-only monitoring bearer as /metrics, which now permits reading baseline subjects and configured vendor URLs here; it cannot access operator commands. Subjects/URLs never enter Prometheus labels. Grafana viewers can read every linked baseline subject through this datasource. Unknown subjects and local-fixture URLs are null. No pagination or request parameters; capacity is unmeasured.",
+        "tags": [
+          "Operations"
+        ],
+        "security": [
+          {
+            "metricsBearer": []
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "200": {
+            "description": "Complete current linked-pair table context, not continuous provider freshness.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "zendesk_ticket",
+                          "github_issue",
+                          "subject",
+                          "status",
+                          "resolution",
+                          "pending_plan",
+                          "attempts",
+                          "notes_delivered",
+                          "notes_waiting",
+                          "last_success_ms",
+                          "zendesk_url",
+                          "github_url"
+                        ],
+                        "properties": {
+                          "zendesk_ticket": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]{0,15}$"
+                          },
+                          "github_issue": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]{0,15}$"
+                          },
+                          "subject": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "maxLength": 500,
+                            "description": "Last verified baseline title, at most 500 UTF-8 bytes; null means no verified subject. Never selected from an unapproved target or fetched during this query."
+                          },
+                          "status": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 7
+                          },
+                          "resolution": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 2
+                          },
+                          "pending_plan": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "attempts": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "notes_delivered": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "notes_waiting": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "last_success_ms": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "zendesk_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Fixed HTTPS tenant agent-ticket URL from trusted deployment identity; null for local fixtures."
+                          },
+                          "github_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Fixed HTTPS configured-repository issue URL; null for local fixtures."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -793,7 +1216,7 @@
       "metricsBearer": {
         "type": "http",
         "scheme": "bearer",
-        "description": "BRIDGE_METRICS_TOKEN: at least 32 non-whitespace characters, different from the operator token; authorizes only GET /metrics."
+        "description": "Separate strong read-only monitoring credential for Prometheus /metrics and the Grafana /monitoring/pairs context view. The latter includes baseline subjects and configured record URLs. Cannot access operator endpoints."
       }
     },
     "schemas": {
@@ -1308,7 +1731,11 @@
           "pairs",
           "pending_plans",
           "last_success",
-          "observability"
+          "observability",
+          "intake",
+          "comments",
+          "comment_stream_errors",
+          "comment_privacy_hold"
         ],
         "properties": {
           "pairs": {
@@ -1362,6 +1789,19 @@
           },
           "observability": {
             "$ref": "#/components/schemas/Observability"
+          },
+          "intake": {
+            "$ref": "#/components/schemas/IntakeStateCounts"
+          },
+          "comments": {
+            "$ref": "#/components/schemas/CommentStateCounts"
+          },
+          "comment_stream_errors": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "comment_privacy_hold": {
+            "type": "boolean"
           }
         }
       },
@@ -1427,6 +1867,455 @@
           "approved": {
             "type": "boolean",
             "description": "Persisted attestation matches this exact plan and current policy; no assertion of verified human identity."
+          }
+        }
+      },
+      "IntakeStateCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "prepared",
+          "creating",
+          "uncertain",
+          "linked",
+          "blocked",
+          "withdrawn"
+        ],
+        "properties": {
+          "prepared": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "creating": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uncertain": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "linked": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blocked": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "withdrawn": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "IntakeCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "discovered",
+          "linked",
+          "waiting",
+          "skipped",
+          "truncated",
+          "deferred"
+        ],
+        "properties": {
+          "discovered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "linked": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "waiting": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "deferred": {
+            "type": "boolean"
+          }
+        }
+      },
+      "EscalationIntent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ticket_id",
+          "pair_id",
+          "marker",
+          "snapshot",
+          "github_id",
+          "status",
+          "attempted_at",
+          "next_run",
+          "error",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,15}$"
+          },
+          "pair_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$"
+          },
+          "marker": {
+            "type": "string",
+            "pattern": "^<!-- support-bridge-escalation:[a-f0-9]{64} -->$"
+          },
+          "snapshot": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fields",
+              "version"
+            ],
+            "properties": {
+              "fields": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "title",
+                  "state"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "closed"
+                    ]
+                  }
+                }
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "initial_description": {
+                "type": "string",
+                "maxLength": 30000,
+                "description": "Optional sensitive first ticket description. The runtime enforces 30000 UTF-8 bytes; metadata-only and legacy attempted snapshots omit this field. Known empty descriptions use an empty string."
+              }
+            }
+          },
+          "github_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[1-9][0-9]{0,15}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "prepared",
+              "creating",
+              "uncertain",
+              "linked",
+              "blocked",
+              "withdrawn"
+            ]
+          },
+          "attempted_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "next_run": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "description": "UTC SQLite timestamp."
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "UTC SQLite timestamp."
+          }
+        }
+      },
+      "EscalationPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/EscalationIntent"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        }
+      },
+      "CommentStateCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pending",
+          "sending",
+          "uncertain",
+          "delivered",
+          "blocked"
+        ],
+        "properties": {
+          "pending": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sending": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uncertain": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "delivered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "blocked": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "CommentRunCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "discovered",
+          "delivered",
+          "waiting",
+          "unavailable",
+          "held"
+        ],
+        "properties": {
+          "discovered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "delivered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "waiting": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unavailable": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "held": {
+            "type": "boolean",
+            "description": "Durable internal-only evidence hold; no further appends are allowed."
+          }
+        }
+      },
+      "CommentDelivery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pair_id",
+          "comment_id",
+          "note",
+          "marker",
+          "source_version",
+          "status",
+          "attempted_at",
+          "destination_version",
+          "zendesk_comment_id",
+          "next_run",
+          "error",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "pair_id": {
+            "type": "string"
+          },
+          "comment_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,15}$"
+          },
+          "note": {
+            "type": "string",
+            "description": "Sensitive immutable first-observed comment, source attribution and marker."
+          },
+          "marker": {
+            "type": "string",
+            "pattern": "^Support Bridge comment: [a-f0-9]{64}$"
+          },
+          "source_version": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "sending",
+              "uncertain",
+              "delivered",
+              "blocked"
+            ]
+          },
+          "attempted_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "destination_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "zendesk_comment_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "next_run": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "CommentStream": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pair_id",
+          "last_scan",
+          "next_run",
+          "error"
+        ],
+        "properties": {
+          "pair_id": {
+            "type": "string"
+          },
+          "last_scan": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "next_run": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CommentDeliveryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "streams",
+          "stream_total",
+          "privacy_hold"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommentDelivery"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "streams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommentStream"
+            }
+          },
+          "stream_total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "privacy_hold": {
+            "type": "boolean"
           }
         }
       }

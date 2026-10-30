@@ -55,7 +55,7 @@ function database(): string
 /** Start an actual second PHP process, with no shell and no external requests. */
 function worker(string $path, int $count): array
 {
-    $code = 'require $argv[1]; $metrics = new Bridge\\Observability\\Prometheus($argv[2]);'
+    $code = 'require $argv[1]; $metrics = new \Bridge\\Observability\\Prometheus($argv[2]);'
         . 'for ($i = 0; $i < (int) $argv[3]; ++$i) { $metrics(["event"=>"reconcile","status"=>"synced","duration_ms"=>10]); }'
         . 'exit($metrics->status()["storage_available"] ? 0 : 1);';
     $pipes = [];
@@ -329,88 +329,159 @@ function demoStore(string $metricsPath): Store
     return $store;
 }
 
-$tests['Missing demonstration links have exactly three explicit missing case projections'] = static function (): void {
+function renderLinks(Prometheus $metrics, Store $store): string
+{
+    $snapshot = $store->monitoringSnapshot();
+    return $metrics->render($snapshot['state'], $snapshot['linked_pairs']);
+}
+
+$tests['An empty store exports a genuine zero link count and no invented rows'] = static function (): void {
     $metrics = new Prometheus(database());
     $text = $metrics->render(['pairs' => []], []);
-    foreach (['CSV export', 'Webhook delivery', 'SSO sign-in'] as $label) {
-        foreach (['present', 'status', 'resolution', 'pending_plan', 'attempts', 'last_success_timestamp_seconds'] as $field) {
-            same(0.0, sample($text, 'support_bridge_demo_case_' . $field, 'case="' . $label . '"'));
-        }
-    }
-    same(3, preg_match_all('/^support_bridge_demo_case_status\{/m', $text));
-    same(false, str_contains($metrics->render(), 'support_bridge_demo_case_'));
+    same(0.0, sample($text, 'support_bridge_linked_pairs'));
+    same(0, preg_match_all('/^support_bridge_linked_pair_status\{/m', $text));
+    same(false, str_contains($text, 'support_bridge_demo_case_'));
 };
 
-$tests['Case gauges project actual persisted state and retain the last verified resolution during review'] = static function (): void {
-    $path = database();
-    $metrics = new Prometheus($path);
-    $store = demoStore($path);
+$tests['All linked gauges retain verified resolution during review without writes'] = static function (): void {
+    $path = database(); $metrics = new Prometheus($path); $store = demoStore($path);
     $store->update('csv-export', ['status' => 'synced', 'baseline' => ['title' => 'PRIVATE CLOSED TITLE', 'state' => 'closed'],
         'last_success' => 1_700_000_000]);
     $store->update('webhook-retry', ['status' => 'awaiting_approval',
         'baseline' => ['title' => 'PRIVATE OPEN TITLE', 'state' => 'open'],
         'plan' => ['target' => ['title' => 'PRIVATE NEW TITLE', 'state' => 'closed']], 'last_success' => 1_699_999_900]);
     $store->update('sso-conflict', ['status' => 'conflict',
-        'baseline' => ['title' => 'PRIVATE CONFLICT TITLE', 'state' => 'open'],
-        'conflict' => ['reason' => 'PRIVATE CONFLICT DETAIL'], 'last_success' => 1_699_999_800]);
+        'baseline' => ['title' => 'PRIVATE TITLE', 'state' => 'open'], 'conflict' => ['reason' => 'PRIVATE']]);
     $before = $store->all();
-    $text = $metrics->render($store->metrics(), $before);
-    same(1.0, sample($text, 'support_bridge_demo_case_present', 'case="CSV export"'));
-    same(2.0, sample($text, 'support_bridge_demo_case_status', 'case="CSV export"'));
-    same(2.0, sample($text, 'support_bridge_demo_case_resolution', 'case="CSV export"'));
-    same(3.0, sample($text, 'support_bridge_demo_case_status', 'case="Webhook delivery"'));
-    same(1.0, sample($text, 'support_bridge_demo_case_resolution', 'case="Webhook delivery"'));
-    same(1.0, sample($text, 'support_bridge_demo_case_pending_plan', 'case="Webhook delivery"'));
-    same(4.0, sample($text, 'support_bridge_demo_case_status', 'case="SSO sign-in"'));
-    same(1_700_000_000.0, sample($text, 'support_bridge_demo_case_last_success_timestamp_seconds', 'case="CSV export"'));
-    same($text, $metrics->render($store->metrics(), $store->all()));
-    same($before, $store->all());
+    $text = renderLinks($metrics, $store);
+    same(3.0, sample($text, 'support_bridge_linked_pairs'));
+    same(2.0, sample($text, 'support_bridge_linked_pair_status', 'github_issue="101",zendesk_ticket="501"'));
+    same(2.0, sample($text, 'support_bridge_linked_pair_resolution', 'github_issue="101"'));
+    same(3.0, sample($text, 'support_bridge_linked_pair_status', 'github_issue="102",zendesk_ticket="502"'));
+    same(1.0, sample($text, 'support_bridge_linked_pair_resolution', 'github_issue="102"'));
+    same(1.0, sample($text, 'support_bridge_linked_pair_pending_plan', 'github_issue="102"'));
+    same(4.0, sample($text, 'support_bridge_linked_pair_status', 'github_issue="103",zendesk_ticket="503"'));
+    same(1_700_000_000.0, sample($text, 'support_bridge_linked_pair_last_success_timestamp_seconds', 'github_issue="101"'));
+    same($text, renderLinks($metrics, $store)); same($before, $store->all());
     same(0.0, sample($text, 'support_bridge_reconciliation_duration_seconds_count'));
     same(false, str_contains($text, 'PRIVATE'));
+    same(true, str_contains(json_encode($store->monitoringSnapshot()), 'PRIVATE CLOSED TITLE'));
 };
 
-$tests['New retry dead and unknown stored states are distinct without invented verification timestamps'] = static function (): void {
-    $path = database();
-    $metrics = new Prometheus($path);
-    $store = demoStore($path);
+$tests['New retry dead and unknown states keep distinct codes and zero means never verified'] = static function (): void {
+    $path = database(); $metrics = new Prometheus($path); $store = demoStore($path);
     foreach (['new' => 1, 'retry' => 5, 'dead' => 6, 'unrecognized' => 7] as $status => $code) {
         $store->update('csv-export', ['status' => $status, 'attempts' => 3]);
-        $text = $metrics->render($store->metrics(), $store->all());
-        same(1.0, sample($text, 'support_bridge_demo_case_present', 'case="CSV export"'));
-        same((float) $code, sample($text, 'support_bridge_demo_case_status', 'case="CSV export"'));
-        same(0.0, sample($text, 'support_bridge_demo_case_resolution', 'case="CSV export"'));
-        same(3.0, sample($text, 'support_bridge_demo_case_attempts', 'case="CSV export"'));
-        same(0.0, sample($text, 'support_bridge_demo_case_last_success_timestamp_seconds', 'case="CSV export"'));
+        $text = renderLinks($metrics, $store);
+        same((float) $code, sample($text, 'support_bridge_linked_pair_status', 'github_issue="101",zendesk_ticket="501"'));
+        same(0.0, sample($text, 'support_bridge_linked_pair_resolution', 'github_issue="101"'));
+        same(3.0, sample($text, 'support_bridge_linked_pair_attempts', 'github_issue="101"'));
+        same(0.0, sample($text, 'support_bridge_linked_pair_last_success_timestamp_seconds', 'github_issue="101"'));
     }
 };
 
-$tests['Arbitrary links and sensitive row fields never expand case labels or escape into exposition'] = static function (): void {
-    $path = database();
-    $metrics = new Prometheus($path);
-    $store = demoStore($path);
-    $store->addPair('PRIVATE_CUSTOMER_ID', '99991', '99992');
-    $store->update('PRIVATE_CUSTOMER_ID', ['status' => 'synced',
-        'baseline' => ['title' => 'PRIVATE CUSTOMER TITLE', 'state' => 'closed'],
-        'error' => 'PRIVATE TOKEN', 'approval' => ['rationale' => 'PRIVATE RATIONALE'], 'last_success' => 1_700_000_001]);
-    $text = $metrics->render($store->metrics(), $store->all());
-    same(3, preg_match_all('/^support_bridge_demo_case_status\{/m', $text));
-    foreach (['PRIVATE', '99991', '99992', 'csv-export', 'webhook-retry', 'sso-conflict', 'github_id', 'zendesk_id'] as $value) {
+$tests['New mappings appear automatically while internal keys and content remain excluded'] = static function (): void {
+    $path = database(); $metrics = new Prometheus($path); $store = demoStore($path);
+    same(3.0, sample(renderLinks($metrics, $store), 'support_bridge_linked_pairs'));
+    $store->addPair('PRIVATE_CUSTOMER_KEY', '30', '6');
+    $store->update('PRIVATE_CUSTOMER_KEY', ['status' => 'synced',
+        'baseline' => ['title' => 'PRIVATE CUSTOMER TITLE', 'state' => 'open'],
+        'error' => 'PRIVATE TOKEN', 'approval' => ['rationale' => 'PRIVATE RATIONALE']]);
+    $text = renderLinks($metrics, $store);
+    same(4.0, sample($text, 'support_bridge_linked_pairs'));
+    same(2.0, sample($text, 'support_bridge_linked_pair_status', 'github_issue="30",zendesk_ticket="6"'));
+    foreach (['PRIVATE', 'csv-export', 'webhook-retry', 'sso-conflict', 'pair_id', 'support_bridge_demo_case_'] as $value) {
         same(false, str_contains($text, $value));
     }
-    same(1.0, sample($text, 'support_bridge_pairs', 'status="synced"'));
 };
 
-$tests['Corrupt case evidence fails instead of claiming a healthy zero or exposing input'] = static function (): void {
+$tests['Corrupt stored evidence fails visibly without exposing it or changing business rows'] = static function (): void {
     foreach ([['attempts' => -1], ['last_success' => -1], ['baseline' => ['state' => 'PRIVATE INVALID']]] as $invalid) {
-        $path = database();
-        $metrics = new Prometheus($path);
-        $store = demoStore($path);
-        $store->update('csv-export', $invalid);
-        $before = $store->all();
-        same('Demo case state is invalid.', raises(static fn(): string => $metrics->render($store->metrics(), $store->all()))->getMessage());
-        same($before, $store->all());
-        same(true, $metrics->status()['storage_available']);
+        $path = database(); $metrics = new Prometheus($path); $store = demoStore($path);
+        $store->update('csv-export', $invalid); $before = $store->all();
+        same('Linked pair metric state is invalid.', raises(static fn(): string => renderLinks($metrics, $store))->getMessage());
+        same($before, $store->all()); same(true, $metrics->status()['storage_available']);
     }
+};
+
+$tests['Monitoring reads every link beyond the operator API first-page limits'] = static function (): void {
+    $path = database(); $metrics = new Prometheus($path); $store = new Store(dirname($path) . '/business.sqlite');
+    for ($id = 1; $id <= 105; ++$id) { $store->addPair('link-' . $id, (string) $id, (string) (1000 + $id)); }
+    $text = renderLinks($metrics, $store);
+    same(105.0, sample($text, 'support_bridge_linked_pairs'));
+    same(105, preg_match_all('/^support_bridge_linked_pair_status\{/m', $text));
+    $table = new \Bridge\Observability\LinkedPairTable(
+        new \Bridge\Application\Configuration('local', dirname($path), 'local/demo', 'local'));
+    same(105, count($table->project($store->monitoringSnapshot()['linked_pairs'])['items']));
+    same(1.0, sample($text, 'support_bridge_linked_pair_status', 'github_issue="105",zendesk_ticket="1105"'));
+};
+
+$tests['Per-pair note delivery counts come from durable rows without copying note content'] = static function (): void {
+    $path = database(); $metrics = new Prometheus($path); $store = demoStore($path);
+    $connection = new \Bridge\Infrastructure\Persistence\SqliteConnection(dirname($path) . '/business.sqlite');
+    $repository = new \Bridge\Infrastructure\Persistence\CommentRepository($connection);
+    foreach (['delivered', 'pending', 'uncertain', 'blocked', 'sending'] as $index => $status) {
+        $comment = new \Bridge\Comments\IssueComment((string) (700 + $index), 'PRIVATE COMMENT', 'engineer',
+            '2026-10-30T10:00:00Z', '2026-10-30T10:00:00Z',
+            'https://github.com/example/escalations/issues/101#issuecomment-' . (700 + $index));
+        $repository->prepare('csv-export', $comment);
+        $delivery = $repository->list()['items'][$index];
+        $repository->change($delivery, ['status' => $status], 'fixture_state');
+    }
+    $before = $repository->list(); $text = renderLinks($metrics, $store);
+    same(1.0, sample($text, 'support_bridge_linked_pair_notes_delivered', 'github_issue="101"'));
+    same(4.0, sample($text, 'support_bridge_linked_pair_notes_waiting', 'github_issue="101"'));
+    same(0.0, sample($text, 'support_bridge_linked_pair_notes_delivered', 'github_issue="102"'));
+    same(false, str_contains($text, 'PRIVATE')); same($before, $repository->list());
+};
+
+$tests['Duplicate or unsafe vendor identifiers fail instead of merging or injecting labels'] = static function (): void {
+    $path = database(); $store = demoStore($path); $renderer = new \Bridge\Observability\LinkedPairMetrics();
+    $row = $store->monitoringSnapshot()['linked_pairs'][0];
+    foreach ([[$row, $row], [array_replace($row, ['github_id' => "30\"\nPRIVATE"])],
+        [array_replace($row, ['zendesk_id' => '0'])]] as $invalid) {
+        same('Linked pair metric state is invalid.', raises(static fn(): array => $renderer->render($invalid))->getMessage());
+    }
+};
+
+
+$tests['Table subjects come only from verified baselines and links use configured identities'] = static function (): void {
+    $path = database(); $store = demoStore($path);
+    $title = '<img src=x onerror=alert(1)> "Résumé" & / ? #';
+    $store->update('csv-export', ['baseline' => ['title' => $title, 'state' => 'open'],
+        'plan' => ['target' => ['title' => 'UNAPPROVED PRIVATE TARGET', 'state' => 'closed']]]);
+    $before = $store->all();
+    $table = new \Bridge\Observability\LinkedPairTable(
+        new \Bridge\Application\Configuration('live', dirname($path), 'example/escalations', 'EXAMPLE'));
+    $items = $table->project($store->monitoringSnapshot()['linked_pairs'])['items'];
+    same($title, $items[0]['subject']); same(null, $items[1]['subject']);
+    same('https://example.zendesk.com/agent/tickets/501', $items[0]['zendesk_url']);
+    same('https://github.com/example/escalations/issues/101', $items[0]['github_url']);
+    same('101', $items[0]['github_issue']); same('501', $items[0]['zendesk_ticket']);
+    same(1, $items[0]['pending_plan']); same(1, $items[0]['resolution']);
+    same(false, str_contains(json_encode($items), 'UNAPPROVED PRIVATE TARGET'));
+    same($before, $store->all());
+    $local = new \Bridge\Observability\LinkedPairTable(
+        new \Bridge\Application\Configuration('local', dirname($path), 'local/demo', 'local'));
+    same(null, $local->project($store->monitoringSnapshot()['linked_pairs'])['items'][0]['github_url']);
+    same(false, str_contains(renderLinks(new Prometheus($path), $store), 'Résumé'));
+};
+
+$tests['Malformed table subjects fail without entering metric labels or modifying stored evidence'] = static function (): void {
+    $path = database(); $store = demoStore($path);
+    $table = new \Bridge\Observability\LinkedPairTable(
+        new \Bridge\Application\Configuration('local', dirname($path), 'local/demo', 'local'));
+    $row = $store->monitoringSnapshot()['linked_pairs'][0];
+    foreach (['', str_repeat('x', 501), "bad\xFF", ['not' => 'a subject']] as $title) {
+        $invalid = array_replace($row, ['baseline' => ['title' => $title, 'state' => 'open']]);
+        same('Linked pair table evidence is invalid.', raises(static fn(): array => $table->project([$invalid]))->getMessage());
+    }
+    $store->addPair('large-identifier', '9007199254740993', '9007199254740994');
+    $overflow = array_replace($row, ['last_success' => PHP_INT_MAX]);
+    same('Linked pair table evidence is invalid.', raises(static fn(): array => $table->project([$overflow]))->getMessage());
+    $items = $table->project($store->monitoringSnapshot()['linked_pairs'])['items'];
+    same('9007199254740993', $items[3]['github_issue']);
+    same('9007199254740994', $items[3]['zendesk_ticket']);
 };
 
 $failed = 0;

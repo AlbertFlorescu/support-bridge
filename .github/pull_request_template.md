@@ -4,8 +4,8 @@ Describe the problem and resulting behavior, including any change to write autho
 
 ## Validation
 
-Record checks performed and link the GitHub Actions result. Distinguish synthetic checks from live provider evidence.
+Record the exact checks and revision tested. Link the matching GitHub Actions result when published; local checks are not hosted CI. Distinguish controlled fixtures, rendered monitoring and actual vendor observations. Include style/API checks for PHP changes and documentation/diagram checks for guide changes.
 
 ## Operating impact
 
-Describe changed assumptions, recovery behavior, deployment steps or known limitations. State whether credentials or persistent data need attention.
+Describe changed assumptions, recovery behavior and known limitations. For runtime changes, explain retained plans/approvals, credential readers, volumes and local deployment steps. Preserve provider-free queries, exact-plan review and unknown-outcome recovery. Link the owning guides and update AGENTS.md for lasting decisions; omit credentials/private evidence.

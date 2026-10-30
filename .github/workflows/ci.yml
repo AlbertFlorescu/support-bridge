@@ -8,6 +8,7 @@ on:
   merge_group:
     types: [checks_requested]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -43,8 +44,12 @@ jobs:
           cache-dependency-path: tools/api-docs/package-lock.json
       - name: Test vulnerability reporting and safe asset repair
         run: python3 -m unittest discover -s tools/security -p 'test_*.py' -v
+      - name: Test exact-revision source publication
+        run: python3 -m unittest discover -s tools/publishing -p 'test_*.py' -v
       - name: Verify read-only demo replay and portable evidence boundaries
         run: node --test tools/demo-viewer/viewer.test.cjs
+      - name: Check documentation links and guide structure
+        run: node --test tools/docs/check.test.cjs && node tools/docs/check.cjs
       - name: Validate OpenAPI and actual HTTP response fixtures
         working-directory: tools/api-docs
         run: npm ci --ignore-scripts --no-audit --no-fund && node check-vendor.cjs && node validate.cjs
@@ -71,12 +76,16 @@ jobs:
         run: docker compose --profile test run --build --rm verify
       - name: Start the complete local stack
         run: docker compose up --build -d --wait --wait-timeout 120
+      - name: Verify concern queries and alert rules with labelled samples
+        run: sh docker/check-alerts.sh
       - name: Verify actual API, scrape and dashboard behavior
         run: docker compose --profile test run --rm smoke
       - name: Verify pending approvals and credentials survive recreation
         run: sh docker/check-lifecycle.sh
       - name: Verify isolated live credential import and bootstrap
         run: sh docker/check-live-demo.sh
+      - name: Verify automatic OAuth renewal isolation
+        run: sh docker/check-oauth-renewal.sh
       - name: Show container diagnostics
         if: failure()
         run: docker compose ps -a && docker compose logs --no-color --tail=100

@@ -1,0 +1,10 @@
+# Explicit empty static source also works when Windows/WSL drops empty env values.
+services:
+  api:
+    environment: &managed-check
+      BRIDGE_ZENDESK_TOKEN_FILE: ""
+      BRIDGE_ZENDESK_OAUTH_BUNDLE_FILE: /run/secrets/vendor/zendesk-oauth.json
+  cli:
+    environment: *managed-check
+  worker:
+    environment: *managed-check

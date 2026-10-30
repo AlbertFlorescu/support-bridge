@@ -12,13 +12,13 @@ groups:
           summary: Support Bridge metrics cannot be scraped
           description: Check the application, separate metrics token and local scrape configuration.
       - alert: SupportBridgeOperatorAttention
-        expr: sum(support_bridge_pairs{status=~"conflict|dead|awaiting_approval"}) > 0
+        expr: sum(support_bridge_pairs{status=~"conflict|dead|awaiting_approval"}) + sum(support_bridge_intake_records{status=~"creating|uncertain|blocked"}) + sum(support_bridge_comment_deliveries{status=~"sending|uncertain|blocked"}) + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold) > 0
         for: 5m
         labels:
           severity: warning
         annotations:
           summary: Linked work requires an operator decision
-          description: Inspect authenticated operator state; metric labels intentionally contain no pair IDs or titles.
+          description: Inspect authenticated state; this aggregate carries no record identity or approval.
       - alert: SupportBridgePendingRecovery
         expr: sum(support_bridge_pending_plans) > 0
         for: 10m

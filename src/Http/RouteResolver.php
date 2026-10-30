@@ -15,6 +15,10 @@ final class RouteResolver
             ],
             '/api/metrics' => ['GET' => 'metrics'],
             '/api/sync'    => ['POST' => 'sync'],
+            '/api/intake' => ['POST' => 'intake'],
+            '/api/escalations' => ['GET' => 'escalations'],
+            '/api/comments/sync' => ['POST' => 'sync_comments'],
+            '/api/comment-deliveries' => ['GET' => 'comment_deliveries'],
         ];
         if (isset($routes[$request->path])) {
             $methods = $routes[$request->path];

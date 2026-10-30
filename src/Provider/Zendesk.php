@@ -13,26 +13,27 @@ use Bridge\RemoteFailure;
 final class Zendesk implements Provider
 {
     private readonly string $subdomain;
-    /** @var array<string, string> */
-    private readonly array $headers;
+    private readonly ZendeskAuthorization $authorization;
 
     public function __construct(
         private readonly HttpClient $http,
         string $subdomain,
         #[\SensitiveParameter] string $email,
-        #[\SensitiveParameter] string $token,
+        #[\SensitiveParameter] string|ZendeskAuthorization $token,
         string $authentication = 'api-token'
     ) {
         $this->subdomain = Identity::subdomain($subdomain);
-        $this->headers = [
-            'Authorization' => (new ZendeskAuthentication($email, $token, $authentication))->authorizationHeader(),
-            'Accept'        => 'application/json',
-        ];
+        if ($token instanceof ZendeskAuthorization && $authentication !== 'oauth') {
+            throw new \InvalidArgumentException('Managed Zendesk credentials require OAuth authentication.');
+        }
+        $this->authorization = $token instanceof ZendeskAuthorization
+            ? $token
+            : new ZendeskAuthentication($email, $token, $authentication);
     }
 
     public function fetch(string $id): Record
     {
-        return $this->record($this->http->request('GET', $this->url($id), $this->headers));
+        return $this->record($this->http->request('GET', $this->url($id), $this->headers()));
     }
 
     public function patch(string $id, array $changes, Record $expected): void
@@ -62,8 +63,17 @@ final class Zendesk implements Provider
         }
         if (count($ticket) > 2) {
             // Omitting status on a subject-only update preserves new/pending/hold/custom statuses.
-            $this->record($this->http->request('PUT', $this->url($id), $this->headers, ['ticket' => $ticket]));
+            $this->record($this->http->request('PUT', $this->url($id), $this->headers(), ['ticket' => $ticket]));
         }
+    }
+
+    /** @return array<string,string> */
+    private function headers(): array
+    {
+        return [
+            'Authorization' => $this->authorization->authorizationHeader(),
+            'Accept' => 'application/json',
+        ];
     }
 
     private function url(string $id): string

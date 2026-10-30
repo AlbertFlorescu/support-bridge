@@ -1,6 +1,6 @@
 {
   "uid": "supportbridge-overview",
-  "title": "Support Bridge — Demo cases",
+  "title": "Support Bridge — linked escalations",
   "description": "The three linked demonstration cases and their last observed bridge workflow. Manual sweeps, stored evidence and an explicit review gate; no simulated traffic or inferred vendor freshness.",
   "tags": [
     "support-bridge",
@@ -8,7 +8,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 4,
+  "version": 10,
   "refresh": "5s",
   "time": {
     "from": "now-1h",
@@ -109,7 +109,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(support_bridge_pairs)",
+          "expr": "support_bridge_linked_pairs",
           "instant": true,
           "range": false
         }
@@ -121,26 +121,9 @@
           "min": 0,
           "noValue": "Not observed",
           "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              },
-              {
-                "color": "green",
-                "value": 3
-              },
-              {
-                "color": "orange",
-                "value": 4
-              }
-            ]
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
           }
         },
         "overrides": []
@@ -164,7 +147,7 @@
       "id": 3,
       "type": "stat",
       "title": "Operator attention",
-      "description": "Stored approval waits, conflicts and dead work across the deployment. A count is a signal to inspect evidence, not authority to approve or select a source.",
+      "description": "Stored pair, intake and comment concerns. Every term is aggregated to the same label set; zero means no stored concerns, while missing data stays unknown. Counts can overlap and never authorize a write.",
       "datasource": {
         "type": "prometheus",
         "uid": "supportbridge-prometheus"
@@ -178,7 +161,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(support_bridge_pairs{status=~\"conflict|dead|awaiting_approval\"})",
+          "expr": "sum(support_bridge_pairs{status=~\"conflict|dead|awaiting_approval\"}) + sum(support_bridge_intake_records{status=~\"creating|uncertain|blocked\"}) + sum(support_bridge_comment_deliveries{status=~\"sending|uncertain|blocked\"}) + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold)",
           "instant": true,
           "range": false
         }
@@ -189,7 +172,17 @@
           "decimals": 0,
           "min": 0,
           "noValue": "Not observed",
-          "mappings": [],
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "No stored concerns",
+                  "color": "green"
+                }
+              }
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -224,97 +217,115 @@
     {
       "id": 4,
       "type": "table",
-      "title": "The three demonstration cases",
-      "description": "Stored evidence for CSV export, webhook delivery and SSO sign-in. Synced and resolution describe the last verified bridge operation, not a fresh vendor read. Manual sweeps can leave older observations. Missing links and unknown states are explicit; no approval can be supplied here.",
+      "title": "All linked ticket and issue pairs",
+      "description": "Every stored link. Ticket subject is the last verified common title, not a fresh provider read or an unapproved target. Click record numbers to open the configured Zendesk/GitHub source in a new tab. Unknown subjects remain explicit. Subjects and destination URLs are fetched through the authenticated read-only records datasource, never Prometheus labels.",
       "datasource": {
-        "type": "prometheus",
-        "uid": "supportbridge-prometheus"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "supportbridge-records"
       },
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 16,
         "w": 24,
-        "h": 8
+        "h": 10
       },
       "targets": [
         {
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "supportbridge-records"
+          },
           "refId": "A",
-          "expr": "support_bridge_demo_case_status",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        },
-        {
-          "refId": "B",
-          "expr": "support_bridge_demo_case_resolution",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        },
-        {
-          "refId": "C",
-          "expr": "support_bridge_demo_case_pending_plan",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        },
-        {
-          "refId": "D",
-          "expr": "support_bridge_demo_case_attempts",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        },
-        {
-          "refId": "E",
-          "expr": "1000 * support_bridge_demo_case_last_success_timestamp_seconds",
-          "instant": true,
-          "range": false,
-          "format": "table"
+          "type": "json",
+          "source": "url",
+          "url": "/monitoring/pairs",
+          "url_options": {
+            "method": "GET"
+          },
+          "parser": "backend",
+          "format": "table",
+          "root_selector": "items",
+          "columns": [
+            {
+              "selector": "zendesk_ticket",
+              "text": "Zendesk ticket",
+              "type": "string"
+            },
+            {
+              "selector": "github_issue",
+              "text": "GitHub issue",
+              "type": "string"
+            },
+            {
+              "selector": "subject",
+              "text": "Ticket subject",
+              "type": "string"
+            },
+            {
+              "selector": "status",
+              "text": "Workflow state",
+              "type": "number"
+            },
+            {
+              "selector": "resolution",
+              "text": "Last verified resolution",
+              "type": "number"
+            },
+            {
+              "selector": "pending_plan",
+              "text": "Pending plan",
+              "type": "number"
+            },
+            {
+              "selector": "attempts",
+              "text": "Failed attempts",
+              "type": "number"
+            },
+            {
+              "selector": "notes_delivered",
+              "text": "Internal notes delivered",
+              "type": "number"
+            },
+            {
+              "selector": "notes_waiting",
+              "text": "Internal notes waiting",
+              "type": "number"
+            },
+            {
+              "selector": "last_success_ms",
+              "text": "Last verified convergence",
+              "type": "number"
+            },
+            {
+              "selector": "zendesk_url",
+              "text": "zendesk_url",
+              "type": "string"
+            },
+            {
+              "selector": "github_url",
+              "text": "github_url",
+              "type": "string"
+            }
+          ]
         }
       ],
       "transformations": [
         {
-          "id": "joinByField",
-          "options": {
-            "byField": "case",
-            "mode": "outerTabular"
-          }
-        },
-        {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "case",
-                "Value #A",
-                "Value #B",
-                "Value #C",
-                "Value #D",
-                "Value #E"
-              ]
-            }
-          }
-        },
-        {
           "id": "organize",
           "options": {
-            "excludeByName": {},
             "indexByName": {
-              "case": 0,
-              "Value #A": 1,
-              "Value #B": 2,
-              "Value #C": 3,
-              "Value #D": 4,
-              "Value #E": 5
-            },
-            "renameByName": {
-              "case": "Case",
-              "Value #A": "Workflow state",
-              "Value #B": "Last verified resolution",
-              "Value #C": "Pending plan",
-              "Value #D": "Failed attempts",
-              "Value #E": "Last verified convergence"
+              "Zendesk ticket": 0,
+              "GitHub issue": 1,
+              "Ticket subject": 2,
+              "Workflow state": 3,
+              "Last verified resolution": 4,
+              "Pending plan": 5,
+              "Failed attempts": 6,
+              "Internal notes delivered": 7,
+              "Internal notes waiting": 8,
+              "Last verified convergence": 9,
+              "zendesk_url": 10,
+              "github_url": 11
             }
           }
         },
@@ -323,7 +334,7 @@
           "options": {
             "sort": [
               {
-                "field": "Case",
+                "field": "GitHub issue",
                 "desc": false
               }
             ]
@@ -346,12 +357,64 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Case"
+              "options": "Zendesk ticket"
             },
             "properties": [
               {
+                "id": "unit",
+                "value": "string"
+              },
+              {
                 "id": "custom.width",
-                "value": 180
+                "value": 120
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open Zendesk ticket",
+                    "url": "${__data.fields[\"zendesk_url\"]}",
+                    "targetBlank": true
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GitHub issue"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "string"
+              },
+              {
+                "id": "custom.width",
+                "value": 120
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open GitHub issue",
+                    "url": "${__data.fields[\"github_url\"]}",
+                    "targetBlank": true
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
               }
             ]
           },
@@ -367,10 +430,6 @@
                   {
                     "type": "value",
                     "options": {
-                      "0": {
-                        "text": "Not linked",
-                        "color": "gray"
-                      },
                       "1": {
                         "text": "Ready for sweep",
                         "color": "blue"
@@ -544,12 +603,100 @@
                 "value": 250
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Internal notes delivered"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Internal notes waiting"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ticket subject"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 350
+              },
+              {
+                "id": "custom.wrapText",
+                "value": true
+              },
+              {
+                "id": "noValue",
+                "value": "No verified subject"
+              },
+              {
+                "id": "description",
+                "value": "Last verified common title/subject. A later source edit may be waiting for the worker or review."
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "zendesk_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "github_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
           }
         ]
       },
       "options": {
         "showHeader": true,
-        "cellHeight": "md",
+        "cellHeight": "lg",
         "footer": {
           "show": false
         }
@@ -558,23 +705,23 @@
     {
       "id": 5,
       "type": "state-timeline",
-      "title": "Observed case workflow history",
-      "description": "Sampled stored workflow states for these cases since case metrics were introduced. Earlier history is not backfilled. Scrape gaps are not inferred success, and short transitions can occur between samples. This is not a live vendor event stream.",
+      "title": "Observed linked-pair workflow history",
+      "description": "Sampled stored status for all linked mappings since the dynamic projection was introduced. No history is inferred or backfilled; retained legacy case series remain separate.",
       "datasource": {
         "type": "prometheus",
         "uid": "supportbridge-prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 26,
         "w": 24,
         "h": 6
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "support_bridge_demo_case_status",
-          "legendFormat": "{{case}}",
+          "expr": "support_bridge_linked_pair_status",
+          "legendFormat": "Zendesk {{zendesk_ticket}} ↔ GitHub {{github_issue}}",
           "instant": false,
           "range": true
         }
@@ -584,16 +731,12 @@
           "unit": "none",
           "noValue": "Not observed",
           "color": {
-          "mode": "palette-classic"
+            "mode": "palette-classic"
           },
           "mappings": [
             {
               "type": "value",
               "options": {
-                "0": {
-                  "text": "Not linked",
-                  "color": "gray"
-                },
                 "1": {
                   "text": "Ready for sweep",
                   "color": "blue"
@@ -646,6 +789,102 @@
         "tooltip": {
           "mode": "single",
           "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "Zendesk engineering intake",
+      "description": "Actual stored creation intents by fixed state. Linked means an engineering issue was associated, not that the customer problem was resolved. Uncertain creation is never blindly retried.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "supportbridge-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "support_bridge_intake_records",
+          "legendFormat": "{{status}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "bargauge",
+      "title": "GitHub comments to internal notes",
+      "description": "Stored append delivery states. Delivered requires a uniquely observed internal Zendesk note; uncertain is held without blind resend. Discovery errors contribute separately to Operator attention.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "supportbridge-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "support_bridge_comment_deliveries",
+          "legendFormat": "{{status}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         }
       }
     }

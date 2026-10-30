@@ -1,0 +1,40 @@
+name: Publish prepared changes
+
+on:
+  push:
+    branches: ['chore/staging/**']
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: publish-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify prepared revision
+    if: ${{ startsWith(github.ref, 'refs/heads/chore/staging/') }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish review branch
+    needs: verify
+    if: ${{ needs.verify.result == 'success' && startsWith(github.ref, 'refs/heads/chore/staging/') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Publish the exact verified revision and request its PR checks
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 tools/publishing/publish.py

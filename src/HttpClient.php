@@ -22,8 +22,18 @@ class HttpClient
     {
         $this->validateUrl($url);
         $method = strtoupper($method);
-        if (!in_array($method, ['GET', 'PATCH', 'PUT'], true)) {
+        if (!in_array($method, ['GET', 'PATCH', 'PUT', 'POST'], true)) {
             throw new \InvalidArgumentException('Unsupported HTTP method.');
+        }
+        if (
+            $method === 'POST' && (
+            !preg_match('~^https://api\.github\.com/repos/(?!\.{1,2}/)[A-Za-z0-9_.-]+/'
+                . '(?!\.{1,2}/)[A-Za-z0-9_.-]+/issues$~D', $url)
+            || $json === null || count($json) !== 2
+            || !is_string($json['title'] ?? null) || !is_string($json['body'] ?? null)
+            )
+        ) {
+            throw new \InvalidArgumentException('POST is limited to creating a GitHub issue with title and body.');
         }
         foreach ($headers as $name => $value) {
             if (

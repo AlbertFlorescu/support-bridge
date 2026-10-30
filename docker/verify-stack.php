@@ -12,14 +12,14 @@ final class StackVerification
     private const OUTCOMES = ['synced', 'retry', 'conflict', 'dead', 'skipped', 'awaiting_approval'];
     private const STATUSES = ['new', 'synced', 'retry', 'conflict', 'dead', 'awaiting_approval'];
     private const BUCKETS = ['0.005', '0.01', '0.025', '0.05', '0.1', '0.25', '0.5', '1', '2.5', '5', '10', '+Inf'];
-    private const DEMO_CASES = ['CSV export', 'Webhook delivery', 'SSO sign-in'];
-    private const CASE_METRICS = [
-        'support_bridge_demo_case_present',
-        'support_bridge_demo_case_status',
-        'support_bridge_demo_case_resolution',
-        'support_bridge_demo_case_pending_plan',
-        'support_bridge_demo_case_attempts',
-        'support_bridge_demo_case_last_success_timestamp_seconds',
+    private const LINK_METRICS = [
+        'support_bridge_linked_pair_status',
+        'support_bridge_linked_pair_resolution',
+        'support_bridge_linked_pair_pending_plan',
+        'support_bridge_linked_pair_attempts',
+        'support_bridge_linked_pair_last_success_timestamp_seconds',
+        'support_bridge_linked_pair_notes_delivered',
+        'support_bridge_linked_pair_notes_waiting',
     ];
 
     private readonly float $deadline;
@@ -137,7 +137,7 @@ final class StackVerification
             $previous = $value;
         }
         $this->check($previous === $count, 'The infinite histogram bucket must equal the observation count.');
-        $this->checkDemoCases($samples);
+        $this->checkLinkedPairs($samples);
         foreach ([$this->operatorToken, $this->metricsToken, $this->grafanaPassword, $id,
             $inspection['json']['pair']['baseline']['title'] ?? null] as $private) {
             if (is_string($private) && $private !== '') {
@@ -168,8 +168,13 @@ final class StackVerification
             'Prometheus has no approval-wait gauge.'
         );
         $this->wait(
-            fn (): bool => $this->promValue('count(support_bridge_demo_case_status)') === 3.0,
-            'Prometheus did not receive the bounded three-case metric contract.'
+            fn (): bool => $this->promValue('count(support_bridge_linked_pair_status)')
+                === $this->promValue('support_bridge_linked_pairs'),
+            'Prometheus did not receive every stored linked-pair projection.'
+        );
+        $this->check(
+            $this->promValue('count(support_bridge_intake_records)') === 6.0,
+            'Prometheus did not receive all six fixed intake states.'
         );
         $this->passed('Prometheus performs real authenticated scrapes and returns application metrics');
 
@@ -206,14 +211,46 @@ final class StackVerification
         $panels = $dashboard['json']['dashboard']['panels'] ?? null;
         $this->check(
             $dashboard['status'] === 200 && ($dashboard['json']['meta']['provisioned'] ?? false) === true
-            && is_array($panels) && count($panels) === 5,
-            'Grafana did not load the provisioned five-panel case dashboard.'
+            && is_array($panels) && count($panels) === 7,
+            'Grafana did not load the provisioned seven-panel case, intake and comment dashboard.'
         );
         $attention = array_filter($panels, static fn (array $panel): bool => ($panel['id'] ?? null) === 3);
         $expression = array_values($attention)[0]['targets'][0]['expr'] ?? '';
         $this->check(
             str_contains($expression, 'awaiting_approval'),
             'The dashboard must include plans awaiting approval.'
+        );
+        $expectedAttention = $this->sample($samples, 'support_bridge_comment_stream_errors')
+            + $this->sample($samples, 'support_bridge_comment_privacy_hold');
+        foreach ([
+            'support_bridge_pairs' => ['conflict', 'dead', 'awaiting_approval'],
+            'support_bridge_intake_records' => ['creating', 'uncertain', 'blocked'],
+            'support_bridge_comment_deliveries' => ['sending', 'uncertain', 'blocked'],
+        ] as $metric => $states) {
+            foreach ($states as $state) {
+                $expectedAttention += $this->sample($samples, $metric . '{status="' . $state . '"}');
+            }
+        }
+        $this->wait(fn (): bool => $this->promValue($expression) === $expectedAttention,
+            'The attention query must return actual concerns, including a genuine zero.');
+        $this->check(
+            preg_replace('/\s+/', '', $loaded['SupportBridgeOperatorAttention']['query'])
+                === preg_replace('/\s+/', '', $expression . ' > 0'),
+            'The alert and dashboard must use the same concern expression.'
+        );
+        $intake = array_values(array_filter($panels, static fn (array $panel): bool => ($panel['id'] ?? null) === 6));
+        $comments = array_values(array_filter($panels, static fn (array $panel): bool => ($panel['id'] ?? null) === 7));
+        $this->check(
+            count($comments) === 1
+            && ($comments[0]['targets'][0]['expr'] ?? null) === 'support_bridge_comment_deliveries'
+            && str_contains($expression, 'support_bridge_comment_stream_errors'),
+            'The comment dashboard must expose durable delivery and discovery failures.'
+        );
+        $this->check(
+            count($intake) === 1 && $intake[0]['type'] === 'bargauge'
+            && ($intake[0]['targets'][0]['expr'] ?? null) === 'support_bridge_intake_records'
+            && str_contains($expression, 'support_bridge_intake_records'),
+            'The intake panel and attention query must use actual fixed-state intake evidence.'
         );
         $casePanels = array_values(array_filter($panels, static fn (array $panel): bool =>
             in_array($panel['id'] ?? null, [4, 5], true)));
@@ -222,17 +259,34 @@ final class StackVerification
             && $casePanels[1]['type'] === 'state-timeline',
             'The dashboard must show the case table and sampled workflow history.'
         );
-        $caseExpressions = array_column($casePanels[0]['targets'] ?? [], 'expr');
+        $recordQuery = $casePanels[0]['targets'][0] ?? [];
         $this->check(
-            $caseExpressions === [
-                'support_bridge_demo_case_status',
-                'support_bridge_demo_case_resolution',
-                'support_bridge_demo_case_pending_plan',
-                'support_bridge_demo_case_attempts',
-                '1000 * support_bridge_demo_case_last_success_timestamp_seconds',
-            ]
-            && ($casePanels[1]['targets'][0]['expr'] ?? null) === 'support_bridge_demo_case_status',
-            'The case dashboard must use stored evidence without synthetic counts or timestamps.'
+            count($casePanels[0]['targets'] ?? []) === 1
+            && ($recordQuery['datasource']['uid'] ?? null) === 'supportbridge-records'
+            && ($recordQuery['url'] ?? null) === '/monitoring/pairs'
+            && ($recordQuery['parser'] ?? null) === 'backend'
+            && ($casePanels[1]['targets'][0]['expr'] ?? null) === 'support_bridge_linked_pair_status',
+            'The current table must use protected record context while history retains numeric metrics.'
+        );
+        $records = $this->get(self::GRAFANA . '/api/datasources/uid/supportbridge-records', $grafanaAuth);
+        $this->check(
+            $records['status'] === 200
+            && ($records['json']['jsonData']['allowedHosts'] ?? null) === [self::API]
+            && ($records['json']['secureJsonFields']['bearerToken'] ?? false) === true
+            && !isset($records['json']['secureJsonData']),
+            'Record queries must use a server-held credential and a fixed allowed host.'
+        );
+        $contextQuery = $this->get(self::GRAFANA . '/api/ds/query', $grafanaAuth,
+            ['queries' => [$recordQuery], 'from' => 'now-5m', 'to' => 'now']);
+        $frame = $contextQuery['json']['results']['A']['frames'][0] ?? [];
+        $columns = array_column($frame['schema']['fields'] ?? [], 'name');
+        $subjectColumn = array_search('Ticket subject', $columns, true);
+        $issueColumn = array_search('GitHub issue', $columns, true);
+        $this->check(
+            $contextQuery['status'] === 200 && $subjectColumn !== false && $issueColumn !== false
+            && count($frame['data']['values'][$issueColumn] ?? [])
+                === (int) $this->sample($samples, 'support_bridge_linked_pairs'),
+            'The backend record query must return every linked row with its subject column.'
         );
         $timelineDefaults = $casePanels[1]['fieldConfig']['defaults'] ?? [];
         $timelineMappings = $timelineDefaults['mappings'][0] ?? [];
@@ -240,18 +294,18 @@ final class StackVerification
             ($timelineDefaults['color']['mode'] ?? null) === 'palette-classic'
             && !isset($timelineDefaults['thresholds'])
             && ($timelineMappings['type'] ?? null) === 'value'
-            && count($timelineMappings['options'] ?? []) === 8,
+            && count($timelineMappings['options'] ?? []) === 7,
             'Workflow history must use discrete value mappings instead of numeric threshold ranges.'
         );
         $stateLegend = [
-            ['Not linked', 'gray'], ['Ready for sweep', 'blue'], ['Synced', 'green'],
+            ['Ready for sweep', 'blue'], ['Synced', 'green'],
             ['Awaiting approval', 'orange'], ['Conflict', 'red'], ['Retry scheduled', 'yellow'],
             ['Needs intervention', 'red'], ['Unknown stored state', 'red'],
         ];
         foreach ($stateLegend as $code => [$label, $color]) {
             $this->check(
-                ($timelineMappings['options'][$code]['text'] ?? null) === $label
-                && ($timelineMappings['options'][$code]['color'] ?? null) === $color,
+                ($timelineMappings['options'][$code + 1]['text'] ?? null) === $label
+                && ($timelineMappings['options'][$code + 1]['color'] ?? null) === $color,
                 'Workflow history is missing a declared state label or color.'
             );
         }
@@ -272,7 +326,7 @@ final class StackVerification
     }
 
     /** @return array{status:int,headers:array<string,string>,body:string,json:mixed} */
-    private function get(string $url, ?string $authorization = null): array
+    private function get(string $url, ?string $authorization = null, ?array $payload = null): array
     {
         $remaining = (int) (($this->deadline - microtime(true)) * 1000);
         $this->check($remaining > 0, 'The Compose verification deadline expired.');
@@ -288,6 +342,11 @@ final class StackVerification
                 }
                 return strlen($line);
             }]);
+        if ($payload !== null) {
+            curl_setopt_array($handle, [CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode($payload, JSON_THROW_ON_ERROR),
+                CURLOPT_HTTPHEADER => ['Authorization: ' . $authorization, 'Content-Type: application/json']]);
+        }
         $body = curl_exec($handle);
         $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
         curl_close($handle);
@@ -334,71 +393,64 @@ final class StackVerification
     {
         $samples = [];
         foreach (explode("\n", $text) as $line) {
-            if ($line === '' || str_starts_with($line, '#')) {
-                continue;
+            if ($line === '' || str_starts_with($line, '#')) { continue; }
+            $this->check(preg_match('/^(([a-z_]+)(?:\{([^}]*)\})?) ([0-9.eE+-]+)$/D', $line, $m) === 1,
+                'The exporter emitted an unexpected sample shape.');
+            $identity = $m[1]; $name = $m[2]; $raw = $m[3] ?? ''; $labels = [];
+            preg_match_all('/([a-z_]+)="([^"]*)"(?=,|$)/', $raw, $parts, PREG_SET_ORDER);
+            $this->check(implode(',', array_column($parts, 0)) === $raw, 'Unexpected label syntax.');
+            foreach ($parts as $part) {
+                $this->check(!isset($labels[$part[1]]), 'Duplicate metric label.');
+                $labels[$part[1]] = $part[2];
             }
-            $this->check(
-                preg_match('/^(([a-z_]+)(?:\{([a-z]+)="([^"]+)"\})?) ([0-9.eE+-]+)$/D', $line, $matches) === 1,
-                'The exporter emitted an unexpected sample shape.'
-            );
-            $identity = $matches[1];
-            $name = $matches[2];
-            $label = $matches[3] ?? '';
-            $value = $matches[4] ?? '';
+            $label = count($labels) === 1 ? array_key_first($labels) : '';
+            $value = $label === '' ? '' : $labels[$label];
             $allowed = match ($name) {
-                'support_bridge_reconciliations_total' => $label === 'outcome' && in_array(
-                    $value,
-                    self::OUTCOMES,
-                    true
-                ),
+                'support_bridge_reconciliations_total' => $label === 'outcome' && in_array($value, self::OUTCOMES, true),
                 'support_bridge_pairs' => $label === 'status' && in_array($value, self::STATUSES, true),
-                'support_bridge_reconciliation_duration_seconds_bucket' => $label === 'le' && in_array(
-                    $value,
-                    self::BUCKETS,
-                    true
-                ),
+                'support_bridge_intake_records' => $label === 'status' && in_array($value,
+                    ['prepared','creating','uncertain','linked','blocked','withdrawn'], true),
+                'support_bridge_comment_deliveries' => $label === 'status' && in_array($value,
+                    ['pending','sending','uncertain','delivered','blocked'], true),
+                'support_bridge_reconciliation_duration_seconds_bucket' => $label === 'le' && in_array($value, self::BUCKETS, true),
                 'support_bridge_reconciliation_duration_seconds_sum',
                 'support_bridge_reconciliation_duration_seconds_count',
-                'support_bridge_telemetry_storage_available', 'support_bridge_pending_plans',
-                'support_bridge_last_success_timestamp_seconds' => $label === '',
-                default => in_array($name, self::CASE_METRICS, true)
-                    && $label === 'case' && in_array($value, self::DEMO_CASES, true),
+                'support_bridge_telemetry_storage_available','support_bridge_pending_plans',
+                'support_bridge_last_success_timestamp_seconds','support_bridge_comment_stream_errors',
+                'support_bridge_comment_privacy_hold','support_bridge_linked_pairs' => $labels === [],
+                default => in_array($name, self::LINK_METRICS, true)
+                    && array_keys($labels) === ($name === 'support_bridge_linked_pair_status'
+                        ? ['github_issue','zendesk_ticket'] : ['github_issue'])
+                    && count(array_filter($labels, static fn(string $id): bool =>
+                        preg_match('/^[1-9][0-9]{0,15}$/D', $id) === 1)) === count($labels),
             };
             $this->check($allowed, 'The exporter emitted an unexpected name or label.');
-            $numeric = (float) end($matches);
-            $this->check(
-                !isset($samples[$identity]) && is_finite($numeric) && $numeric >= 0,
-                'The exporter emitted a duplicate or invalid sample.'
-            );
+            $numeric = (float) end($m);
+            $this->check(!isset($samples[$identity]) && is_finite($numeric) && $numeric >= 0,
+                'The exporter emitted a duplicate or invalid sample.');
             $samples[$identity] = $numeric;
         }
         return $samples;
     }
 
     /** @param array<string,float> $samples */
-    private function checkDemoCases(array $samples): void
+    private function checkLinkedPairs(array $samples): void
     {
-        foreach (self::DEMO_CASES as $case) {
-            $values = [];
-            foreach (self::CASE_METRICS as $metric) {
-                $value = $this->sample($samples, $metric . '{case="' . $case . '"}');
-                $this->check(floor($value) === $value, 'A case gauge must contain an integer observation.');
-                $values[$metric] = $value;
-            }
-            $present = $values['support_bridge_demo_case_present'];
-            $status = $values['support_bridge_demo_case_status'];
-            $this->check(
-                $present <= 1 && $status <= 7
-                && $values['support_bridge_demo_case_resolution'] <= 2
-                && $values['support_bridge_demo_case_pending_plan'] <= 1,
-                'A case gauge is outside the declared code range.'
-            );
-            if ($present === 0.0) {
-                $this->check(array_sum($values) === 0.0, 'A missing case must not report invented observations.');
-            } else {
-                $this->check($status >= 1, 'A linked case must report its actual or unknown stored state.');
+        $seen = []; $tickets = [];
+        foreach ($samples as $identity => $status) {
+            if (!preg_match('/^support_bridge_linked_pair_status\{github_issue="([1-9][0-9]*)",zendesk_ticket="([1-9][0-9]*)"\}$/D', $identity, $m)) { continue; }
+            $this->check(!isset($seen[$m[1]]) && !isset($tickets[$m[2]]), 'Stored links must remain one-to-one.');
+            $seen[$m[1]] = true; $tickets[$m[2]] = true;
+            $this->check($status >= 1 && $status <= 7 && floor($status) === $status, 'Invalid linked-pair state.');
+            foreach (array_slice(self::LINK_METRICS, 1) as $metric) {
+                $value = $this->sample($samples, $metric . '{github_issue="' . $m[1] . '"}');
+                $this->check(floor($value) === $value, 'A linked gauge must contain an integer.');
+                if ($metric === 'support_bridge_linked_pair_resolution') { $this->check($value <= 2, 'Invalid baseline resolution.'); }
+                if ($metric === 'support_bridge_linked_pair_pending_plan') { $this->check($value <= 1, 'Invalid pending-plan flag.'); }
             }
         }
+        $this->check((float) count($seen) === $this->sample($samples, 'support_bridge_linked_pairs'),
+            'Every stored mapping must be represented.');
     }
 
     private function sample(array $samples, string $identity): float

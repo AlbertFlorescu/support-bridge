@@ -28,8 +28,17 @@ use Bridge\Engine;
 use Bridge\Infrastructure\Logging\JsonLineWriter;
 use Bridge\Infrastructure\Logging\ReconciliationLogger;
 use Bridge\Infrastructure\Persistence\SqliteConnection;
+use Bridge\Infrastructure\Persistence\EscalationRepository;
+use Bridge\Application\Command\IntakeEscalationsHandler;
+use Bridge\Application\Query\ListEscalationsHandler;
 use Bridge\Observability\Prometheus;
 use Bridge\Store;
+use Bridge\Infrastructure\Persistence\CommentRepository;
+use Bridge\Application\Command\SyncGitHubCommentsHandler;
+use Bridge\Application\Query\ListCommentDeliveriesHandler;
+use Bridge\Application\Query\GetMonitoringSnapshotHandler;
+use Bridge\Application\Query\GetLinkedPairTableHandler;
+use Bridge\Observability\LinkedPairTable;
 
 /** Per-deployment composition root; adapters share the same explicit use cases. */
 final class Context
@@ -41,8 +50,11 @@ final class Context
     private readonly CommandDispatcher $commands;
     private readonly QueryDispatcher $queries;
 
-    public function __construct(public readonly Configuration $configuration)
-    {
+    public function __construct(
+        public readonly Configuration $configuration,
+        ?callable $intakeGateways = null,
+        ?callable $commentGateways = null
+    ) {
         $connection = new SqliteConnection($configuration->home . '/' . $configuration->mode . '.sqlite');
         $this->store = new Store($connection);
         $this->store->bindIdentity([
@@ -52,6 +64,22 @@ final class Context
         ]);
         $this->telemetry = new Prometheus($configuration->home . '/metrics.sqlite');
         $this->providerFactory = new ProviderFactory($configuration);
+        $escalations = new EscalationRepository($connection);
+        $comments = new CommentRepository($connection);
+        $commentFactory = new CommentFactory(
+            $configuration,
+            $this->store,
+            $comments,
+            $this->providerFactory,
+            $commentGateways
+        );
+        $intakeFactory = new IntakeFactory(
+            $configuration,
+            $this->store,
+            $escalations,
+            $this->providerFactory,
+            $intakeGateways
+        );
         $this->engineFactory = new EngineFactory(
             $this->store,
             $this->providerFactory,
@@ -64,14 +92,20 @@ final class Context
             new ResolveConflictHandler($this->engineFactory),
             new ApprovePlanHandler($this->engineFactory),
             new RetryPairHandler($this->engineFactory),
-            new EditLocalRecordHandler($configuration, $this->store, $this->providerFactory)
+            new EditLocalRecordHandler($configuration, $this->store, $this->providerFactory),
+            new IntakeEscalationsHandler($intakeFactory),
+            new SyncGitHubCommentsHandler($commentFactory)
         );
         $listing = new ListPairsHandler($this->store);
         $this->queries = new QueryDispatcher(
             $listing,
             new InspectPairHandler($this->store, new GovernancePolicy()),
             new GetStatusHandler($listing),
-            new GetMetricsHandler($this->store, $this->telemetry)
+            new GetMetricsHandler($this->store, $this->telemetry),
+            new ListEscalationsHandler($escalations),
+            new ListCommentDeliveriesHandler($comments),
+            new GetMonitoringSnapshotHandler($this->store),
+            new GetLinkedPairTableHandler($this->store, new LinkedPairTable($configuration))
         );
     }
 

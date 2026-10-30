@@ -17,6 +17,17 @@ final class SecretLoader
 
     public function load(): void
     {
+        $bundle = getenv('BRIDGE_ZENDESK_OAUTH_BUNDLE_FILE');
+        if ($bundle !== false && $bundle !== '') {
+            if (
+                getenv('BRIDGE_ZENDESK_AUTH') !== 'oauth'
+                || (getenv('BRIDGE_ZENDESK_TOKEN') !== false && getenv('BRIDGE_ZENDESK_TOKEN') !== '')
+                || (getenv('BRIDGE_ZENDESK_TOKEN_FILE') !== false && getenv('BRIDGE_ZENDESK_TOKEN_FILE') !== '')
+            ) {
+                throw new RuntimeException('Configure managed Zendesk OAuth or one static credential source.');
+            }
+            // The provider reads this file per request. Queries and startup need no issued token.
+        }
         foreach (self::NAMES as $name) {
             $path = getenv($name . '_FILE');
             if ($path === false || $path === '') {
