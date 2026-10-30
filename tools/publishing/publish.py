@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import time
 from urllib import error, parse, request
 
 
@@ -36,11 +37,15 @@ class GitHub:
     def request(self, method, path, payload=None):
         if path.startswith("/") or "://" in path or ".." in path.split("/"):
             raise PublicationError("Invalid repository API path.")
+        if method == "GET":
+            separator = "&" if "?" in path else "?"
+            path += separator + "_observation=" + str(time.time_ns())
         data = None if payload is None else json.dumps(payload).encode()
         req = request.Request(self.base + path, data=data, method=method, headers={
             "Authorization": "Bearer " + self.token,
             "Accept": "application/vnd.github+json",
             "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
             "X-GitHub-Api-Version": "2022-11-28",
             "User-Agent": "support-bridge-publication",
         })

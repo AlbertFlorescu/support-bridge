@@ -43,7 +43,7 @@ No scheduled publishing is enabled. A new staging push is an explicit publishing
 
 ## Freshness and interrupted operations
 
-The helper requires the verified SHA to contain current main and new changes. It rechecks staging/main before each write and checks the published branch after creation. A moved staging branch, changed main, mismatched PR or existing destination at another SHA stops publication. It never force-pushes, updates an existing ref or writes main.
+The helper requires the verified SHA to contain current main and new changes. API reads request no-cache and a unique observation key to avoid reusing cached pre-mutation responses. It rechecks staging/main before each write and checks the published branch after creation. A moved staging branch, changed main, mismatched PR or existing destination at another SHA stops publication. It never force-pushes, updates an existing ref or writes main.
 
 After an interruption, inspect branches, the PR and run logs before rerunning. A rerun observes the deterministic branch and matching open PR instead of duplicating them. It reuses an existing standalone Verify run for that branch/SHA, including failed runs; it does not blindly restart CI. Review a failed run before deliberately rerunning it. API list visibility can lag, so interrupted PR creation or dispatch cannot be promised exactly once. Inspect remote evidence before retrying an unknown outcome.
 

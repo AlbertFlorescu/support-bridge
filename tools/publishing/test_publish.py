@@ -3,10 +3,12 @@
 
 import copy
 import importlib.util
+import io
 from pathlib import Path
 import sys
 import unittest
 from urllib import parse
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("publication", Path(__file__).with_name("publish.py"))
 publication = importlib.util.module_from_spec(spec)
@@ -236,6 +238,21 @@ class EventTests(unittest.TestCase):
             with self.subTest(event=event):
                 with self.assertRaises(publication.PublicationError):
                     publication.context_from_event(self.env, event)
+
+    def test_read_requests_bypass_cached_ref_observations(self):
+        api = publication.GitHub(CONTEXT.repository, "controlled-test-token")
+        requests = []
+        class Opener:
+            def open(self, req, timeout):
+                requests.append(req)
+                return io.BytesIO(b'{"object":{"sha":"observed"}}')
+        api.opener = Opener()
+        with patch.object(publication.time, "time_ns", side_effect=[101, 102]):
+            api.request("GET", "git/ref/heads/main")
+            api.request("GET", "git/ref/heads/main")
+        self.assertNotEqual(requests[0].full_url, requests[1].full_url)
+        self.assertEqual(requests[0].get_header("Cache-control"), "no-cache")
+        self.assertEqual(parse.parse_qs(parse.urlsplit(requests[0].full_url).query), {"_observation": ["101"]})
 
     def test_api_rejects_missing_tokens_external_paths_and_redirects(self):
         with self.assertRaises(publication.PublicationError):
