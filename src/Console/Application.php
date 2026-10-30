@@ -11,6 +11,10 @@ use Bridge\Application\Command\EditLocalRecord;
 use Bridge\Application\Command\InitializeLocalState;
 use Bridge\Application\Command\LinkPair;
 use Bridge\Application\Command\Reconcile;
+use Bridge\Application\Command\IntakeEscalations;
+use Bridge\Application\Query\ListEscalations;
+use Bridge\Application\Command\SyncGitHubComments;
+use Bridge\Application\Query\ListCommentDeliveries;
 use Bridge\Application\Command\ResolveConflict;
 use Bridge\Application\Command\RetryPair;
 use Bridge\Application\Query\GetMetrics;
@@ -30,6 +34,10 @@ php bin/bridge.php COMMAND [ARGUMENTS] [--home=var/local] [--mode=local|live]
   init                                 Initialize local sample or an empty live database
   link PAIR GITHUB_ISSUE ZENDESK_TICKET  Opt an existing pair into synchronization
   sync                                 Reconcile all eligible links once
+  intake                               Discover tagged Zendesk tickets; create and link engineering issues
+  escalations                          List durable intake outcomes without contacting providers
+  sync-comments                        Copy GitHub issue comments as internal Zendesk notes
+  comments                             Inspect comment deliveries and discovery without provider access
   status                               Show link status, retries and last success
   inspect PAIR                         Show baseline, pending plan, conflict and audit
   resolve PAIR github|zendesk           Choose a fresh observed side; next sync applies it
@@ -39,8 +47,8 @@ php bin/bridge.php COMMAND [ARGUMENTS] [--home=var/local] [--mode=local|live]
   local-edit github|zendesk ID FIELD VALUE   Simulate title/state edit in local mode
 
 Local mode needs no credentials. Live provider operations require BRIDGE_GITHUB_REPOSITORY,
-BRIDGE_GITHUB_TOKEN, BRIDGE_ZENDESK_SUBDOMAIN and BRIDGE_ZENDESK_TOKEN.
-Tokens can be loaded through their corresponding *_FILE variables.
+BRIDGE_GITHUB_TOKEN, BRIDGE_ZENDESK_SUBDOMAIN and Zendesk access credentials.
+Tokens can use *_FILE variables; managed Zendesk OAuth uses BRIDGE_ZENDESK_OAUTH_BUNDLE_FILE.
 Use BRIDGE_ZENDESK_AUTH=oauth for an OAuth access token; legacy api-token mode
 also requires BRIDGE_ZENDESK_EMAIL. See README.md and docs/LIVE_DEMO.md.
 API reference: /docs on the local HTTP server.
@@ -81,6 +89,18 @@ TEXT;
                     break;
                 case 'metrics':
                     $this->output->result($context->ask(new GetMetrics()));
+                    break;
+                case 'intake':
+                    $this->output->result($context->handle(new IntakeEscalations()));
+                    break;
+                case 'escalations':
+                    $this->output->result($context->ask(new ListEscalations()));
+                    break;
+                case 'sync-comments':
+                    $this->output->result($context->handle(new SyncGitHubComments()));
+                    break;
+                case 'comments':
+                    $this->output->result($context->ask(new ListCommentDeliveries()));
                     break;
                 case 'inspect':
                     $this->output->result($context->ask(new InspectPair($values[0])));

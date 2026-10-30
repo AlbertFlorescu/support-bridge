@@ -1,78 +1,32 @@
-# Development tools and review evidence
+# Development and verification boundaries
 
-Our service runs on PHP with PDO SQLite and cURL. REA and Agency Agents are optional development aids; they are not service dependencies and are not needed to run the demo or tests.
+PHP, PDO SQLite and cURL run the service. Composer style tooling, Node validators and optional development review aids stay outside the runtime. They supply evidence and suggestions, not authorization.
 
-## Pinned sources
+## Review approach
 
-| Tool | Pin | Purpose |
-| --- | --- | --- |
-| REA | `rea-agents@6.7.0` | Static inspection of the vendored Swagger JavaScript artifacts |
-| REA release source | `27dc42d10249f0410904a75c0997842eb03b931c` | [Release provenance](https://github.com/morluto/rea/commit/27dc42d10249f0410904a75c0997842eb03b931c) |
-| REA source inspected during setup | `6f28b3633ba2e9ae54e8a0de39b5921502dd8443` | Source inspection; distinct from the published runtime pin |
-| Agency Agents | `4e3ac3ca6604c75113f52c695dbddcc7af928b46` | Architecture, implementation, API, security and verification review guidance |
+We review architecture, code quality, API behavior, security and the strength of our evidence. The questions are concrete: is the use case explicit, does authority stay at the intended boundary, are unknown outcomes preserved, do tests cover observable behavior, and does each claim match what actually ran?
 
-We installed REA from its exact npm archive in an isolated prefix with `--ignore-scripts --omit=optional --no-audit --no-fund`. Optional native analysis engines were not installed. The matching bundled skill uses instruction version 42 and a 207-tool catalog.
+Specialist review profiles are guidance, not independent human approval. Generic scale, SLA, scanner and coverage examples are not customer requirements or achieved results. [REVIEW.md](REVIEW.md) records executed checks separately from customer/vendor validation. The [README AI disclosure](../README.md#ai-use) describes assistance and the decisions we deliberately keep deterministic.
 
-The archive matched the registry integrity value:
+## Artifact inspection scope
 
-```text
-sha512-yhIx2ioJYYT1C/tONfYeitC6LhnKmCh+ZwRUOgYuhSc733lGhkkt73zhug9WmLgxoMdKuqIYGCoBfD4fXkOhFw==
-```
+Optional static analysis was applied to the shipped Swagger JavaScript, not used as a PHP architecture or compliance validator. Development setup records and raw analysis bundles stay outside source. Ordinary source inspection and behavior/style/contract tests own the PHP review.
 
-We checked [npm provenance](https://registry.npmjs.org/-/npm/v1/attestations/rea-agents@6.7.0). Registry signature verification covered 146 dependencies and attestations for 33. These establish provenance; they do not establish dependency security.
+The focused initializer pass parsed one 345-byte file, visited 45 AST nodes and reported no parse failures. Semantic graph coverage remained partial because global/dynamic behavior was unresolved. A combined pass exhausted an approximately 1 GiB analysis heap on the 1,684,244-byte vendor bundle; that bundle was not completely analyzed. Finding counts are not security certification.
 
-## Review roles
-
-We used seven selected [Agency Agents](https://github.com/msitarzewski/agency-agents) profiles: Backend Architect, Software Architect, Code Reviewer, API Tester, Reality Checker, Application Security Engineer and AI-Generated Code Security Auditor. We generated their native agent configuration format with the upstream conversion script and checked that the resulting TOML parsed.
-
-We use these roles to challenge concrete decisions and failure cases. Their generic scale, coverage and service-level examples are not our requirements or achieved results. AI-assisted review is not independent human verification. Findings and executed checks belong in [REVIEW.md](REVIEW.md).
-
-## REA access and scope
-
-Our local MCP registration exposes only:
-
-```text
-binary_session
-analyze_javascript_application
-trace_application_feature
-inspect_artifact
-inspect_analysis_view
-get_evidence_bundle
-list_unknowns
-```
-
-Runtime, browser and device operations are outside this registration. We restrict REA here to supported shipped artifacts, rather than treating it as a PHP architecture checker. Setup follows the [upstream project](https://github.com/morluto/rea); machine-specific credentials, paths and configuration stay outside the repository.
-
-The production MCP stdio server initialized successfully, matched all 207 tool definitions and six prompts, and accepted a target-free `binary_session` call. The observed catalog digest was:
-
-```text
-96d8f6e6ea1b1ba13557216624a3461c738729d53c79b4b0100d1f3a3a32441c
-```
-
-## Artifact analysis performed
-
-We analyzed `public/assets/swagger-ui/initializer.js` and `swagger-ui-bundle.js` as inert JavaScript text with a 60-second per-source budget. The combined input was 1,684,589 bytes. The initializer parsed, but the 1,684,244-byte vendor bundle exhausted the approximately 1 GiB worker heap. That run provides partial evidence only.
-
-A focused initializer pass read 345 bytes, parsed one file, visited 45 AST nodes and reported zero parse failures. Semantic coverage remained partial because global and dynamic behavior was unresolved and the vendor bundle was excluded. Zero reported findings is not a clean security assessment.
-
-| Artifact | SHA-256 at analysis time |
+| Artifact | SHA-256 |
 | --- | --- |
 | `initializer.js` | `4c548a49533e0f31939775c63bda768297bb2736302e4792663f342d6c4341c9` |
 | `swagger-ui-bundle.js` | `3f6abf70480db7e07914df4c98a77385f22ea585eaf457a3e6415ba0eae2d167` |
 
-Direct source inspection confirmed local `/openapi.json`, disabled external validation, disabled query configuration, disabled credential persistence and disabled submit methods. Those are source configuration facts. REA did not prove browser network behavior, run PHP, inspect customer records or call either provider. We reuse this evidence while the artifacts are unchanged; repeated analysis would not expand its coverage.
+Source and locally served bytes matched these hashes during the 2026-10-30 review. Source inspection confirms local `/openapi.json`, disabled submit methods, no external validator/query configuration and no persisted authorization. Artifact identity does not establish browser execution, PHP recovery, vendor compatibility or compliance.
 
-## Scenario shipped-artifact check: 2026-10-26
+## Earlier scenario artifact observation: 2026-10-26
 
-We checked the Swagger bootstrap served by the traffic API against the source artifact. The served file was 345 bytes and matched the initializer SHA-256 recorded above. We then selected only `initializer.js` from the Swagger artifact directory for REA static analysis. It parsed one JavaScript file, visited 45 AST nodes and reported zero parse failures. The vendor bundle was outside this selected analysis; application and semantic graph coverage remained partial.
-
-| Operation | Local evidence ID | Result and boundary |
-| --- | --- | --- |
-| Selected-source application analysis | `ev_fb2fd064c7ebd5126b92fbcf7075f913be77bc5643a36116fa0c619c8500f198` | Parsed the inert bootstrap; incomplete graph coverage. |
-| Outgoing literal `/openapi.json` feature trace | `ev_af8f9a65dfa41a3753ddafec359900bab3fbbf65a0ff48deb65020a93dda4e9e` | No graph match within that partial analysis. This does not establish route absence. |
-
-These IDs identify local retained analysis records, not a publicly hosted or portable evidence bundle. Source inspection establishes the bootstrap configuration; its matching served bytes corroborate artifact identity. We did not use these records to claim browser execution, PHP workflow tracing, provider compatibility or compliance. The [primary scenario](SCENARIO.md) derives application behavior from PHP source and existing verification, with runtime observations recorded separately in [REVIEW.md](REVIEW.md#primary-scenario-evidence-2026-10-26).
+The earlier selected-source check parsed the matching initializer and attempted a literal route trace within partial graph coverage. The trace found no graph match; that is not evidence that the route was absent. Private analysis identifiers and raw bundles are not a portable audit. We preserve those limits instead of relabelling earlier evidence as a new analysis run.
 
 ## Reusable project guidance
 
-Our development, API and observability skills keep the recovery, transport and metric contracts together. The Git-versioned [escalation-review skill](../skills/support-bridge-escalation-review/SKILL.md) documents read-only business review. It cannot authorize execution or establish compliance, and its Markdown allowlist is not server-enforced access control. [AGENTS.md](../AGENTS.md) records our engineering and documentation conventions.
+[AGENTS.md](../AGENTS.md) holds lasting engineering invariants and links to the owning guides. The [documentation index](README.md) identifies those owners. Repository skills preserve [tagged intake](../skills/support-bridge-intake/SKILL.md), [internal comments](../skills/support-bridge-comments/SKILL.md), [live demonstrations](../skills/support-bridge-live-demo/SKILL.md), [read-only escalation review](../skills/support-bridge-escalation-review/SKILL.md) and [documentation maintenance](../skills/support-bridge-documentation/SKILL.md).
+
+Skills are versioned guidance, not runtime privilege enforcement or a model decision engine. The shared operator token still grants broad authority; a Markdown allowlist does not restrict it. Never rely on AI in compliance.

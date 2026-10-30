@@ -15,6 +15,7 @@ use Bridge\Application\Command\RetryPair;
 use Bridge\Application\Configuration;
 use Bridge\Application\Context;
 use Bridge\Application\Query\GetMetrics;
+use Bridge\Application\Query\GetLinkedPairTable;
 use Bridge\Application\Query\GetStatus;
 use Bridge\Application\Query\InspectPair;
 use Bridge\Application\Query\ListPairs;
@@ -120,6 +121,10 @@ $tests['Queries remain read-only and work while the command lock is held'] = sta
                 $fixture->context->ask(new InspectPair('escalation-1'))['governance']['policy_version']
             );
             applicationSame(1, $fixture->context->ask(new GetMetrics())['pairs']['synced']);
+            $table = $fixture->context->ask(new GetLinkedPairTable());
+            applicationSame(1, count($table['items']));
+            applicationSame('101', $table['items'][0]['github_issue']);
+            applicationSame('CSV export fails for large reports', $table['items'][0]['subject']);
         } finally {
             flock($lock, LOCK_UN);
             fclose($lock);
@@ -143,6 +148,7 @@ $tests['Live read queries and initialization do not construct credential-depende
         applicationSame(0, $fixture->context->ask(new ListPairs())['total']);
         applicationSame([], $fixture->context->ask(new GetStatus()));
         applicationSame(0, $fixture->context->ask(new GetMetrics())['pairs']['synced']);
+        applicationSame(['items' => []], $fixture->context->ask(new GetLinkedPairTable()));
         applicationSame('live', $fixture->context->handle(new InitializeLocalState())['mode']);
         applicationSame(false, file_exists($fixture->home . '/github.json'));
         applicationSame(false, file_exists($fixture->home . '/zendesk.json'));

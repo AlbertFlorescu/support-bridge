@@ -20,8 +20,8 @@ COPY bin/ bin/
 COPY public/ public/
 COPY docs/api/ docs/api/
 COPY docker/*.php docker/
-RUN mkdir -p /app/var /var/lib/support-bridge /run/secrets/operator /run/secrets/metrics /run/secrets/grafana \
-    && chown 10001:10001 /app/var /var/lib/support-bridge /run/secrets/operator /run/secrets/metrics /run/secrets/grafana
+RUN mkdir -p /app/var /var/lib/support-bridge /run/secrets/operator /run/secrets/metrics /run/secrets/grafana /run/secrets/oauth \
+    && chown 10001:10001 /app/var /var/lib/support-bridge /run/secrets/operator /run/secrets/metrics /run/secrets/grafana /run/secrets/oauth
 ENV BRIDGE_MODE=local BRIDGE_HOME=/var/lib/support-bridge
 USER 10001:10001
 EXPOSE 8080

@@ -7,7 +7,7 @@ namespace Bridge\Provider;
 use InvalidArgumentException;
 
 /** Builds one explicit Zendesk authentication scheme without exposing credentials in errors. */
-final readonly class ZendeskAuthentication
+final readonly class ZendeskAuthentication implements ZendeskAuthorization
 {
     private string $authorization;
 

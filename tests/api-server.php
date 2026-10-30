@@ -287,6 +287,27 @@ try {
         wireSame(true, $response['json']['observability']['storage_available']);
         $record('GET', '/api/metrics', $response);
     });
+    $run('Intake queries are read-only and disabled creation fails closed over HTTP', static function () use ($server, $record): void {
+        $listing = $server->request('GET', '/api/escalations');
+        wireSame(200, $listing['status']);
+        wireSame([], $listing['json']['items']);
+        wireSame(0, $listing['json']['total']);
+        $record('GET', '/api/escalations', $listing);
+        $disabled = $server->request('POST', '/api/intake', '{}');
+        wireSame(503, $disabled['status']);
+        wireSame('service_not_configured', $disabled['json']['error']['code']);
+        $record('POST', '/api/intake', $disabled);
+    });
+    $run('Comment ledger is read-only and disabled local delivery fails closed on the wire', static function () use ($server, $record): void {
+        $listing = $server->request('GET', '/api/comment-deliveries');
+        wireSame(200, $listing['status']);
+        wireSame(0, $listing['json']['total']);
+        wireSame(0, $listing['json']['stream_total']);
+        $record('GET', '/api/comment-deliveries', $listing);
+        $disabled = $server->request('POST', '/api/comments/sync', '{}');
+        wireSame(503, $disabled['status']);
+        $record('POST', '/api/comments/sync', $disabled);
+    });
     $run('The scrape endpoint emits Prometheus text with bounded labels and a final newline', static function () use ($server, $record): void {
         $response = $server->metricsCredential();
         wireSame(200, $response['status']);
@@ -298,7 +319,7 @@ try {
         foreach (['CSV export fails for large reports', 'escalation-1', 'github_id', 'zendesk_id', $server->home] as $private) {
             wireCheck(!str_contains($response['body'], $private), 'Metrics must not contain title snapshots, identifiers, or paths.');
         }
-        wireSame(3, preg_match_all('/^support_bridge_demo_case_status\{case="(?:CSV export|Webhook delivery|SSO sign-in)"\} 0$/m', $response['body']));
+        wireCheck(str_contains($response['body'], 'support_bridge_linked_pair_status{github_issue="101",zendesk_ticket="501"} 2'), 'The scrape must include actual linked record IDs.');
         wireSame(null, $response['json']);
         $record('GET', '/metrics', $response);
     });
@@ -386,6 +407,25 @@ try {
             wireCheck(in_array($response['status'], [400, 404], true), 'Private path was served: ' . $path);
             wireCheck(!str_contains($response['body'], '<?php') && !str_contains($response['body'], 'SQLite format'), 'Private source/state bytes must never reach HTTP responses.');
         }
+    });
+
+    $run('Monitoring context stays read-only behind its separate credential on the wire', static function () use ($server, $record): void {
+        foreach ([$server->request('GET', '/monitoring/pairs', null, false),
+            $server->request('GET', '/monitoring/pairs')] as $denied) {
+            wireSame(401, $denied['status']); $record('GET', '/monitoring/pairs', $denied);
+        }
+        $response = $server->metricsCredential('GET', '/monitoring/pairs');
+        wireSame(200, $response['status']);
+        wireSame($server->request('GET', '/api/pairs')['json']['total'], count($response['json']['items']));
+        $linked = array_values(array_filter($response['json']['items'], static fn(array $row): bool =>
+            $row['github_issue'] === '101'));
+        wireSame(1, count($linked)); wireSame(null, $linked[0]['zendesk_url']);
+        wireSame('no-store', $response['headers']['cache-control'] ?? null);
+        $record('GET', '/monitoring/pairs', $response);
+        $invalid = $server->metricsCredential('GET', '/monitoring/pairs?subject=override');
+        wireSame(422, $invalid['status']); $record('GET', '/monitoring/pairs', $invalid);
+        $invalid = $server->metricsCredential('POST', '/monitoring/pairs', '{}');
+        wireSame(405, $invalid['status']);
     });
     $run('Corrupt instrumentation storage returns a failed scrape without breaking inspection', static function () use ($server, $record): void {
         file_put_contents($server->home . '/metrics.sqlite', 'not a SQLite database');

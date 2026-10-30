@@ -15,7 +15,7 @@ final class Api
     private readonly BearerAuthentication $authentication;
     private readonly RouteResolver $routes;
     private readonly OperatorController $operations;
-    private readonly MetricsController $metrics;
+    private readonly MonitoringController $monitoring;
     private readonly ErrorResponder $errors;
 
     public function __construct(callable $contextFactory, string $token, string $metricsToken = '')
@@ -24,7 +24,7 @@ final class Api
         $this->authentication = new BearerAuthentication($token, $metricsToken);
         $this->routes = new RouteResolver();
         $this->operations = new OperatorController();
-        $this->metrics = new MetricsController($contextFactory, $this->authentication, $this->routes);
+        $this->monitoring = new MonitoringController($contextFactory, $this->authentication, $this->routes);
         $this->errors = new ErrorResponder();
     }
 
@@ -37,11 +37,11 @@ final class Api
                 return new Response(200, [
                     'status'  => 'ok',
                     'service' => 'support-bridge',
-                    'version' => '1.3.0',
+                    'version' => '1.8.0',
                 ], ['X-Request-Id' => $requestId]);
             }
-            if ($request->path === '/metrics') {
-                return $this->metrics->handle($request, $requestId);
+            if (in_array($request->path, ['/metrics', '/monitoring/pairs'], true)) {
+                return $this->monitoring->handle($request, $requestId);
             }
             $route = $this->routes->resolve($request);
             $this->authentication->operator($request);

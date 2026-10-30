@@ -6,6 +6,11 @@ namespace Bridge\Runtime;
 
 use Bridge\Application\Context;
 use Bridge\Application\Command\Reconcile;
+use Bridge\Application\Command\IntakeEscalations;
+use Bridge\Application\IntakeFactory;
+use Bridge\Application\CommentFactory;
+use Bridge\Application\Command\SyncGitHubComments;
+use Bridge\RemoteFailure;
 use Bridge\Exception\WorkerBusy;
 use Bridge\Infrastructure\Logging\JsonLineWriter;
 
@@ -24,7 +29,19 @@ final readonly class WorkerRunner
     {
         while ($this->stop->running()) {
             try {
+                if (IntakeFactory::enabled()) {
+                    try {
+                        $intake = $this->context->handle(new IntakeEscalations());
+                        ($this->output)(['event' => 'escalation_intake', 'outcome' => $intake]);
+                    } catch (RemoteFailure) {
+                        ($this->output)(['event' => 'escalation_intake_unavailable']);
+                    }
+                }
                 $outcome = $this->context->handle(new Reconcile());
+                if (CommentFactory::enabled()) {
+                    $comments = $this->context->handle(new SyncGitHubComments());
+                    ($this->output)(['event' => 'comment_sync', 'outcome' => $comments]);
+                }
             } catch (WorkerBusy) {
                 $outcome = ['worker_busy' => true];
             }

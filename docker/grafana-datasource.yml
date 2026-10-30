@@ -11,3 +11,18 @@ datasources:
     jsonData:
       httpMethod: POST
       timeInterval: 5s
+  - name: Support Bridge records
+    uid: supportbridge-records
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    url: http://api:8080
+    editable: false
+    jsonData:
+      auth_method: bearerToken
+      allowedHosts:
+        - http://api:8080
+      timeoutInSeconds: 5
+      customHealthCheckEnabled: true
+      customHealthCheckUrl: http://api:8080/monitoring/pairs
+    secureJsonData:
+      bearerToken: $BRIDGE_MONITORING_TOKEN

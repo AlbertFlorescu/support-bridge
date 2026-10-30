@@ -19,6 +19,10 @@ final class ArgumentParser
         'retry'      => 1,
         'metrics'    => 0,
         'local-edit' => 4,
+        'intake'     => 0,
+        'escalations' => 0,
+        'sync-comments' => 0,
+        'comments' => 0,
     ];
 
     public function parse(array $arguments): Arguments

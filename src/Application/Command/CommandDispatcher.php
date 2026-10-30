@@ -16,7 +16,9 @@ final readonly class CommandDispatcher
         private ResolveConflictHandler $resolve,
         private ApprovePlanHandler $approve,
         private RetryPairHandler $retry,
-        private EditLocalRecordHandler $edit
+        private EditLocalRecordHandler $edit,
+        private ?IntakeEscalationsHandler $intake = null,
+        private ?SyncGitHubCommentsHandler $comments = null
     ) {
     }
 
@@ -30,6 +32,8 @@ final readonly class CommandDispatcher
             $command instanceof ApprovePlan => $this->approve->handle($command),
             $command instanceof RetryPair => $this->retry->handle($command),
             $command instanceof EditLocalRecord => $this->edit->handle($command),
+            $command instanceof IntakeEscalations && $this->intake !== null => $this->intake->handle($command),
+            $command instanceof SyncGitHubComments && $this->comments !== null => $this->comments->handle($command),
             default => throw new InvalidArgumentException('Unsupported application command.'),
         };
     }

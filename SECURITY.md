@@ -6,7 +6,7 @@ Dependabot proposes dependency updates; GitHub Actions scans our images and publ
 
 | Component | Responsibility |
 | --- | --- |
-| Dependabot alerts | Match supported npm and Composer manifests against GitHub-reviewed advisories. Dependency graph and automatic security updates are enabled for this repository. |
+| Dependabot alerts | Match supported npm and Composer manifests against GitHub-reviewed advisories. Native feature enablement was recorded during setup; verify service-side settings after administrative changes. |
 | Dependabot security updates | Propose supported npm/Composer fixes, including development dependencies. Swagger UI is development-classified, but its browser files ship with the application. PHP_CodeSniffer is development-only and absent from runtime images. Security updates respond to alerts independently of the version-update schedule. |
 | Locked Composer audit | Verify checks the root development lockfile, including PHP_CodeSniffer. This is a CI package audit, not a separate custom tracker source. |
 | Vulnerability inventory | Build and scan the application, verification, Prometheus and Grafana images; audit all locked npm dependencies; read native Dependabot alerts. |
@@ -57,6 +57,16 @@ The repair workflow runs after a dependency PR's Verify run:
 If confirmation or dispatch fails after a commit, inspect the branch and run Verify manually. Maintainers can also dispatch **Repair dependency assets** on `main` with a numeric `pr` input. Manual selection requires an eligible same-repository PR whose author has repository write permission; the same file and execution restrictions apply.
 
 The tracker links to open Dependabot PRs and image update files. Dependabot checks declared dependencies daily and can propose new image version lines; adoption still requires migration review and tests. A fixed OS or bundled Go package does not prove a newer parent image includes the fix. Image remediation needs an upstream release or reviewed rebuild and a new scan. We do not run blind package upgrades, rewrite arbitrary Docker instructions, suppress advisories or deploy containers automatically. The newly built inventory can differ from a running deployment.
+
+## Prepared source publisher
+
+The [source publisher](docs/PUBLISHING.md) runs full verification with read-only access, then publishes an unchanged verified SHA and opens a PR using a separate short-lived content/PR/Actions-write token. It executes the publication helper only, does not install dependencies or run the application with write authority, and has no approval, merge or deployment step. Maintainers who can modify staging source/workflows remain trusted. Enabling Actions-created PRs also permits review approval at repository level; implementation restrictions do not remove that broader token capability. Default token permissions remain read-only. No local/provider credential is uploaded.
+
+## Grafana records datasource
+
+The Grafana image installs the signed Infinity backend plugin at pinned version 4.1.5 under `/opt/grafana/plugins`. Review upstream releases/advisories and rerun backend/render/container checks before adopting a replacement; Dependabot does not discover this CLI argument as a package manifest. Image scans may identify supported binary dependencies but do not certify complete plugin coverage. There is no startup plugin download or unsigned-plugin override.
+
+Grafana's read-only monitoring credential permits `/metrics` and `/monitoring/pairs`; the latter exposes every linked last verified subject and fixed source URL. It cannot call operator commands. The backend allowlist is `http://api:8080`; no vendor/operator credential is provided. Keep this authority, viewer access and retention under deployment review. Subject cells use plain text and links derive from validated configured identities, not source text. No model decides data permission or compliance.
 
 ## Local verification
 

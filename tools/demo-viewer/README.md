@@ -11,7 +11,7 @@ No installation or third-party package is needed. The private package manifest d
 
 ## Evidence interface
 
-The input has `version: 1`, `run` metadata and between one and 250 chronological `checkpoints`. Its maximum size is 2 MiB. A checkpoint contains:
+The input has `version: 1`, `run` metadata and between one and 250 chronological `checkpoints`. Its maximum size is 2 MiB. The renderer accepts at most 250 checkpoints; the producer is deliberately narrower.
 
 Our capture command writes at most 100 checkpoints per archive. Labels have a 200 UTF-8-byte limit and operation descriptions a 500-byte limit. The archive binds the run ID, mode, repository and Zendesk subdomain; a different deployment needs a new output file. See [the capture procedure](../../docs/LIVE_DEMO.md#capture-and-render-actual-observations).
 
@@ -45,6 +45,8 @@ Embedded JSON escapes `<` and Unicode line separators. The browser uses DOM `tex
 The renderer writes output atomically and never overwrites the input file. Invalid JSON, invalid schema and oversized input fail without replacing an existing replay. Error messages omit input contents.
 
 ## Verification
+
+The replay is separate from the live Grafana table. The table queries current stored context directly; this viewer renders only the selected historical checkpoints and never fills a gap from current data.
 
 The built-in tests cover retained plan/conflict evidence, credential and identity exclusions, script-breaking values, URL restrictions, bounds/chronology, navigation without network effects and CLI success/failure behavior. A DOM test verifies playback using captured evidence; it does not establish live vendor compatibility or human authorization.
 

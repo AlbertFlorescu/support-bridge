@@ -38,6 +38,41 @@ final class SchemaMigrator
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS escalations (
+                ticket_id TEXT PRIMARY KEY,
+                pair_id TEXT NOT NULL UNIQUE,
+                marker TEXT NOT NULL UNIQUE,
+                snapshot TEXT NOT NULL,
+                github_id TEXT,
+                status TEXT NOT NULL DEFAULT 'prepared',
+                attempted_at INTEGER,
+                next_run INTEGER NOT NULL DEFAULT 0,
+                error TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS comment_deliveries (
+                pair_id TEXT NOT NULL REFERENCES pairs(id),
+                comment_id TEXT NOT NULL,
+                note TEXT NOT NULL,
+                marker TEXT NOT NULL UNIQUE,
+                source_version TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                attempted_at INTEGER,
+                destination_version TEXT,
+                zendesk_comment_id TEXT,
+                next_run INTEGER NOT NULL DEFAULT 0,
+                error TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY(pair_id,comment_id)
+            );
+            CREATE TABLE IF NOT EXISTS comment_streams (
+                pair_id TEXT PRIMARY KEY REFERENCES pairs(id),
+                last_scan INTEGER NOT NULL DEFAULT 0,
+                next_run INTEGER NOT NULL DEFAULT 0,
+                error TEXT
+            );
             SQL);
 
         $this->migrateApproval($connection);

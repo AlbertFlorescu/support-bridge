@@ -4,7 +4,7 @@
 
 Support Bridge reconciles summaries and resolution state for escalations tracked in both Zendesk and GitHub. We expect it to reduce manual copying and stale updates; a pilot still needs to measure that benefit.
 
-Each escalation must already have one ticket and one issue, linked by an operator. We copy only title/subject and open/closed state. Comments, descriptions, attachments and requester details stay in their source system. Titles can contain confidential information, so teams must approve the records and destination before opting in.
+Support starts with a Zendesk ticket. Adding the configured engineering tag explicitly opts a canonical-open ticket into creating an open GitHub issue and saving its mapping. Existing verified records may still be linked manually. This opt-in is not an attestation to compliance, a verified individual identity or approval to resolve the customer ticket. We reconcile title/subject and open/closed state. Explicitly enabled [comment delivery](COMMENTS.md) separately copies GitHub issue comments as internal Zendesk notes with source attribution. Intake copies the initial Zendesk description once into the new issue body. Later Zendesk conversation, description edits, attachment bytes and requester details stay in their source system. The first description may be internal; the explicit opt-in must approve that transfer. Comment text can contain sensitive data; internal visibility is not a compliance decision. Titles can contain confidential information, so teams must approve the records and destination before opting in.
 
 Before live use, agree on field ownership, state semantics, permitted transfers, approvers and freshness targets. The [assumptions register](ASSUMPTIONS.md) records these open requirements.
 
@@ -14,10 +14,12 @@ The [primary customer scenario](SCENARIO.md) shows how these controls apply to a
 
 | Step | Rule | Evidence |
 | --- | --- | --- |
-| Link records | Require an explicit one-to-one mapping. | Operator-supplied IDs and database uniqueness. |
+| Create and link engineering issue | Require the configured tag on a fresh open ticket; preserve uncertain creation evidence. | Durable marker/attempt before POST, fixed repository, subject/initial-description/link creation and unique numeric mapping. No AI classification or approval. |
+| Link legacy records | Require an explicit one-to-one mapping. | Operator-supplied IDs and database uniqueness. |
 | Merge values | Compare both records with their common baseline; stop on conflicting edits. | Current fields and persisted baseline. |
 | Resolve a conflict | Require an operator to choose a source from fresh observations. | Stored conflict fields and versions. |
 | Check write eligibility | Allow only supported fields and writable destinations. | PHP policy and provider capabilities. |
+| Deliver engineering comment | Append only internal Zendesk notes for explicitly linked records when enabled. | Durable first-observed snapshot/marker, audited attempt, safe update, unique internal read-back and no blind repeat. Pending field plans/conflicts/approval hold new notes; public evidence durably holds all note delivery. |
 | Close or reopen | Hold the whole plan for approval. | Exact plan hash, policy version and fresh observations. |
 | Recover an uncertain write | Read before retrying; acknowledge an achieved target and stop on unrelated edits. | Durable target, preimages, versions and provider reads. |
 | Explain pending work | Allow optional read-only assistance. | Inspection data, reviewed by the operator. |
@@ -27,7 +29,9 @@ Merge, approval and recovery follow fixed rules. The application calls no model.
 
 ## Architecture overview
 
-CLI and HTTP share typed application commands/queries, their handlers and `Engine`. `Application/Context` wires explicit dependencies, including a scoped SQLite connection; persistence helpers own schema upgrades, transactions and the canonical lock. Provider adapters fetch records and apply field patches. SQLite stores links, baselines, pending plans, conflicts, approvals and events. Prometheus and Grafana read operational metrics through a separate credential. Three fixed case aliases expose stored workflow observations without titles or vendor IDs; dashboard samples cannot establish fresh vendor state or authorize a decision.
+CLI and HTTP share typed application commands/queries and explicit constructor dependencies. Commands execute intake, field or comment workflows under the canonical lock. Queries inspect local evidence without providers. One scoped business connection supplies repositories; transaction/schema/lock infrastructure owns persistence. [Architecture](ARCHITECTURE.md) records these boundaries.
+
+Monitoring has read authority only. The protected current table exposes linked baseline subjects and fixed source URLs to Grafana viewers; Prometheus retains numeric identifiers rather than content labels. Neither display proves fresh vendor state or policy satisfaction, and source navigation uses the viewer's own vendor login. [Observability](OBSERVABILITY.md#trade-offs-and-data-exposure) owns the access and retention boundary.
 
 Command/query separation organizes use cases without changing authority. Queries read local state without provider access; the approval command still invokes the normal engine gate and fresh provider checks. There is one business database, with the same persisted plan shape and audit ordering. Class boundaries, PSR formatting and a command type cannot themselves authorize an effect.
 
@@ -56,19 +60,25 @@ The gate does not classify confidential titles, decide data-sharing permission o
 
 ### Live source setup and recorded replay
 
-The [guided live demonstration](LIVE_DEMO.md) uses a separate, explicitly configured project. Its initializer performs no provider request or record linking, and scheduled reconciliation is disabled by default. An authorized source setup actor may create or edit owned fictional vendor records, but receives no bridge operator credential or approval capability. Vendor ticket scopes are not limited to the demonstrated pair IDs. A source-side resolution already performed in Zendesk is outside the bridge's outbound gate; every resulting bridge state-changing plan still requires its exact-plan approval.
+The [guided live demonstration](LIVE_DEMO.md) uses a separate, explicitly configured project. Its initializer performs no provider request or record linking, and effectful intake/reconciliation require explicit worker enablement. The [Zendesk-first path](INTAKE.md) uses that existing worker, with creation opt-in from the support tag and the unchanged state-review gate. An authorized source setup actor may create or edit owned fictional vendor records, but receives no bridge operator credential or approval capability. Vendor ticket scopes are not limited to the demonstrated pair IDs. A source-side resolution already performed in Zendesk is outside the bridge's outbound gate; every resulting bridge state-changing plan still requires its exact-plan approval.
 
 Checkpoint capture reads provider records and local inspection under the canonical lock without reconciling or approving. Those provider reads are sequential, and optional monitoring samples are separate; the result is selected observation evidence, not an atomic transaction. The offline viewer's Next and Play controls only navigate embedded checkpoints. A record link, captured approval flag, screenshot or video cannot authorize a fresh effect or establish that a later plan still matches.
 
 Keep captures in private artifact storage and review them before sharing. They omit free-form approval rationale and credentials, but can retain titles, versions, hashes and tenant-bearing record links. Their bounded snapshots supplement the current business state and audit; they are not a complete automatic archive, nonrepudiation control or compliance decision.
 
+## Internal comment authority
+
+Comment delivery is an explicitly enabled append capability, separate from field-plan approval. Linking opts in the source/destination relationship; enabling the deployment capability authorizes historical and future issue-comment copies for that relationship. No model filters authors, interprets a comment as approval or changes its text. The Zendesk integration identity appends the note; the GitHub login in its body is source attribution, not impersonation or verified reviewer identity. The immutable first-observed snapshot and delivery evidence may contain confidential text and need storage/retention controls. Unknown append outcomes are observed conservatively, and the privacy hold has no automatic reset. See [comment recovery and limits](COMMENTS.md).
+
 ## Audit and identity boundaries
 
 Local events record plan hashes, approval rationale/policy, write attempts and changed field names. The pending plan is cleared after convergence, so full completed review snapshots are not automatically archived. Optional explicit checkpoint capture can retain selected observed stages outside the business store. Events and presentation artifacts are mutable; business audit retention remains unbounded.
 
-Service credentials are bound to one GitHub repository and Zendesk tenant. Operator and scrape tokens have different capabilities, but there are no individual roles or scoped agent credentials. Deployment owners must provide record access controls, secret rotation, storage encryption, retention and incident ownership. Audit failures must prevent subsequent effects; metrics are best effort and cannot decide business correctness.
+Service credentials are bound to one GitHub repository and Zendesk tenant. Operator and read-only monitoring tokens have different capabilities; the latter permits all linked baseline subjects and source URLs as well as numeric scraping, but there are no individual roles or scoped agent credentials. Deployment owners must provide record access controls, secret rotation, storage encryption, retention and incident ownership. Audit failures must prevent subsequent effects; metrics are best effort and cannot decide business correctness.
 
-OAuth bearer authentication does not change the operator principal or policy boundary. The confidential-client token acts through the client-associated Zendesk account, not a verified individual bridge approver. Our manual helper requests ticket read/write access for at most four hours and supplies no automatic renewal. Client identifier/secret remain on the issuance host. An explicit network-isolated UID10001 importer receives only access tokens through JSON stdin and writes a separate protected plaintext volume; API, CLI and the optional worker mount it read-only. This importer has no business state or operator capability and supplies no encrypted secret-manager guarantee. Reimport and recreate credential-reading containers after rotation, since startup processes retain their loaded values.
+OAuth bearer authentication does not change the operator principal or policy boundary. The confidential-client token acts through the client-associated Zendesk account, not a verified individual bridge approver. [Managed renewal](OAUTH.md) requests four-hour ticket read/write access through an isolated issuer service. A networkless importer writes its client configuration into an issuer-only protected volume; API, CLI, worker and monitoring never receive that client secret. The renewer publishes an atomic token/expiry bundle into the existing vendor volume, and workflow readers load the managed credential before each Zendesk request. Routine renewal needs no reader restart.
+
+The renewer has no business database or operator credential and cannot synchronize, approve, select a conflict winner or reset retries. It uses the deployment credential lock, separate from the canonical business lock. Reusing the vendor volume gives it filesystem access to the GitHub token, although its implementation never uses or replaces that token. Files remain plaintext protected by mounts/ownership rather than an encrypted secret manager. Manual/static credentials remain a distinct compatibility mode and require reader recreation after rotation. Host downtime, a revoked client or a vendor outage can still interrupt access; renewal is not a compliance decision or a guarantee of business progress.
 
 ## Rollout and operating ownership
 
@@ -81,7 +91,7 @@ OAuth bearer authentication does not change the operator principal or policy bou
 
 Workflow and policy changes go through reviewed mainline changes. Deployment needs its own authorization. Customer-specific mappings and policies need named owners.
 
-Measure copying effort, convergence lag, conflict/dead-work age, approval wait time, API calls per useful change and recovery success. The exporter does not yet cover every business measure or per-pair age; agree on targets before a pilot.
+Measure copying effort, convergence lag, conflict/dead-work age, approval wait time, API calls per useful change and recovery success. Last-verified convergence age can be derived from stored timestamps, but the exporter does not measure customer benefit or every conflict/approval wait duration; agree on targets before a pilot.
 
 ## Trade-offs
 
@@ -90,8 +100,8 @@ Measure copying effort, convergence lag, conflict/dead-work age, approval wait t
 - Strict version checks catch stale plans but can stop work after unrelated edits. Timestamp granularity and GitHub's read/PATCH race remain.
 - A small code policy is testable. Expanding it requires reviewed code and a policy version change.
 - A shared operator simplifies setup at the cost of individual attribution, independent approval and agent scopes.
-- One explicitly selected live project and short access-token lifetime make account selection clear, at the cost of manual credential maintenance. Recorded replay avoids repeating effects, but later decisions still need fresh evidence.
+- One explicitly selected live project and short access-token lifetime make account selection clear. Managed renewal adds an issuer service, private client volume and network dependency; manual credentials retain their separate maintenance. Recorded replay avoids repeating effects, but later decisions still need fresh evidence.
 
 ## Known limitations
 
-Content/DLP policy, approval expiry/revocation, verified identity and tamper-evident audit are absent. We have not measured customer outcomes. Only the additive approval-column and telemetry-series upgrades are implemented; general migration, rollback and disaster recovery remain open work. [ARCHITECTURE.md](ARCHITECTURE.md) covers the concurrency, privacy, scale and provider limits.
+Content/DLP policy, approval expiry/revocation, verified identity and tamper-evident audit are absent. We have not measured customer outcomes. Narrow additive schema/telemetry upgrades preserve legacy work; general migration, rollback and disaster recovery remain open work. [ARCHITECTURE.md](ARCHITECTURE.md) covers the concurrency, privacy, scale and provider limits.

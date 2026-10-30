@@ -14,9 +14,51 @@ These people are roles in the story, not identities authenticated by the applica
 
 The [assumptions register](ASSUMPTIONS.md) records our customer, field, deployment and failure assumptions. [Governance](GOVERNANCE.md) defines policy ownership and the controls needed before real records are opted in.
 
+## Start in Zendesk
+
+The normal path starts with one customer report. A support person decides whether engineering is needed; the bridge does not turn every support question into a GitHub issue.
+
+1. Open Zendesk Support and select **Add ticket**. Use a controlled fictional requester for a demonstration and an internal note; tenant notification rules still apply.
+2. Enter **CSV export fails for large reports** as the subject. Add a short fictional explanation. Submit as **Open**.
+3. In the ticket's **Tags** field, add **`support_bridge_escalate`** and save. This is the explicit instruction to create an engineering issue in the configured repository. Use only approved summaries and initial problem text: the first description may be internal and is transferred to the configured repository.
+4. Leave the configured worker running. It checks a ticket-list page then the linked records, waiting nominally 60 seconds after each pass. Vendor visibility and rotating pagination can add delay. No CLI command is required for the ordinary path.
+5. Open GitHub's **Issues** tab. The bridge-created issue has the ticket subject as its title, begins open, and contains an explicit Zendesk ticket link plus the initial problem description as literal text. The bridge persists its issue number and the pair `zendesk-<ticket number>` automatically. Do not create a second issue or remove the recovery marker in the body.
+6. Open [Grafana](http://127.0.0.1:1990/d/supportbridge-overview?refresh=5s). **Zendesk engineering intake** should show an additional linked intent and **Actual linked pairs** should increase by one. Find both record numbers together in **All linked ticket and issue pairs**, next to **Ticket subject**. The subject is the last verified summary; pending edits can differ. Click either number to open its source record in a new tab. Every stored link appears automatically; no allowlist change is needed. Numeric vendor IDs are monitoring labels, while titles, internal pair keys and review evidence remain excluded. Source edits and comments need worker observation before a table refresh can display new evidence; the Prometheus panels additionally wait for a scrape.
+7. Change only the Zendesk subject to **CSV export fails above 100,000 rows** and save. After polling, verify that exact title in GitHub. A later one-sided GitHub title edit should similarly reach Zendesk. A conflicting edit stops for a source decision.
+8. Add an engineering comment, such as **The export fix is ready for verification**. With comment delivery enabled and the pair synced, wait for an internal Zendesk note showing that text, the source author and link. No customer-facing reply or state change is requested. Notes wait while field work needs review. See [comment operation](COMMENTS.md).
+9. Close the engineering issue only when deliberately demonstrating resolution. The next pass should hold the pair in **Awaiting approval** and keep Zendesk open. An operator must inspect the exact plan and supply its hash and rationale through the normal approval command. A later fresh pass applies the approved state change; a dashboard cannot approve it.
+
+Before a demonstration, verify the retained deployment, worker, credentials and intake setting using [intake operation](INTAKE.md). If an issue does not appear, inspect the intake state rather than repeatedly creating tickets. The original three records were created and linked separately in an earlier run; their history is retained, not relabeled as automatic intake evidence.
+
+## Normal customer flow
+
+This diagram assumes an eligible fictional ticket, valid credentials and no competing edits. One tester can perform the support, engineering and review steps in this fictional demonstration. The application does not authenticate those as separate identities. The later checkpoints explain holds, conflicts and unknown outcomes.
+
+```mermaid
+sequenceDiagram
+    actor Tester
+    participant ZD as Zendesk
+    participant Bridge
+    participant GH as GitHub
+    Tester->>ZD: Save open ticket and tag
+    Bridge->>ZD: Read eligible ticket
+    Bridge->>GH: Create and link open issue
+    Note over Bridge: Verify common baseline
+    Tester->>GH: Add engineering comment
+    Bridge->>GH: Observe comment
+    Bridge->>ZD: Internal note after field gate
+    Tester->>GH: Close issue
+    Note over Bridge: Persist plan awaiting approval
+    Tester->>Bridge: Inspect and approve exact plan
+    Bridge->>ZD: Apply on a later fresh pass
+    Note over Bridge: Verify before baseline advance
+```
+
+Grafana's table reads the resulting stored context through the API; Prometheus samples numeric evidence separately. Neither monitoring system initiates a step in this sequence.
+
 ## Starting records and field contract
 
-Our local sample uses this explicit mapping:
+The older isolated recovery sample uses this explicit mapping. It remains separate from the normal Zendesk-first path:
 
 | Record | Identifier | Initial summary | Canonical state |
 | --- | --- | --- | --- |
@@ -36,41 +78,41 @@ Only two canonical fields cross the integration boundary:
 
 An outbound closed transition writes Zendesk **solved**, not irreversibly closed. A title-only Zendesk patch omits status and preserves distinctions such as pending or hold. A truly closed Zendesk ticket is immutable; a required patch stops visibly rather than creating a follow-up ticket.
 
-Comments, descriptions, attachments, requester details, assignees and automatic remote record creation are outside scope. Titles can still contain confidential information. Titles must be nonempty and at most 500 UTF-8 bytes. Link opt-in does not perform redaction or establish data-sharing permission.
+The initial Zendesk description is copied once when the issue is created. Subsequent description changes, attachment bytes, requester details and assignees are outside synchronization scope. Enabled GitHub issue comments separately become internal Zendesk notes; Zendesk comments and later source-comment edits/deletion are not mirrored. Tagged intake separately creates an open issue from the subject, initial description, explicit ticket link and recovery marker; this does not mirror later Zendesk conversation. Titles can still contain confidential information. Titles must be nonempty and at most 500 UTF-8 bytes. Link opt-in does not perform redaction or establish data-sharing permission.
 
 ## Architecture overview
 
-CLI and HTTP adapters dispatch the same typed commands and queries. Reconciliation and review commands use the engine; other focused handlers own linking, initialization and locked local-provider edits. Query handlers inspect local state without constructing providers or reconciling records. This synchronous CQRS boundary uses one business database, with no queue, event sourcing or separate read database.
+The worker runs tagged intake before reconciliation. Intake persists creation evidence under the canonical lock, creates or recovers the issue, and links it; the engine then establishes the common baseline. CLI and HTTP adapters dispatch the same typed commands and queries. Reconciliation and review commands use the engine; other focused handlers own linking, initialization and locked local-provider edits. Query handlers inspect local state without constructing providers or reconciling records. This synchronous CQRS boundary uses one business database, with no queue, event sourcing or separate read database.
 
 The application context composes constructor dependencies and injects a scoped SQLite connection into the repository. Persistence helpers own schema upgrades, transactions and the canonical file lock. There is no process-global database Singleton. Business state and aggregate telemetry use separate SQLite databases inside the application's data directory; metrics cannot decide business correctness.
 
 ```mermaid
 flowchart TD
-    A[Acquire lock and read current records] --> B{Saved plan exists?}
-    B -->|No| C[Compare fields with the common baseline]
-    C --> D{Conflicting edits?}
-    D -->|Yes| X[Store conflict evidence and wait for source selection]
-    D -->|No| E{Both already match the merged target?}
-    E -->|Yes| K[Advance baseline and clear pending work]
-    E -->|No| F[Persist target, preimages and versions]
-    B -->|Yes| R{Fresh records satisfy saved recovery guards?}
+    A[Lock and read both records] --> B{Saved plan?}
+    B -->|No| C[Compare with baseline]
+    C --> D{Conflict?}
+    D -->|Yes| X[Store conflict; wait for source choice]
+    D -->|No| E{At merged target?}
+    E -->|Yes| K[Advance verified baseline]
+    E -->|No| F[Save target, preimages and versions]
+    B -->|Yes| R{Recovery guards fresh?}
     R -->|No| X
-    R -->|Yes| T{Both already match the saved target?}
+    R -->|Yes| T{At saved target?}
     T -->|Yes| K
     T -->|No| G[Check writability, policy and approval]
     F --> G
-    G --> Q{State-change approval required and absent?}
-    Q -->|Yes| W[Hold the whole plan for exact-plan review]
-    W -->|Explicit approval and a later sweep| A
-    Q -->|No| H[Recheck required freshness, audit and patch changed fields]
-    H --> I[Read both records again]
-    I --> J{Both match the saved target?}
+    G --> Q{State approval missing?}
+    Q -->|Yes| W[Hold whole plan for review]
+    W -->|Approval then later sweep| A
+    Q -->|No| H[Recheck, audit and patch needed fields]
+    H --> I[Read both back]
+    I --> J{Target confirmed?}
     J -->|Yes| K
     J -->|No| X
-    H -->|Retryable failure or unknown write outcome| L[Preserve pending work and persist retry due time]
-    I -->|Retryable read failure| L
+    H -->|Retryable or unknown result| L[Preserve intent; schedule retry]
+    I -->|Retryable read| L
     L -->|Due retry| A
-    X -->|Fresh source selection and a later sweep| A
+    X -->|Fresh source choice then sweep| A
 ```
 
 
@@ -82,7 +124,7 @@ One canonical lock coordinates sweeps, approval, source selection, retry and syn
 
 ### 1. Establish the last common agreement
 
-An operator explicitly links the existing issue and ticket. We do not infer a relationship from similar titles or create either vendor record. Linking itself makes no live provider request.
+For a new escalation, tagged intake creates and links the issue before reconciliation. For existing records, an operator may explicitly link the verified IDs; that legacy link command makes no provider request. Neither path infers a relationship from similar titles. See [intake design](INTAKE.md) for creation recovery and limits.
 
 The next sweep reads both records. Equal canonical fields establish the common baseline:
 
@@ -107,7 +149,7 @@ GitHub retains the original title, and both records remain open. Relative to the
 
 Before an effect, the engine persists the target, both observed preimages and both versions. Title-only transfer uses the explicit link's opt-in. It patches only GitHub's title, then reads both records again. The baseline advances only after observed equality.
 
-Evidence at this checkpoint is the minimal title patch, matching records, an updated baseline and no pending plan. Support entered the improved description once, and engineering received it. We do not overwrite unrelated vendor fields to make the records look identical.
+Evidence at this checkpoint is the minimal title patch, matching records, an updated baseline and no pending plan. Support entered the improved summary once, and engineering received it. This checkpoint changes the subject/title, not the creation-time description copy. We do not overwrite unrelated vendor fields to make the records look identical.
 
 ### 3. Independent changes produce a merged plan
 
@@ -192,23 +234,25 @@ The sweep can still emit a successful reconciliation observation. We count attem
 
 ## Reading the dashboard during the case
 
-Grafana focuses on three configured cases: CSV export (`csv-export`), Webhook delivery (`webhook-retry`) and SSO sign-in (`sso-conflict`). These are explicitly linked real-provider records; the case labels do not imply that a retry or conflict currently exists. Titles, vendor IDs, plan hashes and rationales stay out of metric labels.
+Grafana lists every saved ticket/issue mapping automatically, including subsequent tagged-ticket escalations. The original CSV, webhook and SSO scenarios share the same table with new links. Numeric vendor IDs identify rows and link to their fixed source pages. The authenticated JSON context view also supplies the last verified subject as plain text; it stays out of Prometheus history. A missing baseline shows No verified subject, and pending edits may differ; internal pair keys, titles, plan hashes and rationales stay out of metric labels. Monitoring access and retention now include those IDs; see [exposure and scaling trade-offs](OBSERVABILITY.md#trade-offs-and-data-exposure).
 
 | Panel | Interpretation and limit |
 | --- | --- |
 | Scrape health | Prometheus can retrieve the local exporter; this does not prove vendor health or fresh provider reads. |
-| Linked cases | Number of the three configured mappings actually present, rather than an assumed total of three. |
-| Operator attention | Stored approval waits, conflicts and dead work among the cases; a decision still requires inspection. |
-| Case details | Stored workflow status, last verified baseline resolution, pending plan, attempts and last success for each fixed case. |
-| Case status history | Status sampled at scrape times, not a complete event history or an atomic cross-vendor snapshot. |
+| Actual linked pairs | Count of all stored mappings, including newly linked tickets. |
+| Operator attention | Stored pair, intake and comment concerns; one escalation can contribute more than once. A decision still requires inspection. |
+| All linked ticket and issue pairs | Clickable record numbers, last verified subject, stored workflow state, last verified resolution, pending plan, attempts, delivered/waiting internal-note counts and last convergence. |
+| Observed linked-pair workflow history | Status sampled at scrape times, not a complete event history or an atomic cross-vendor snapshot. |
 
-A missing link displays Not linked; an unrecognized state displays Unknown. An absent baseline is Unverified. Neither absence nor uncertainty is successful synchronization. A baseline marked Closed records the last verified agreement, not the present state of either vendor. A pending plan can coexist with an older verified baseline, and conflict evidence need not include an executable plan.
+An unlinked ticket has no pair row; an unrecognized stored state displays Unknown. An absent baseline is Unverified and a zero timestamp means Never verified. Neither absence nor uncertainty is successful synchronization. A baseline marked Resolved records the last verified canonical-closed agreement, not the present state of either vendor or customer confirmation. A pending plan can coexist with an older verified baseline, and conflict evidence need not include an executable plan. Delivered notes were observed internally; waiting notes include pending, sending, uncertain and blocked work. Inspect authenticated evidence for the exact reason.
 
-The normal worker is disabled. Vendor edits become visible to the business state only through deliberate provider-reading operations; a successful five-second scrape does not refresh them. Grafana refreshes independently and may miss intermediate status transitions. Aggregate counters and latency histograms remain in Prometheus for diagnosis, outside the five-panel case view. Metrics are best effort and cannot replace current inspection, audit or approval. See [observability semantics](OBSERVABILITY.md) and [the panel guide](../monitoring/README.md#five-dashboard-panels).
+The explicitly configured worker polls intake and linked records; a fresh unconfigured deployment keeps it disabled. Vendor edits become visible only through provider-reading operations; a successful five-second scrape does not refresh them. Grafana refreshes independently every five seconds and may miss intermediate transitions. Reload once after a layout upgrade; later links appear without changing the dashboard. New identifier history starts at rollout without backfill; earlier fixed-case history remains retained. Aggregate counters and latency histograms remain in Prometheus for diagnosis. Metrics are best effort and cannot replace current inspection, audit or approval. See [observability semantics](OBSERVABILITY.md) and [the panel guide](../monitoring/README.md#read-the-dashboard).
 
 ## Guided case
 
-Our operating deployment is the existing `support-bridge-live-demo` project: one API, one Prometheus and one Grafana. We inspect current state and advance through deliberate authorized operations, with the worker disabled. Reading a dashboard, recreating containers or changing a port grants no source-edit, synchronization or approval authority.
+Our operating deployment is the existing `support-bridge-live-demo` project: one API, one Prometheus and one Grafana. The explicitly configured worker runs tagged intake and gated reconciliation; deliberate manual checkpoints may pause it without changing plans or approvals. Reading a dashboard, recreating containers or changing a port grants no source-edit, synchronization or approval authority.
+
+Before a live checkpoint, verify the [credential-renewer service](OAUTH.md#renewal-and-failure-behavior) is healthy when managed mode is selected. Renewal keeps access available; it does not perform the customer scenario or approve a change. Check the actual provider records as well as stored evidence.
 
 A manual sweep processes every eligible linked pair. Inspect the complete link set before advancing it. Preserve baselines, durable plans, retry schedules and approval evidence. Unexpected starting evidence requires inspection and an adapted sequence; never rewrite it to make the narrative progress.
 
@@ -216,15 +260,15 @@ At each checkpoint, compare both provider records, the baseline, pending decisio
 
 | Surface | Host address |
 | --- | --- |
-| API and Swagger | [127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) |
-| Prometheus | [127.0.0.1:9090](http://127.0.0.1:9090/) |
-| Grafana | [127.0.0.1:3000](http://127.0.0.1:3000/d/supportbridge-overview) |
+| API and Swagger | [127.0.0.1:1988/docs](http://127.0.0.1:1988/docs) |
+| Prometheus | [127.0.0.1:1989](http://127.0.0.1:1989/) |
+| Grafana | [127.0.0.1:1990](http://127.0.0.1:1990/d/supportbridge-overview) |
 
 Keep URLs, credentials and retained volumes bound to `support-bridge-live-demo`; the [connection guide](DOCKER.md#choose-a-stack-and-its-ports) covers actual bindings and the persisted Grafana account. Internal addresses remain `api:8080`, `prometheus:9090` and `grafana:3000`. Swagger is reference documentation with submission disabled. Local provider fixtures and the reliability demo test failure paths without adding generated traffic or another operating dashboard; their state is never imported into the live project.
 
 ## Guided live records and replay
 
-The [live demonstration guide](LIVE_DEMO.md) uses separately created, owned fictional source records, explicit mappings and manual sweeps in `support-bridge-live-demo`. Its initializer supplies no fixture or mapping, and its worker is disabled by default. Source setup actors may create or edit the authorized vendor records but receive no bridge operator credential or approval capability. A source-side close already performed in Zendesk is outside the bridge's outbound state-change gate.
+The [live demonstration guide](LIVE_DEMO.md) retains the older paired-record checkpoints and uses [tagged intake](INTAKE.md) for new Zendesk-first escalations in `support-bridge-live-demo`. Its initializer supplies no fixture or mapping; automatic operation explicitly enables the existing worker and intake. Source setup actors may create or edit the authorized vendor records but receive no bridge operator credential or approval capability. A source-side close already performed in Zendesk is outside the bridge's outbound state-change gate.
 
 At a deliberate checkpoint, `bin/capture-demo.php` reads local inspection under the canonical lock and fetches both provider records sequentially. It records actual titles, states, versions, baseline, durable plan and selected audit details. Provider edits remain possible between reads, so the evidence is not a cross-vendor atomic snapshot. Optional aggregate Prometheus samples are separate observations, omitted on failure.
 
@@ -236,7 +280,7 @@ The source implements the merge, approval, recovery and conflict rules described
 
 The [live source cases](LIVE_DEMO.md#customer-context-and-value) include three fictional records created and freshly read back in each system. All three established matching baselines. The CSV-export case then verified both title directions, a whole-plan approval wait, explicit exact-plan approval, the resulting destination update and a repeated sweep without another write attempt. Eleven private checkpoints retain those observations. The [dated verification record](REVIEW.md#live-demonstration-verification-2026-10-28) distinguishes these executed stages from the remaining narrative and customer acceptance.
 
-REA inspected the selected shipped Swagger bootstrap, whose bytes matched the served artifact. Its JavaScript graph remained partial, and the literal route trace was unresolved. It did not trace the PHP engine or establish vendor behavior. [Development-tool evidence](TOOLING-INSTALLATION.md) records the analysis identity, scope and limits; [verification evidence](REVIEW.md) separates executed checks from outstanding validation.
+Static artifact inspection covered the selected shipped Swagger bootstrap, whose bytes matched the served artifact. Its JavaScript graph remained partial, and the literal route trace was unresolved. It did not trace the PHP engine or establish vendor behavior. [Development-tool evidence](TOOLING-INSTALLATION.md) records the analysis identity, scope and limits; [verification evidence](REVIEW.md) separates executed checks from outstanding validation.
 
 ## Trade-offs
 

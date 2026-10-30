@@ -141,7 +141,7 @@ final class Prometheus
 
     /**
      * @param array{pairs?:array,pending_plans?:int,last_success?:?int} $state Local business-store gauges.
-     * @param list<array>|null $linkedPairs Actual business rows for the bounded demonstration-case projection.
+     * @param list<array>|null $linkedPairs Complete read-only repository projection of stored mappings.
      * @throws \RuntimeException A failed scrape is preferable to fabricated zero counters.
      */
     public function render(array $state = [], ?array $linkedPairs = null): string
@@ -198,7 +198,26 @@ final class Prometheus
             $lines[] = 'support_bridge_last_success_timestamp_seconds ' . self::gauge($state['last_success'] ?? null);
         }
         if ($linkedPairs !== null) {
-            array_push($lines, ...(new DemoCaseMetrics())->render($linkedPairs));
+            array_push($lines, ...(new LinkedPairMetrics())->render($linkedPairs));
+        }
+        if (array_key_exists('intake', $state)) {
+            if (!is_array($state['intake'])) {
+                throw new \RuntimeException('Escalation metric state is invalid.');
+            }
+            array_push($lines, ...(new IntakeMetrics())->render($state['intake']));
+        }
+        if (array_key_exists('comments', $state)) {
+            if (
+                !is_array($state['comments']) || !is_int($state['comment_stream_errors'] ?? null)
+                || !is_bool($state['comment_privacy_hold'] ?? null)
+            ) {
+                throw new \RuntimeException('Comment metric state is unavailable.');
+            }
+            array_push($lines, ...(new CommentMetrics())->render(
+                $state['comments'],
+                $state['comment_stream_errors'],
+                $state['comment_privacy_hold']
+            ));
         }
         return implode("\n", $lines) . "\n";
     }
