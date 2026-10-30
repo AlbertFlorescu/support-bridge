@@ -2,13 +2,13 @@
 
 We separate controlled checks, actual deployment evidence and customer validation. The current demo uses one live project with original scenarios and Zendesk-first intake; Grafana automatically lists every stored mapping. Earlier dated fixed-case verification below describes the layout exercised then. Retired traffic-generation and native-monitoring results are not current capabilities; their implementation and operating guides have been removed.
 
-## Prepared source publication verification: 2026-10-30
+## Retired source publication evidence: 2026-10-30
 
-The publisher preserves the original staging commit rather than generating replacement author/committer metadata. Its read-only reusable Verify run must succeed before a separate Actions job creates an exact-SHA review branch and PR and requests standalone Verify. There is no approval, merge, deployment or vendor operation. See [publication controls](PUBLISHING.md).
+An earlier general publication workflow preserved a maintainer-authored SHA, ran reusable verification and opened a bot PR. Its local evidence included 18 controlled publisher tests and the shared PHP/API/style/security/documentation/container gates. These are historical results; those publisher tests and the reusable entry point are removed from current CI.
 
-Executed locally in Ubuntu WSL: 18 offline publisher tests, 70 security-tool tests with no skips, PHP application/recovery/wire checks, the isolated verification image's style/autoload/API/replay gates, three documentation-check fixtures, the 27-file local-link/fence scan and syntax validation of the modified Verify/publisher workflows. Controlled publisher cases include stale staging/main, diverged ancestry, destination collisions, wrong PR identity, uncached reference reads, interrupted accepted writes and reruns that reuse existing CI instead of blindly retrying it.
+Source publication now uses [normal maintainer branches and PRs](CI.md#maintainer-workflow). The separate staging pipeline duplicated verification and added write authority without a product need. The workflow is disabled, its helper/guide removed, and repository-level Actions PR creation/review approval disabled while default tokens stay read-only. Dependabot, the vulnerability tracker and bounded asset repair remain separate maintenance workflows. No runtime, provider or approval behavior changed.
 
-The local workflow validator does not recognize the unchanged vulnerability-alert permission, although current GitHub documentation and the repository's successful hosted inventories support it. That permission was retained. Local tests are separate from actual bot identity, branch publication and hosted PR results; observe those in Actions and the resulting PR. No local credential, deployment state or private captured record belongs in the source publication.
+The earlier local validator did not recognize the unchanged vulnerability-alert permission, although current GitHub documentation and successful hosted inventories supported it. That permission remains. Historical local checks, bot publication and hosted results retain their original scope; removing the publisher does not relabel them as current tests.
 
 
 ## Automated checks

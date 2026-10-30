@@ -20,7 +20,7 @@ Read [the project overview](../README.md) for the product and [SCENARIO.md](SCEN
 | Which checks and vendor observations actually passed? | [Verification record](REVIEW.md) |
 | What do Actions, Dependabot and the CVE tracker cover? | [CI](CI.md) and [security maintenance](../SECURITY.md) |
 | Where were development tools and AI used? | [AI disclosure](../README.md#ai-use) and [tooling evidence](TOOLING-INSTALLATION.md) |
-| How do verified changes reach a review PR? | [Source publication](PUBLISHING.md) |
+| How do source changes reach main? | [Maintainer workflow](CI.md#maintainer-workflow) |
 | How do I replay private captured observations? | [Viewer interface](../tools/demo-viewer/README.md) |
 
 ## Reading the design
