@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1
-FROM php:8.3-cli-bookworm@sha256:cdb77e306d6bb99db40e513fbe036ecc6c53b575cbcb7e581387845fef26d755 AS extensions
+FROM php:8.5-cli-bookworm@sha256:104890ada56869090c9cd0ec709fe205834d3e383b46d9995dc16cd6388a9302 AS extensions
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libcurl4-openssl-dev \
     && docker-php-ext-install -j2 curl pcntl
 
-FROM php:8.3-cli-bookworm@sha256:cdb77e306d6bb99db40e513fbe036ecc6c53b575cbcb7e581387845fef26d755 AS runtime
+FROM php:8.5-cli-bookworm@sha256:104890ada56869090c9cd0ec709fe205834d3e383b46d9995dc16cd6388a9302 AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libcurl4 ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
