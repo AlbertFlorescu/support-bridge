@@ -7,13 +7,14 @@ Read [the project overview](../README.md) for the product and [SCENARIO.md](SCEN
 | Question | Maintained guide |
 | --- | --- |
 | What happens after support creates a ticket? | [Customer walkthrough](SCENARIO.md) |
+| Which five customer cases can I demonstrate? | [Demonstration catalogue](DEMO_CASES.md) |
 | Which assumptions did we make? | [Assumptions register](ASSUMPTIONS.md) |
 | What can authorize a write or resolve a conflict? | [Governance](GOVERNANCE.md) |
 | How do the code and failure-recovery boundaries fit together? | [Architecture](ARCHITECTURE.md) |
 | How do I run the existing stack, find ports or sign in? | [Docker operation](DOCKER.md) |
 | How are live identities, credentials and checkpoints selected? | [Live setup and evidence](LIVE_DEMO.md) |
 | How does an explicit Zendesk tag create an issue safely? | [Engineering intake](INTAKE.md) |
-| How do engineering comments become internal notes? | [Comment delivery](COMMENTS.md) |
+| How do engineering questions and internal support replies travel both ways? | [Conversation delivery](COMMENTS.md) |
 | How are Zendesk credentials renewed? | [OAuth operation](OAUTH.md) |
 | What can the CLI/HTTP interface do? | [API guide](API.md), [OpenAPI](api/openapi.json) and [Swagger](http://127.0.0.1:1988/docs) |
 | What is current state, history or a monitoring signal? | [Observability contracts](OBSERVABILITY.md), [monitoring quick guide](../monitoring/README.md) |
@@ -25,7 +26,7 @@ Read [the project overview](../README.md) for the product and [SCENARIO.md](SCEN
 
 ## Reading the design
 
-There are three effectful workflows: tagged issue creation, field reconciliation and internal-note delivery. The opt-in worker runs them in that order. Each preserves its own durable recovery evidence under the canonical business lock. State-change approval belongs to field reconciliation; an issue comment, retry, dashboard or source actor cannot provide it.
+There are three effectful workflow types: tagged issue creation, field reconciliation and conversation delivery. The opt-in worker runs intake, fields, forward GitHub comments and new reverse Zendesk notes in that order. Each preserves its own durable recovery evidence under the canonical business lock. State-change approval belongs to field reconciliation; an issue comment, retry, dashboard or source actor cannot provide it.
 
 There are also two monitoring paths. Grafana's current table reads `/monitoring/pairs` with the read-only monitoring credential. It shows verified baseline subjects and source links. Prometheus scrapes numeric `/metrics` samples and supplies history, counts and rules. Neither monitoring path contacts vendors or executes a workflow.
 

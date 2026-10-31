@@ -10,6 +10,8 @@ use Bridge\Application\Command\IntakeEscalations;
 use Bridge\Application\IntakeFactory;
 use Bridge\Application\CommentFactory;
 use Bridge\Application\Command\SyncGitHubComments;
+use Bridge\Application\Command\SyncZendeskNotes;
+use Bridge\Comments\CommentDirection;
 use Bridge\RemoteFailure;
 use Bridge\Exception\WorkerBusy;
 use Bridge\Infrastructure\Logging\JsonLineWriter;
@@ -41,6 +43,10 @@ final readonly class WorkerRunner
                 if (CommentFactory::enabled()) {
                     $comments = $this->context->handle(new SyncGitHubComments());
                     ($this->output)(['event' => 'comment_sync', 'outcome' => $comments]);
+                }
+                if (CommentFactory::enabled(CommentDirection::ZendeskToGitHub)) {
+                    $notes = $this->context->handle(new SyncZendeskNotes());
+                    ($this->output)(['event' => 'note_sync', 'outcome' => $notes]);
                 }
             } catch (WorkerBusy) {
                 $outcome = ['worker_busy' => true];

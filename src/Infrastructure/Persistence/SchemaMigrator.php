@@ -73,6 +73,30 @@ final class SchemaMigrator
                 next_run INTEGER NOT NULL DEFAULT 0,
                 error TEXT
             );
+            CREATE TABLE IF NOT EXISTS note_deliveries (
+                pair_id TEXT NOT NULL REFERENCES pairs(id),
+                comment_id TEXT NOT NULL,
+                note TEXT NOT NULL,
+                marker TEXT NOT NULL UNIQUE,
+                source_version TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                attempted_at INTEGER,
+                destination_version TEXT,
+                github_comment_id TEXT,
+                next_run INTEGER NOT NULL DEFAULT 0,
+                error TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY(pair_id,comment_id)
+            );
+            CREATE TABLE IF NOT EXISTS note_streams (
+                pair_id TEXT PRIMARY KEY REFERENCES pairs(id),
+                last_scan INTEGER NOT NULL DEFAULT 0,
+                next_run INTEGER NOT NULL DEFAULT 0,
+                error TEXT,
+                initialized_at INTEGER,
+                excluded_ids TEXT
+            );
             SQL);
 
         $this->migrateApproval($connection);

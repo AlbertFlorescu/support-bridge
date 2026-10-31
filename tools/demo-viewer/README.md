@@ -7,7 +7,7 @@ node tools/demo-viewer/render.cjs --input var/guided-run/evidence.json --output 
 node --test tools/demo-viewer/viewer.test.cjs
 ```
 
-No installation or third-party package is needed. The private package manifest defines a CommonJS boundary and an optional `npm test` shorthand; it has no dependencies. On Windows UNC workspaces, run Node from a normal Windows directory and pass the renderer's absolute path. If Node's `--test` file discovery cannot handle the UNC share, invoking `viewer.test.cjs` directly runs the same built-in tests.
+No installation or third-party package is needed. The private package manifest defines a CommonJS boundary and an optional `npm test` shorthand; it has no dependencies. Run the Linux Node executable inside Ubuntu WSL and use private Linux output paths. Keep captured data outside source; do not fall back to Windows runtimes.
 
 ## Evidence interface
 
@@ -30,7 +30,7 @@ The private producer also records `run.zendesk_subdomain` to prevent mixing tena
 
 Plans retain `target`, `before.github` / `before.zendesk` and both `versions`. Fields contain only `title` and `state` (`open` or `closed`). Conflicts retain a fixed reason code, field names, both `observed` field sets and their `versions`. Approvals retain only `plan_hash`, `policy_version`, `approved_at` and the fixed `shared-operator` principal when present.
 
-`metrics.pairs` accepts a nonnegative numeric total or a map using the fixed workflow statuses. `metrics.reconciliations_total` accepts a numeric total or fixed outcome map, including `skipped`. Missing observations display “Not captured”; zero is retained as a real observation. Scraped aggregates can lag the inspected pair's state and include other pairs; they are not a simultaneous snapshot. No metric is inferred from the narrative.
+`metrics.pairs` accepts a nonnegative numeric total or a map using the fixed workflow statuses. `metrics.reconciliations_total` accepts a numeric total or fixed outcome map, including `skipped`. The producer omits optional metrics when no query is requested or the query is unavailable. Missing observations display “Not captured”; zero is retained as a real observation. Scraped aggregates can lag the inspected pair's state and include other pairs; they are not a simultaneous snapshot. No metric is inferred from the narrative.
 
 ## Read-only and data boundaries
 

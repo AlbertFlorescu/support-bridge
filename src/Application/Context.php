@@ -39,6 +39,9 @@ use Bridge\Application\Query\ListCommentDeliveriesHandler;
 use Bridge\Application\Query\GetMonitoringSnapshotHandler;
 use Bridge\Application\Query\GetLinkedPairTableHandler;
 use Bridge\Observability\LinkedPairTable;
+use Bridge\Comments\CommentDirection;
+use Bridge\Application\Command\SyncZendeskNotesHandler;
+use Bridge\Application\Query\ListNoteDeliveriesHandler;
 
 /** Per-deployment composition root; adapters share the same explicit use cases. */
 final class Context
@@ -53,7 +56,8 @@ final class Context
     public function __construct(
         public readonly Configuration $configuration,
         ?callable $intakeGateways = null,
-        ?callable $commentGateways = null
+        ?callable $commentGateways = null,
+        ?callable $noteGateways = null
     ) {
         $connection = new SqliteConnection($configuration->home . '/' . $configuration->mode . '.sqlite');
         $this->store = new Store($connection);
@@ -72,6 +76,15 @@ final class Context
             $comments,
             $this->providerFactory,
             $commentGateways
+        );
+        $notes = new CommentRepository($connection, CommentDirection::ZendeskToGitHub);
+        $noteFactory = new CommentFactory(
+            $configuration,
+            $this->store,
+            $notes,
+            $this->providerFactory,
+            $noteGateways,
+            CommentDirection::ZendeskToGitHub
         );
         $intakeFactory = new IntakeFactory(
             $configuration,
@@ -94,7 +107,8 @@ final class Context
             new RetryPairHandler($this->engineFactory),
             new EditLocalRecordHandler($configuration, $this->store, $this->providerFactory),
             new IntakeEscalationsHandler($intakeFactory),
-            new SyncGitHubCommentsHandler($commentFactory)
+            new SyncGitHubCommentsHandler($commentFactory),
+            new SyncZendeskNotesHandler($noteFactory)
         );
         $listing = new ListPairsHandler($this->store);
         $this->queries = new QueryDispatcher(
@@ -105,7 +119,8 @@ final class Context
             new ListEscalationsHandler($escalations),
             new ListCommentDeliveriesHandler($comments),
             new GetMonitoringSnapshotHandler($this->store),
-            new GetLinkedPairTableHandler($this->store, new LinkedPairTable($configuration))
+            new GetLinkedPairTableHandler($this->store, new LinkedPairTable($configuration)),
+            new ListNoteDeliveriesHandler($notes)
         );
     }
 

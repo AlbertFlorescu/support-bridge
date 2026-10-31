@@ -42,7 +42,6 @@ final readonly class CheckpointCapture
                 'records' => $records,
                 'governance' => $inspection['governance'],
                 'events' => $this->sanitizer->events($inspection['recent_events']),
-                'metrics' => [],
             ];
         });
     }

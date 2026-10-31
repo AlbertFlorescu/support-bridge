@@ -17,6 +17,8 @@ final class RouteResolver
             '/api/sync'    => ['POST' => 'sync'],
             '/api/intake' => ['POST' => 'intake'],
             '/api/escalations' => ['GET' => 'escalations'],
+            '/api/notes/sync' => ['POST' => 'sync_notes'],
+            '/api/note-deliveries' => ['GET' => 'note_deliveries'],
             '/api/comments/sync' => ['POST' => 'sync_comments'],
             '/api/comment-deliveries' => ['GET' => 'comment_deliveries'],
         ];

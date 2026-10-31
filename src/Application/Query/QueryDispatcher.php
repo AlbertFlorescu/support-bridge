@@ -16,7 +16,8 @@ final readonly class QueryDispatcher
         private ?ListEscalationsHandler $escalations = null,
         private ?ListCommentDeliveriesHandler $comments = null,
         private ?GetMonitoringSnapshotHandler $monitoring = null,
-        private ?GetLinkedPairTableHandler $table = null
+        private ?GetLinkedPairTableHandler $table = null,
+        private ?ListNoteDeliveriesHandler $notes = null
     ) {
     }
 
@@ -31,6 +32,7 @@ final readonly class QueryDispatcher
             $query instanceof ListCommentDeliveries && $this->comments !== null => $this->comments->handle($query),
             $query instanceof GetMonitoringSnapshot && $this->monitoring !== null => $this->monitoring->handle($query),
             $query instanceof GetLinkedPairTable && $this->table !== null => $this->table->handle($query),
+            $query instanceof ListNoteDeliveries && $this->notes !== null => $this->notes->handle($query),
             default => throw new InvalidArgumentException('Unsupported application query.'),
         };
     }

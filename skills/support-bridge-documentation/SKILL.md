@@ -9,9 +9,9 @@ Start with [the guide index](../../docs/README.md), [AGENTS.md](../../AGENTS.md)
 
 Use one owning guide per question: SCENARIO for the customer story, DOCKER for connections/lifecycle, INTAKE/COMMENTS/OAUTH for their operating boundaries, ARCHITECTURE for implementation, OBSERVABILITY for metric/context semantics, CI/SECURITY for maintenance and REVIEW for actual evidence. Link those guides rather than copying increasingly different procedures.
 
-Keep the Zendesk-first flow and the distinct recovery contracts: fields read before retry; attempted creation/appends never blindly repeat. Any outbound state change holds its complete field plan for exact fresh approval. Never rely on AI in compliance or turn an explanation/skill/dashboard into approval.
+Keep the Zendesk-first flow and the distinct recovery contracts: fields read before retry; attempted creation/appends never blindly repeat. Reverse internal replies use a persisted new-only starting point, exclude public/history/bridge copies, and retain separate direction counts. Any outbound state change holds its complete field plan for exact fresh approval. Never rely on AI in compliance or turn an explanation/skill/dashboard into approval.
 
-Draw both monitoring paths accurately. The current ten-column table queries protected `/monitoring/pairs` with last verified subjects and fixed links; Prometheus supplies the other six panels/history from numeric `/metrics`. Subjects/URLs are not metric labels. Worker observation, table refresh and scrape/query clocks are separate. Missing/unknown evidence stays explicit.
+Draw both monitoring paths accurately. The current twelve-column table queries protected `/monitoring/pairs` with last verified subjects and fixed links; Prometheus supplies the other seven panels/history from numeric `/metrics`. Subjects/URLs are not metric labels. Worker observation, table refresh and scrape/query clocks are separate. Missing/unknown evidence stays explicit.
 
 Preserve dated verification sections as historical observations. Report local tests separately from hosted CI, vendor compatibility, customer acceptance and production readiness. Check current repository metadata read-only before making a fresh branch-protection claim; local rules/workflow files do not establish enforcement. Follow session authorization for publication; this skill grants none.
 

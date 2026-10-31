@@ -21,6 +21,8 @@ final class ArgumentParser
         'local-edit' => 4,
         'intake'     => 0,
         'escalations' => 0,
+        'sync-notes' => 0,
+        'notes' => 0,
         'sync-comments' => 0,
         'comments' => 0,
     ];

@@ -56,6 +56,7 @@ foreach (
         'tests/zendesk-token-rotation.php',
         'tests/intake.php',
         'tests/comments.php',
+        'tests/conversations.php',
         'tests/live-bootstrap.php',
         'tests/live-credentials.php',
         'tests/replay.php',

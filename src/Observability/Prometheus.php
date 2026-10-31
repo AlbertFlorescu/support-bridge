@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bridge\Observability;
 
 use PDO;
+use Bridge\Comments\CommentDirection;
 
 /** Durable, bounded-cardinality metrics shared by short-lived CLI and HTTP processes. */
 final class Prometheus
@@ -217,6 +218,20 @@ final class Prometheus
                 $state['comments'],
                 $state['comment_stream_errors'],
                 $state['comment_privacy_hold']
+            ));
+        }
+        if (array_key_exists('notes', $state)) {
+            if (
+                !is_array($state['notes']) || !is_int($state['note_stream_errors'] ?? null)
+                || !is_int($state['note_streams_initialized'] ?? null)
+            ) {
+                throw new \RuntimeException('Reverse comment metric state is unavailable.');
+            }
+            array_push($lines, ...(new CommentMetrics(CommentDirection::ZendeskToGitHub))->render(
+                $state['notes'],
+                $state['note_stream_errors'],
+                false,
+                $state['note_streams_initialized']
             ));
         }
         return implode("\n", $lines) . "\n";

@@ -1,14 +1,14 @@
 {
   "uid": "supportbridge-overview",
-  "title": "Support Bridge — linked escalations",
-  "description": "The three linked demonstration cases and their last observed bridge workflow. Manual sweeps, stored evidence and an explicit review gate; no simulated traffic or inferred vendor freshness.",
+  "title": "Support Bridge \u2014 linked escalations",
+  "description": "Every linked escalation with last verified subjects, fixed source links, separate conversation delivery counts and sampled workflow history. Monitoring reads stored evidence without vendor access or approval.",
   "tags": [
     "support-bridge",
     "demo"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 10,
+  "version": 12,
   "refresh": "5s",
   "time": {
     "from": "now-1h",
@@ -161,7 +161,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(support_bridge_pairs{status=~\"conflict|dead|awaiting_approval\"}) + sum(support_bridge_intake_records{status=~\"creating|uncertain|blocked\"}) + sum(support_bridge_comment_deliveries{status=~\"sending|uncertain|blocked\"}) + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold)",
+          "expr": "sum(support_bridge_pairs{status=~\"conflict|dead|awaiting_approval\"}) + sum(support_bridge_intake_records{status=~\"creating|uncertain|blocked\"}) + sum(support_bridge_comment_deliveries{status=~\"sending|uncertain|blocked\"}) + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold) + sum(support_bridge_note_deliveries{status=~\"sending|uncertain|blocked\"}) + sum(support_bridge_note_stream_errors)",
           "instant": true,
           "range": false
         }
@@ -227,7 +227,7 @@
         "x": 0,
         "y": 16,
         "w": 24,
-        "h": 10
+        "h": 13
       },
       "targets": [
         {
@@ -292,6 +292,16 @@
               "type": "number"
             },
             {
+              "selector": "notes_to_github_delivered",
+              "text": "GitHub replies delivered",
+              "type": "number"
+            },
+            {
+              "selector": "notes_to_github_waiting",
+              "text": "GitHub replies waiting",
+              "type": "number"
+            },
+            {
               "selector": "last_success_ms",
               "text": "Last verified convergence",
               "type": "number"
@@ -323,9 +333,11 @@
               "Failed attempts": 6,
               "Internal notes delivered": 7,
               "Internal notes waiting": 8,
-              "Last verified convergence": 9,
-              "zendesk_url": 10,
-              "github_url": 11
+              "GitHub replies delivered": 9,
+              "GitHub replies waiting": 10,
+              "Last verified convergence": 11,
+              "zendesk_url": 12,
+              "github_url": 13
             }
           }
         },
@@ -366,7 +378,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 120
+                "value": 105
               },
               {
                 "id": "links",
@@ -398,7 +410,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 120
+                "value": 105
               },
               {
                 "id": "links",
@@ -470,7 +482,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 190
+                "value": 155
               }
             ]
           },
@@ -510,7 +522,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 200
+                "value": 170
               }
             ]
           },
@@ -546,7 +558,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 150
+                "value": 120
               }
             ]
           },
@@ -566,7 +578,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 130
+                "value": 110
               }
             ]
           },
@@ -600,7 +612,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 250
+                "value": 215
               }
             ]
           },
@@ -620,7 +632,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 150
+                "value": 145
               }
             ]
           },
@@ -640,7 +652,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 150
+                "value": 140
               }
             ]
           },
@@ -652,7 +664,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 350
+                "value": 270
               },
               {
                 "id": "custom.wrapText",
@@ -691,6 +703,46 @@
                 "value": true
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GitHub replies delivered"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GitHub replies waiting"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 145
+              }
+            ]
           }
         ]
       },
@@ -713,7 +765,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 26,
+        "y": 29,
         "w": 24,
         "h": 6
       },
@@ -721,7 +773,7 @@
         {
           "refId": "A",
           "expr": "support_bridge_linked_pair_status",
-          "legendFormat": "Zendesk {{zendesk_ticket}} ↔ GitHub {{github_issue}}",
+          "legendFormat": "Zendesk {{zendesk_ticket}} \u2194 GitHub {{github_issue}}",
           "instant": false,
           "range": true
         }
@@ -852,7 +904,7 @@
       "gridPos": {
         "x": 0,
         "y": 10,
-        "w": 24,
+        "w": 12,
         "h": 6
       },
       "targets": [
@@ -860,6 +912,61 @@
           "refId": "A",
           "expr": "support_bridge_comment_deliveries",
           "legendFormat": "{{status}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "bargauge",
+      "title": "New Zendesk internal notes to GitHub",
+      "description": "First complete scan records a durable starting point without copying history. Subsequent internal notes are delivered once; waiting includes uncertain and blocked work. Starting points recorded counts initialized linked streams.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "supportbridge-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 10,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "support_bridge_note_deliveries",
+          "legendFormat": "{{status}}",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "support_bridge_note_streams_initialized",
+          "legendFormat": "Starting points recorded",
           "instant": true,
           "range": false
         }

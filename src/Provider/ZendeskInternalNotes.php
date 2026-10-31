@@ -15,6 +15,7 @@ final class ZendeskInternalNotes implements InternalNotes
 {
     private readonly string $subdomain;
     private array $comments = [];
+    private readonly ZendeskCommentHistory $history;
 
     public function __construct(
         private readonly HttpClient $http,
@@ -22,6 +23,7 @@ final class ZendeskInternalNotes implements InternalNotes
         private readonly ZendeskAuthorization $authorization
     ) {
         $this->subdomain = Identity::subdomain($subdomain);
+        $this->history = new ZendeskCommentHistory($http, $subdomain, $authorization);
     }
 
     public function find(string $ticketId, string $marker): ?string
@@ -70,34 +72,7 @@ final class ZendeskInternalNotes implements InternalNotes
         if (isset($this->comments[$ticketId])) {
             return $this->comments[$ticketId];
         }
-        $comments = [];
-        for ($page = 1; $page <= 5; ++$page) {
-            $url = substr($this->url($ticketId), 0, -5) . '/comments.json?per_page=100&page=' . $page;
-            $response = $this->http->request('GET', $url, $this->headers());
-            $response->assertSuccess('Zendesk');
-            if (
-                !is_array($response->body['comments'] ?? null) || !array_is_list($response->body['comments'])
-                || count($response->body['comments']) > 100 || !array_key_exists('next_page', $response->body)
-                || (!is_string($response->body['next_page']) && $response->body['next_page'] !== null)
-            ) {
-                throw new RemoteFailure('Zendesk returned an invalid note listing.');
-            }
-            foreach ($response->body['comments'] as $comment) {
-                if (
-                    !is_array($comment) || (!is_int($comment['id'] ?? null) && !is_string($comment['id'] ?? null))
-                    || !preg_match('/^[1-9][0-9]{0,18}$/D', (string) $comment['id'])
-                    || !is_bool($comment['public'] ?? null) || !is_string($comment['body'] ?? null)
-                    || (isset($comment['plain_body']) && !is_string($comment['plain_body']))
-                ) {
-                    throw new RemoteFailure('Zendesk returned an invalid ticket comment.');
-                }
-                $comments[] = $comment;
-            }
-            if (empty($response->body['next_page'])) {
-                return $this->comments[$ticketId] = $comments;
-            }
-        }
-        throw new RemoteFailure('Zendesk note lookup exceeded its five-page bound.', true, 60);
+        return $this->comments[$ticketId] = $this->history->read($ticketId)['comments'];
     }
 
     private function url(string $ticketId): string

@@ -16,6 +16,8 @@ final class LinkedPairMetrics
         'last_success_timestamp_seconds' => 'Last observed convergence as Unix seconds; zero means never.',
         'notes_delivered' => 'GitHub comment deliveries with an observed internal Zendesk note.',
         'notes_waiting' => 'GitHub comment deliveries pending, sending, uncertain or blocked.',
+        'notes_to_github_delivered' => 'New Zendesk internal notes observed as GitHub comments.',
+        'notes_to_github_waiting' => 'Reverse note deliveries pending, sending, uncertain or blocked.',
     ];
 
     public function __construct(private readonly LinkedPairProjection $projection = new LinkedPairProjection())

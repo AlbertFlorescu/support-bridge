@@ -6,22 +6,16 @@ We demonstrate an escalation by changing owned synthetic records in GitHub and Z
 
 Our assumed customer operates a B2B reporting service. Support tracks a failed large CSV export in Zendesk, while engineering tracks its investigation in GitHub. The teams need a shared summary and resolution state without repeatedly copying updates. We expect fewer stale escalations and less copying; a customer pilot must measure that value.
 
-The original three prepared cases provide a bounded narrative set. New tagged-ticket escalations use the same workflow and appear automatically in the all-pairs dashboard; this is not an allowlist:
+Our current [five-case catalogue](DEMO_CASES.md) covers CSV resolution, pending webhook investigation, an SSO summary conflict, an invoice dependency wait and preference-regression reopening. Each starts with a fictional Zendesk report and explicit tag; the bridge creates the engineering issue. The protected current table lists the complete active set automatically.
 
-| Case | Prepared GitHub source | Purpose |
-| --- | --- | --- |
-| Large CSV export | [Issue 19](https://github.com/AlbertFlorescu/support-bridge/issues/19) | Primary summary, resolution and reopening case |
-| Duplicate webhook delivery | [Issue 20](https://github.com/AlbertFlorescu/support-bridge/issues/20) | A second independent escalation |
-| Expired SSO session | [Issue 21](https://github.com/AlbertFlorescu/support-bridge/issues/21) | Competing summary edits and explicit source selection |
-
-We created and read back three matching fictional Zendesk tickets, established all three baselines, and exercised both title directions and an explicitly approved mixed title/state plan for the CSV-export pair. The [verification record](REVIEW.md#live-demonstration-verification-2026-10-28) states that bounded evidence. Actual ticket IDs, mappings, checkpoints and media remain private. Reopening, conflict resolution and injected reliability cases in the broader walkthrough are separate demonstrations; account-specific validation, customer benefit and production readiness remain open questions.
+Earlier prepared records were retired at the owner's request after their source content/conversations and consistent idle business database were archived privately. The same project, eight volumes, credentials, accounts and Prometheus history remain. Historical verification below retains the scope of those earlier executions; retired numeric records are not current demonstration links. The new private package records the current source IDs and checkpoints. This explicit retirement is not routine cleanup or a general unlink/restore feature.
 
 ## Explicit assumptions and authority
 
 - We have permission to create and edit the chosen fictional records in both accounts. We check account rules and notification behavior before creating them; an internal note alone does not disable every tenant trigger.
 - A setup actor creates or edits source records using the relevant vendor credential. It receives no bridge operator credential or approval capability. These source actions occur outside the bridge's outbound approval gate.
 - An operator verifies each existing issue/ticket mapping before linking it. Similar titles do not establish identity. The reconciliation provider interface has no remote-create operation.
-- Title/subject and binary resolution state synchronize both ways. Explicitly enabled [GitHub comment delivery](COMMENTS.md) appends internal Zendesk notes once per source comment. Intake copies the initial Zendesk description once into a newly created issue. Later Zendesk conversation/description edits, tags and setup markers are not mirrored into GitHub. Historical issue comments are eligible when enabling; inspect source content first.
+- Title/subject and binary resolution state synchronize both ways. Explicitly enabled [GitHub comment delivery](COMMENTS.md) appends internal Zendesk notes once per source comment. Intake copies the initial Zendesk description once into a newly created issue. Separately enabled reverse delivery copies new internal Zendesk notes after each pair’s first successful starting scan; public replies and prior history are excluded. Later description edits, tags and setup markers are not mirrored into GitHub. Historical issue comments are eligible when enabling; inspect source content first.
 - The live project has its own state, credentials and monitoring history. We preserve both local projects and never import their numeric IDs or baselines into live state.
 - Every outbound state-changing plan waits for explicit exact-plan approval. Conflicting sources require an explicit decision over fresh evidence. We do not use scripted synthetic approval in live mode.
 
@@ -32,7 +26,7 @@ The Zendesk ticket scopes cover tickets the client-associated account can access
 ```mermaid
 flowchart TB
     Support["Support saves tagged fictional ticket"] --> ZD["Zendesk"]
-    ZD <--> Workflow["Opt-in worker: intake, fields and notes"]
+    ZD <--> Workflow["Opt-in worker: intake, fields and two conversation channels"]
     Workflow <--> GH["GitHub"]
     Operator["Exact-plan review"] --> Workflow
     Workflow --> State[("Private business state and audit")]
@@ -79,7 +73,7 @@ docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live
 docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml run --rm --no-deps cli status
 ```
 
-The background worker is disabled on a fresh configuration until the `live-worker` profile is selected. For the Zendesk-first flow, enable it together with intake as described in [intake operation](INTAKE.md). Stop it only when deliberate manual checkpoints require pausing effects. No traffic generator is present. Enabling the profile starts intake and reconciliation immediately; it is not a read-only action. `BRIDGE_LIVE_SWEEP_INTERVAL` controls its delay, defaulting to 60 seconds. Do not enable it to bypass a review wait.
+The background worker is disabled on a fresh configuration until the `live-worker` profile is selected. For the Zendesk-first flow, enable it together with intake as described in [intake operation](INTAKE.md). Stop it only when deliberate manual checkpoints require pausing effects. No traffic generator is present. Enabling the profile starts intake and reconciliation immediately, followed by separately enabled GitHub-to-Zendesk and Zendesk-to-GitHub conversation passes; it is not a read-only action. `BRIDGE_LIVE_SWEEP_INTERVAL` controls its delay, defaulting to 60 seconds. Do not enable it to bypass a review wait.
 
 Keep the private env file at the canonical 1988/1989/1990 host ports. Shell values for `BRIDGE_LIVE_HTTP_PORT`, `BRIDGE_LIVE_PROMETHEUS_PORT` and `BRIDGE_LIVE_GRAFANA_PORT` can override it, so confirm actual bindings. Loopback bindings and internal service ports remain unchanged. Port consolidation and recreation authorize no new source edits, synchronization or approvals. Ordinary stop/down retains this project's volumes; never remove parked or live volumes as routine cleanup.
 
@@ -88,6 +82,12 @@ Keep the private env file at the canonical 1988/1989/1990 host ports. Shell valu
 For the existing live deployment, [enable the isolated renewal service](OAUTH.md#enable-renewal-for-the-existing-live-deployment) by adding `oauth-renewal` to the private profile list while retaining any already enabled `live-worker` profile. Do not replace the existing list or enable a fresh worker implicitly. The same two Compose files and project identity apply. The `oauth-credentials` importer writes only the new issuer volume; `zendesk-token-renewer` alone reads that client configuration and publishes the managed access-token bundle. API, CLI and worker read the current bundle before each Zendesk request without receiving the client secret.
 
 Renewal uses ticket-only scopes and fixed HTTPS issuance. It does not run synchronization, edit vendor records, approve a plan or reset business retry budgets. Its Docker health requires recent loop progress and a usable token. Host downtime, client revocation or vendor failures can still interrupt access. The [renewal guide](OAUTH.md) documents initialization, mode selection, recovery, verification and the shared vendor-volume limitation.
+
+## Enable new internal support replies
+
+The reverse channel is separately disabled by default. Review the complete linked set, GitHub repository audience and permissions before setting `BRIDGE_ZENDESK_NOTES_ENABLED=1` in the same private env file and rebuilding/recreating API and worker with the existing project and both Compose files. Preserve all state and credentials. This enables source discovery and potential future GitHub comments; it is not a read-only dashboard change. See [conversation operation](COMMENTS.md#operate-and-inspect).
+
+First inspect `notes` or `/api/note-deliveries` until each intended pair has `initialized_at`. That first successful complete scan excludes every existing Zendesk comment ID and posts nothing. Then enter a new internal support answer. Verify one attributed GitHub comment, one reverse delivered row, its numeric table count and no copied echo on repeated passes. Public replies and the initial report are excluded. Stopping/restarting or toggling the flag never resets that starting point; eligible later notes can wait while paused. Existing review work still holds appends. This is a proposed run, not a claim that the reverse live-vendor path has been executed.
 
 ## Credentials and manual OAuth issuance
 
@@ -208,17 +208,20 @@ docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live
   cp api:/var/lib/support-bridge/evidence/evidence.json /absolute/private/evidence/evidence.json
 ```
 
-Use paths understood by the Docker CLI's host. A Windows Docker CLI expects a Windows output path even when launched from WSL. Protect the host output directory before exporting, and retain the captured JSON only for the agreed demonstration period. Files in the application volume remain sensitive artifacts separate from the business SQLite files; they are not complete business backups.
+Use private Linux paths inside Ubuntu WSL and the native Linux Docker CLI. The source archive and exported copy retain the same privacy requirements. If a direct copy is unavailable, stream the existing archive into a private temporary file and replace the destination only after a successful read:
 
-If the host copy operation rejects a private path or reparse point, stream only the archive through the existing API container and write its captured stdout privately. For example, in PowerShell with the selected deployment arguments and private paths already set:
-
-```powershell
-$captured = docker compose --env-file $deployment -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml exec -T api php -r 'readfile("/var/lib/support-bridge/evidence/evidence.json");'
-if ($LASTEXITCODE -ne 0) { throw 'Evidence export failed.' }
-[IO.File]::WriteAllText($output, ($captured -join "`n"), [Text.UTF8Encoding]::new($false))
+```bash
+umask 077
+capture_temp="$(mktemp /absolute/private/evidence/.capture.XXXXXX)"
+if docker compose --env-file /absolute/private/live-demo.env -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml exec -T api cat /var/lib/support-bridge/evidence/evidence.json > "$capture_temp"; then
+  mv -- "$capture_temp" /absolute/private/evidence/evidence.json
+else
+  rm -- "$capture_temp"
+  exit 1
+fi
 ```
 
-This does not fetch providers or execute the workflow. Keep the output out of terminal transcripts and public build artifacts. The source archive and exported copy still need the same privacy controls.
+This reads the stored archive without fetching providers or executing a workflow. Keep raw data out of terminal transcripts, source and public build artifacts.
 
 Render the exported archive on a development host with Node, outside the runtime container:
 
@@ -238,7 +241,7 @@ The current all-pairs table uses `/monitoring/pairs` directly through Grafana’
 
 Open the live project's [Grafana login on port 1990](http://127.0.0.1:1990/login), using the live project's persisted account. Only a fresh database starts with `admin` and its generated password. The [Grafana sign-in guide](DOCKER.md#sign-in-to-grafana) includes the explicit live bootstrap command and account-rotation limits. Keep `127.0.0.1` consistent. Compose assigns a project-specific login cookie name; applying that setting requires Grafana recreation and one fresh sign-in while preserving its accounts and data. For older deployments still sharing a cookie name across ports, diagnose in an independent browser session.
 
-Read [Grafana's panel meanings](SCENARIO.md#reading-the-dashboard-during-the-case) together with the actual provider records and authenticated inspection. A healthy scrape means the exporter is reachable. Operator attention counts current conflicts, dead work and approval waits; throughput includes no-op polls. The all-pairs table includes every saved mapping, its last verified subject, clickable Zendesk/GitHub source numbers and delivered/waiting internal-note counts automatically. It uses protected read-only JSON context through the pinned Infinity backend, with no new vendor requests or titles in Prometheus labels. A pending edit may differ from the displayed verified subject. Only numeric vendor IDs label per-pair gauges; internal pair keys, titles, hashes and rationales remain excluded. IDs are retained in monitoring data, with seven series per link; see [exposure and scaling trade-offs](OBSERVABILITY.md#trade-offs-and-data-exposure).
+Read [Grafana's panel meanings](SCENARIO.md#reading-the-dashboard-during-the-case) together with the actual provider records and authenticated inspection. A healthy scrape means the exporter is reachable. Operator attention counts current conflicts, dead work and approval waits; throughput includes no-op polls. The all-pairs table includes every saved mapping, its last verified subject, clickable Zendesk/GitHub source numbers and separate delivered/waiting counts for internal notes and GitHub replies automatically. It uses protected read-only JSON context through the pinned Infinity backend, with no new vendor requests or titles in Prometheus labels. A pending edit may differ from the displayed verified subject. Only numeric vendor IDs label per-pair gauges; internal pair keys, titles, hashes and rationales remain excluded. IDs are retained in monitoring data, with nine series per link; see [exposure and scaling trade-offs](OBSERVABILITY.md#trade-offs-and-data-exposure).
 
 After at least one explicit link exists, the live project's smoke check can validate API authentication, inspection, scrapes and Grafana provisioning without provider access or business writes:
 
@@ -254,7 +257,7 @@ On a shell with Docker, `sh docker/check-live-demo.sh` exercises the actual cred
 
 ## Trade-offs
 
-- One live deployment keeps the three linked cases and monitoring together. Retaining its state separately from disposable test fixtures prevents accidental imports, while private credentials still need an explicit lifecycle.
+- One live deployment keeps the active cases and monitoring together. Retaining its state separately from disposable test fixtures prevents accidental imports, while private credentials still need an explicit lifecycle.
 - Tagged intake removes manual issue creation and linking from new escalations. The existing worker polls before reconciliation, adding search-index and scheduling delay; manual sweeps remain available for deliberately controlled checkpoints. Both paths preserve the same review and retry gates.
 - Ticket-only OAuth scopes reduce resource access but still grant broader ticket capabilities than this bridge uses. We have no per-pair vendor credential or per-user operator role.
 - A private credential volume avoids host bind-mount and host UID compatibility requirements, while adding deployed copies that need explicit import, retention and rotation. The importer has write access to that volume; workflow services receive read-only access.
@@ -267,7 +270,7 @@ Automatic credential renewal requires its enabled profile and a running Docker h
 
 Sequential provider reads, finite version timestamp precision and GitHub's preflight/PATCH gap remain. The local lock cannot prevent vendor-side edits or make two providers atomic. Tenant triggers, required fields, notifications and state semantics need actual account validation. Ticket source setup is distinct from bridge intake. Tagged GitHub creation has its own durable-marker recovery, and uncertain absence never authorizes a second POST; it is not a vendor exactly-once guarantee. See [intake limits](INTAKE.md#known-limitations).
 
-Bootstrap, mounts and loopback ports do not supply production ingress, encryption, a secret manager, independent approval or operational ownership. Evidence archives are bounded, mutable and contain only selected recent events. They are not a retention service or a restored-business-state format. A complete live run, customer acceptance and production capacity require their own evidence.
+Bootstrap, mounts and loopback ports do not supply production ingress, encryption, a secret manager, independent approval or operational ownership. Evidence archives are bounded, mutable and contain only selected recent events. They are not a retention service or a restored-business-state format. The bounded five-case recording, broader provider failure recovery, customer acceptance and production capacity are separate evidence categories.
 
 ## AI use
 
