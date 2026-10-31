@@ -308,6 +308,32 @@ try {
         wireSame(503, $disabled['status']);
         $record('POST', '/api/comments/sync', $disabled);
     });
+    $run('Reverse note queries expose no providers and local delivery stays disabled over HTTP', static function () use ($server, $record): void {
+        $listing = $server->request('GET', '/api/note-deliveries');
+        wireSame(200, $listing['status']);
+        wireSame(0, $listing['json']['total']);
+        wireSame(0, $listing['json']['stream_total']);
+        $record('GET', '/api/note-deliveries', $listing);
+        $repository = new Bridge\Infrastructure\Persistence\CommentRepository(
+            new Bridge\Infrastructure\Persistence\SqliteConnection($server->home . '/local.sqlite'),
+            Bridge\Comments\CommentDirection::ZendeskToGitHub
+        );
+        $repository->initialize('escalation-1', ['800'], time());
+        $repository->prepare('escalation-1', new Bridge\Comments\ZendeskNote(
+            '1000', 'Controlled new internal reply', '42', 'Escalation Engineer',
+            '2026-10-30T10:00:00Z', 'https://example.zendesk.com/agent/tickets/501'
+        ));
+        $populated = $server->request('GET', '/api/note-deliveries');
+        wireSame(200, $populated['status']);
+        wireSame(1, $populated['json']['total']);
+        wireSame(1, $populated['json']['streams'][0]['excluded_count']);
+        wireSame('pending', $populated['json']['items'][0]['status']);
+        $record('GET', '/api/note-deliveries', $populated);
+        $disabled = $server->request('POST', '/api/notes/sync', '{}');
+        wireSame(503, $disabled['status']);
+        wireSame('service_not_configured', $disabled['json']['error']['code']);
+        $record('POST', '/api/notes/sync', $disabled);
+    });
     $run('The scrape endpoint emits Prometheus text with bounded labels and a final newline', static function () use ($server, $record): void {
         $response = $server->metricsCredential();
         wireSame(200, $response['status']);

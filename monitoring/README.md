@@ -12,9 +12,9 @@ The existing `support-bridge-live-demo` deployment has one Grafana and one Prome
 
 **All linked ticket and issue pairs** lists every stored mapping. Its subject and resolution come from the last verified common baseline. Click the Zendesk or GitHub number to open its source page in a new tab using your own vendor session. A newer edit can be pending worker observation or review; no baseline displays **No verified subject** / **No verified baseline**. A zero convergence timestamp means **Never verified**.
 
-Delivered internal notes were observed in Zendesk. Waiting combines pending, sending, uncertain and blocked work; authenticated inspection gives the exact reason. A delivered count does not continuously recheck visibility or establish customer confirmation.
+Delivered internal notes were observed in Zendesk. GitHub replies delivered were observed in GitHub after copying eligible new Zendesk internal notes. The twelve-column table separates both channels. The reverse panel also shows recorded starting points; initialization sends no historical notes. Waiting combines pending, sending, uncertain and blocked work; authenticated inspection gives the exact reason. A delivered count does not continuously recheck visibility or establish customer confirmation.
 
-The other six panels show metric connection, total links, operator attention, intake totals, comment totals and workflow history. **Synced** means last stored convergence. Operator attention sums concerns and can count one escalation more than once. A connected exporter does not prove vendor credentials or current source state.
+The other seven panels show metric connection, total links, operator attention, intake totals, separate forward/reverse conversation totals and workflow history. **Synced** means last stored convergence. Operator attention sums concerns and can count one escalation more than once. A connected exporter does not prove vendor credentials or current source state.
 
 ## Why two data sources?
 
@@ -31,6 +31,6 @@ A new mapping appears in the table after the link is saved and the next table re
 
 The shared monitoring token reads numeric metrics and every linked baseline subject/source URL. It cannot run operator commands. Grafana holds it server-side for the API-only allowed host; browser viewers have no per-pair authorization. Monitoring receives no vendor or operator credential. Source text, URLs, internal keys, errors and approval evidence never enter Prometheus labels.
 
-Seven gauge series per mapping, complete table reads and retained numeric history grow with usage. Capacity is unmeasured. Three example Prometheus rules have no configured recipient or Alertmanager. No panel, model or playback supplies approval or proves compliance.
+Nine gauge series per mapping, complete table reads and retained numeric history grow with usage. Capacity is unmeasured. Three example Prometheus rules have no configured recipient or Alertmanager. No panel, model or playback supplies approval or proves compliance.
 
 [OBSERVABILITY.md](../docs/OBSERVABILITY.md) owns metric contracts, data exposure, retention and verification. [REVIEW.md](../docs/REVIEW.md) separates controlled tests, actual local rendering and selected vendor observations. Never reset accounts or volumes to satisfy a smoke test.

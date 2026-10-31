@@ -58,6 +58,8 @@ final class LinkedPairProjection
             'last_success_timestamp_seconds' => $this->nonnegative($pair['last_success'] ?? null),
             'notes_delivered' => $this->nonnegative($pair['notes_delivered'] ?? -1),
             'notes_waiting' => $this->nonnegative($pair['notes_waiting'] ?? -1),
+            'notes_to_github_delivered' => $this->nonnegative($pair['notes_to_github_delivered'] ?? -1),
+            'notes_to_github_waiting' => $this->nonnegative($pair['notes_to_github_waiting'] ?? -1),
         ];
     }
 

@@ -1,4 +1,4 @@
-# Controlled in-memory rule evaluation; no application or vendor access.
+# Controlled in-memory rule evaluation; no vendor traffic.
 rule_files:
 - /etc/prometheus/alerts.yml
 evaluation_interval: 1m
@@ -30,9 +30,18 @@ tests:
     values: '0x8'
   - series: up{job="support_bridge",instance="api:8080"}
     values: 1x8
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="sending"}
+    values: '0x8'
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="uncertain"}
+    values: '0x8'
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="blocked"}
+    values: '0x8'
+  - series: support_bridge_note_stream_errors{job="support_bridge",instance="api:8080"}
+    values: '0x8'
   promql_expr_test:
   - expr: sum(support_bridge_pairs{status=~"conflict|dead|awaiting_approval"}) + sum(support_bridge_intake_records{status=~"creating|uncertain|blocked"}) + sum(support_bridge_comment_deliveries{status=~"sending|uncertain|blocked"})
-      + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold)
+      + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold) + sum(support_bridge_note_deliveries{status=~"sending|uncertain|blocked"})
+      + sum(support_bridge_note_stream_errors)
     eval_time: 6m
     exp_samples:
     - labels: '{}'
@@ -68,9 +77,18 @@ tests:
     values: '0x8'
   - series: up{job="support_bridge",instance="api:8080"}
     values: 1x8
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="sending"}
+    values: '0x8'
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="uncertain"}
+    values: '0x8'
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="blocked"}
+    values: '0x8'
+  - series: support_bridge_note_stream_errors{job="support_bridge",instance="api:8080"}
+    values: '0x8'
   promql_expr_test:
   - expr: sum(support_bridge_pairs{status=~"conflict|dead|awaiting_approval"}) + sum(support_bridge_intake_records{status=~"creating|uncertain|blocked"}) + sum(support_bridge_comment_deliveries{status=~"sending|uncertain|blocked"})
-      + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold)
+      + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold) + sum(support_bridge_note_deliveries{status=~"sending|uncertain|blocked"})
+      + sum(support_bridge_note_stream_errors)
     eval_time: 6m
     exp_samples:
     - labels: '{}'
@@ -111,9 +129,18 @@ tests:
     values: 1x8
   - series: up{job="support_bridge",instance="api:8080"}
     values: 1x8
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="sending"}
+    values: '0x8'
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="uncertain"}
+    values: '0x8'
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="blocked"}
+    values: '0x8'
+  - series: support_bridge_note_stream_errors{job="support_bridge",instance="api:8080"}
+    values: '0x8'
   promql_expr_test:
   - expr: sum(support_bridge_pairs{status=~"conflict|dead|awaiting_approval"}) + sum(support_bridge_intake_records{status=~"creating|uncertain|blocked"}) + sum(support_bridge_comment_deliveries{status=~"sending|uncertain|blocked"})
-      + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold)
+      + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold) + sum(support_bridge_note_deliveries{status=~"sending|uncertain|blocked"})
+      + sum(support_bridge_note_stream_errors)
     eval_time: 6m
     exp_samples:
     - labels: '{}'
@@ -132,7 +159,8 @@ tests:
     values: '0x8'
   promql_expr_test:
   - expr: sum(support_bridge_pairs{status=~"conflict|dead|awaiting_approval"}) + sum(support_bridge_intake_records{status=~"creating|uncertain|blocked"}) + sum(support_bridge_comment_deliveries{status=~"sending|uncertain|blocked"})
-      + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold)
+      + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold) + sum(support_bridge_note_deliveries{status=~"sending|uncertain|blocked"})
+      + sum(support_bridge_note_stream_errors)
     eval_time: 6m
     exp_samples: []
   alert_rule_test:
@@ -149,3 +177,98 @@ tests:
       exp_annotations:
         summary: Support Bridge metrics cannot be scraped
         description: Check the application, separate metrics token and local scrape configuration.
+- name: Uncertain reverse reply remains visible
+  interval: 1m
+  input_series:
+  - series: support_bridge_pairs{job="support_bridge",instance="api:8080",status="conflict"}
+    values: '0x8'
+  - series: support_bridge_pairs{job="support_bridge",instance="api:8080",status="dead"}
+    values: '0x8'
+  - series: support_bridge_pairs{job="support_bridge",instance="api:8080",status="awaiting_approval"}
+    values: '0x8'
+  - series: support_bridge_intake_records{job="support_bridge",instance="api:8080",status="creating"}
+    values: '0x8'
+  - series: support_bridge_intake_records{job="support_bridge",instance="api:8080",status="uncertain"}
+    values: '0x8'
+  - series: support_bridge_intake_records{job="support_bridge",instance="api:8080",status="blocked"}
+    values: '0x8'
+  - series: support_bridge_comment_deliveries{job="support_bridge",instance="api:8080",status="sending"}
+    values: '0x8'
+  - series: support_bridge_comment_deliveries{job="support_bridge",instance="api:8080",status="uncertain"}
+    values: '0x8'
+  - series: support_bridge_comment_deliveries{job="support_bridge",instance="api:8080",status="blocked"}
+    values: '0x8'
+  - series: support_bridge_comment_stream_errors{job="support_bridge",instance="api:8080"}
+    values: '0x8'
+  - series: support_bridge_comment_privacy_hold{job="support_bridge",instance="api:8080"}
+    values: '0x8'
+  - series: up{job="support_bridge",instance="api:8080"}
+    values: 1x8
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="sending"}
+    values: '0x8'
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="uncertain"}
+    values: 1x8
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="blocked"}
+    values: '0x8'
+  - series: support_bridge_note_stream_errors{job="support_bridge",instance="api:8080"}
+    values: '0x8'
+  promql_expr_test:
+  - expr: sum(support_bridge_pairs{status=~"conflict|dead|awaiting_approval"}) + sum(support_bridge_intake_records{status=~"creating|uncertain|blocked"}) + sum(support_bridge_comment_deliveries{status=~"sending|uncertain|blocked"})
+      + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold) + sum(support_bridge_note_deliveries{status=~"sending|uncertain|blocked"})
+      + sum(support_bridge_note_stream_errors)
+    eval_time: 6m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: SupportBridgeOperatorAttention
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: Linked work requires an operator decision
+        description: Inspect authenticated state; this aggregate carries no record identity or approval.
+- name: Missing reverse evidence is not a fabricated healthy zero
+  interval: 1m
+  input_series:
+  - series: support_bridge_pairs{job="support_bridge",instance="api:8080",status="conflict"}
+    values: '0x8'
+  - series: support_bridge_pairs{job="support_bridge",instance="api:8080",status="dead"}
+    values: '0x8'
+  - series: support_bridge_pairs{job="support_bridge",instance="api:8080",status="awaiting_approval"}
+    values: '0x8'
+  - series: support_bridge_intake_records{job="support_bridge",instance="api:8080",status="creating"}
+    values: '0x8'
+  - series: support_bridge_intake_records{job="support_bridge",instance="api:8080",status="uncertain"}
+    values: '0x8'
+  - series: support_bridge_intake_records{job="support_bridge",instance="api:8080",status="blocked"}
+    values: '0x8'
+  - series: support_bridge_comment_deliveries{job="support_bridge",instance="api:8080",status="sending"}
+    values: '0x8'
+  - series: support_bridge_comment_deliveries{job="support_bridge",instance="api:8080",status="uncertain"}
+    values: '0x8'
+  - series: support_bridge_comment_deliveries{job="support_bridge",instance="api:8080",status="blocked"}
+    values: '0x8'
+  - series: support_bridge_comment_stream_errors{job="support_bridge",instance="api:8080"}
+    values: '0x8'
+  - series: support_bridge_comment_privacy_hold{job="support_bridge",instance="api:8080"}
+    values: '0x8'
+  - series: up{job="support_bridge",instance="api:8080"}
+    values: 1x8
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="sending"}
+    values: '0x8'
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="uncertain"}
+    values: '0x8'
+  - series: support_bridge_note_deliveries{job="support_bridge",instance="api:8080",status="blocked"}
+    values: '0x8'
+  promql_expr_test:
+  - expr: sum(support_bridge_pairs{status=~"conflict|dead|awaiting_approval"}) + sum(support_bridge_intake_records{status=~"creating|uncertain|blocked"}) + sum(support_bridge_comment_deliveries{status=~"sending|uncertain|blocked"})
+      + sum(support_bridge_comment_stream_errors) + sum(support_bridge_comment_privacy_hold) + sum(support_bridge_note_deliveries{status=~"sending|uncertain|blocked"})
+      + sum(support_bridge_note_stream_errors)
+    eval_time: 6m
+    exp_samples: []
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: SupportBridgeOperatorAttention
+    exp_alerts: []

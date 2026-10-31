@@ -7,7 +7,7 @@ namespace Bridge\Comments;
 use InvalidArgumentException;
 
 /** First observed source content; later edits never rewrite an existing internal note. */
-final readonly class IssueComment
+final readonly class IssueComment implements SourceComment
 {
     public function __construct(
         public string $id,
@@ -29,6 +29,21 @@ final readonly class IssueComment
         ) {
             throw new InvalidArgumentException('Unsupported GitHub comment representation.');
         }
+    }
+
+    public function sourceId(): string
+    {
+        return $this->id;
+    }
+
+    public function sourceVersion(): string
+    {
+        return $this->updatedAt;
+    }
+
+    public function sourceBody(): string
+    {
+        return $this->body;
     }
 
     public function note(string $marker): string

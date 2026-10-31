@@ -14,6 +14,7 @@ use Bridge\Infrastructure\Persistence\SqliteConnection;
 use Bridge\Infrastructure\Persistence\TransactionManager;
 use Bridge\Intake\IntakeStatus;
 use Bridge\Comments\DeliveryStatus;
+use Bridge\Comments\CommentDirection;
 use PDO;
 use PDOException;
 
@@ -101,12 +102,18 @@ final class Store implements PairRepository
                 SELECT p.github_id,p.zendesk_id,p.status,p.baseline,p.attempts,p.last_success,
                     (p.plan IS NOT NULL) AS pending_plan,
                     COALESCE(n.delivered,0) AS notes_delivered,
-                    COALESCE(n.waiting,0) AS notes_waiting
+                    COALESCE(n.waiting,0) AS notes_waiting,
+                    COALESCE(r.delivered,0) AS notes_to_github_delivered,
+                    COALESCE(r.waiting,0) AS notes_to_github_waiting
                 FROM pairs p LEFT JOIN (
                     SELECT pair_id,SUM(status='delivered') AS delivered,
                         SUM(status<>'delivered') AS waiting
                     FROM comment_deliveries GROUP BY pair_id
-                ) n ON n.pair_id=p.id ORDER BY p.github_id
+                ) n ON n.pair_id=p.id LEFT JOIN (
+                    SELECT pair_id,SUM(status='delivered') AS delivered,
+                        SUM(status<>'delivered') AS waiting
+                    FROM note_deliveries GROUP BY pair_id
+                ) r ON r.pair_id=p.id ORDER BY p.github_id
                 SQL)->fetchAll(PDO::FETCH_ASSOC);
             foreach ($rows as &$row) {
                 $baseline = $row['baseline'] === null
@@ -174,16 +181,8 @@ final class Store implements PairRepository
 
     public function metrics(): array
     {
-        $comments = array_fill_keys(array_column(DeliveryStatus::cases(), 'value'), 0);
-        foreach (
-            $this->db->query('SELECT status,COUNT(*) AS total FROM comment_deliveries GROUP BY status')
-            ->fetchAll(PDO::FETCH_ASSOC) as $row
-        ) {
-            if (!array_key_exists($row['status'], $comments)) {
-                throw new \RuntimeException('The stored comment delivery state is unrecognized.');
-            }
-            $comments[$row['status']] = (int) $row['total'];
-        }
+        $comments = $this->deliveryCounts(CommentDirection::GitHubToZendesk);
+        $notes = $this->deliveryCounts(CommentDirection::ZendeskToGitHub);
         $intake = array_fill_keys(array_column(IntakeStatus::cases(), 'value'), 0);
         foreach (
             $this->db->query('SELECT status,COUNT(*) AS total FROM escalations GROUP BY status')
@@ -204,6 +203,11 @@ final class Store implements PairRepository
             'pairs'         => $counts,
             'intake'        => $intake,
             'comments'      => $comments,
+            'notes'         => $notes,
+            'note_stream_errors' => (int) $this->db
+                ->query('SELECT COUNT(*) FROM note_streams WHERE error IS NOT NULL')->fetchColumn(),
+            'note_streams_initialized' => (int) $this->db
+                ->query('SELECT COUNT(*) FROM note_streams WHERE initialized_at IS NOT NULL')->fetchColumn(),
             'comment_stream_errors' => (int) $this->db
                 ->query('SELECT COUNT(*) FROM comment_streams WHERE error IS NOT NULL')->fetchColumn(),
             'comment_privacy_hold' => $this->db
@@ -212,6 +216,21 @@ final class Store implements PairRepository
             ->query('SELECT COUNT(*) FROM pairs WHERE plan IS NOT NULL')->fetchColumn(),
             'last_success'  => $this->db->query('SELECT MAX(last_success) FROM pairs')->fetchColumn() ?: null,
         ];
+    }
+
+    private function deliveryCounts(CommentDirection $direction): array
+    {
+        $counts = array_fill_keys(array_column(DeliveryStatus::cases(), 'value'), 0);
+        foreach (
+            $this->db->query('SELECT status,COUNT(*) AS total FROM ' . $direction->table()
+            . ' GROUP BY status')->fetchAll(PDO::FETCH_ASSOC) as $row
+        ) {
+            if (!array_key_exists($row['status'], $counts)) {
+                throw new \RuntimeException('The stored comment delivery state is unrecognized.');
+            }
+            $counts[$row['status']] = (int) $row['total'];
+        }
+        return $counts;
     }
 
     /** @return resource */

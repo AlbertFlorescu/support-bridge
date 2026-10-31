@@ -273,3 +273,38 @@ test('CLI preserves input when an output directory alias identifies the same fil
   assert.equal(result.status, 1);
   assert.equal(fs.readFileSync(input, 'utf8'), contents);
 });
+
+test('Captured archives render when monitoring is omitted or unavailable', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-capture-render-'));
+  const state = path.join(directory, 'state');
+  const project = path.resolve(__dirname, '../..');
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('BRIDGE_')));
+  const php = (entrypoint, args) => {
+    const result = spawnSync('php', [path.join(project, entrypoint), ...args], {
+      encoding: 'utf8', env, timeout: 20000,
+    });
+    assert.equal(result.status, 0, result.stderr || result.error?.message);
+  };
+  try {
+    php('bin/bridge.php', ['init', '--mode=local', '--home=' + state]);
+    for (const [name, monitoring] of [['without-monitoring', []],
+      ['unavailable-monitoring', ['--prometheus-query-url=http://127.0.0.1:1']]]) {
+      const output = path.join(directory, name + '.json');
+      for (let checkpoint = 0; checkpoint < 2; checkpoint++) {
+        php('bin/capture-demo.php', ['escalation-1', '--mode=local', '--home=' + state,
+          '--output=' + output, '--run=capture-render-test', '--label=Observe',
+          '--operation=Capture without inventing monitoring', ...monitoring]);
+      }
+      const archive = JSON.parse(fs.readFileSync(output, 'utf8'));
+      assert.equal(Object.hasOwn(archive.run, 'monitoring'), false);
+      assert.equal(archive.checkpoints.length, 2);
+      for (const checkpoint of archive.checkpoints) {
+        assert.equal(Object.hasOwn(checkpoint, 'metrics'), false);
+        assert.equal(checkpoint.pair.status, 'new');
+      }
+      assert.doesNotThrow(() => renderHtml(archive));
+    }
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});

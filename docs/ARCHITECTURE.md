@@ -14,7 +14,7 @@ flowchart TB
     ReadEntry["CLI and HTTP reads"] --> Queries["Typed queries and handlers"]
     Commands --> Intake["Tagged issue creation"]
     Commands --> Engine["Field reconciliation and review"]
-    Commands --> Comments["Internal-note delivery"]
+    Commands --> Comments["Two-way conversation delivery"]
     Intake --> Ports["Explicit vendor capabilities"]
     Engine --> Ports
     Comments --> Ports
@@ -87,9 +87,11 @@ Source resolution re-reads both records against the stored conflict evidence. Ch
 
 ## Comment delivery boundary
 
-Comments are a separate one-way append workflow, not synchronized fields. A first-observed source snapshot and random marker are saved once per pair/comment ID. New notes require a synced pair without pending field work and fresh canonical agreement. The append contains only an internal comment plus safe-update evidence, not subject/status or author impersonation.
+Two append channels share `CommentWorkflow`, source/destination ports and a deterministic origin check. `CommentDirection` selects fixed identities, tables, audit names and markers. Forward saved rows remain unchanged in `comment_deliveries/comment_streams`; additive `note_deliveries/note_streams` store reverse work on the same injected connection. Typed `SyncZendeskNotes` and `ListNoteDeliveries` use cases extend CLI/HTTP without placing providers in queries.
 
-An audited attempt precedes append. After any attempted unknown outcome, recovery searches for one exact internal marker and never blindly repeats the append. Public-marker evidence durably holds the comment subsystem; it cannot undo exposure or continuously monitor previously delivered notes. The [comment guide](COMMENTS.md) owns bounds, privacy and recovery states.
+Reverse delivery is separately opted in. Its first complete source scan saves all pre-existing comment IDs, including public and initial comments, without creating deliveries. That starting point survives pause/restart. Subsequent internal notes are eligible; public replies and the initial report are excluded. A new pending reverse note is re-read before append and compared with its immutable snapshot.
+
+Origin checks use the opposite ledger's observed destination ID or exact reserved marker before preparing work. Unknown reserved headers stop discovery; author-account filtering would lose valid human replies. Audited append attempts, unique read-back and no blind resend apply in both directions. Zendesk uses internal-only safe update; GitHub has a version/lock preflight and body-only POST, with a remaining GET/POST race. Both channels hold during field review and share the durable privacy hold. The [conversation guide](COMMENTS.md) owns cutover, payload bounds and recovery.
 
 ## Durable work and uncertain outcomes
 
@@ -125,12 +127,12 @@ flowchart LR
     Registry[("metrics.sqlite: diagnostic totals")] --> Exporter
     Table -->|"Infinity backend; current rows"| Grafana
     Exporter -->|"Five-second scrape"| Prometheus
-    Prometheus -->|"PromQL; six panels and history"| Grafana
+    Prometheus -->|"PromQL; seven panels and history"| Grafana
 ```
 
 The current table and each scrape read a complete consistent business snapshot in their own transaction. They are separate requests, not an atomic observation with vendor state or each other. `LinkedPairProjection` validates numeric identities/evidence for both outputs. Subjects come only from the last verified baseline; links come from validated configuration and numeric IDs. Unknown subjects and never-verified timestamps stay explicit. Oversized millisecond conversions fail rather than emitting an invalid table number.
 
-The table lists every stored mapping, has ten visible columns and ignores the history time range. It reads protected JSON through pinned Infinity 4.1.5, not Prometheus. Subjects/URLs never become metric labels/history. Seven numeric series per link plus a total remain in Prometheus for the other panels/history. This growth, complete reads and monitoring access suit a small pilot; capacity is unmeasured. [Observability](OBSERVABILITY.md) defines metric values, staleness, alerts and exposure.
+The table lists every stored mapping, has twelve visible columns and ignores the history time range. It reads protected JSON through pinned Infinity 4.1.5, not Prometheus. Subjects/URLs never become metric labels/history. Nine numeric series per link plus a total remain in Prometheus for the other panels/history. This growth, complete reads and monitoring access suit a small pilot; capacity is unmeasured. [Observability](OBSERVABILITY.md) defines metric values, staleness, alerts and exposure.
 
 Diagnostic counters/histograms persist separately in `metrics.sqlite`. A crash can omit an observation; best-effort telemetry does not determine business correctness. Corrupt/unavailable scrape evidence returns sanitized 503, not fabricated healthy zeros. A healthy exporter does not prove vendor authentication; renewal health is separate.
 
@@ -138,7 +140,7 @@ Diagnostic counters/histograms persist separately in `metrics.sqlite`. A crash c
 
 - Explicit-tag creation removes manual matching, with polling/page bounds and conservative held uncertainty.
 - Two-way merge preserves independent work but needs operators for conflicts. Whole-plan review keeps one approval decision while delaying title updates too.
-- Immutable internal notes preserve origin and recovery evidence while making correction/redaction a separate responsibility.
+- Immutable two-way message snapshots preserve origin and recovery evidence while making correction/redaction a separate responsibility. New-only reverse cutover avoids historical backfill but requires initialization before the first reply.
 - SQLite and a canonical file lock make ownership explicit and tests reproducible, but support one host and serial work.
 - Typed use cases and plain PHP keep policies shared while adding wiring and HTTP/deployment maintenance. We add patterns only to clarify a real boundary.
 - The current JSON table keeps subjects out of metric labels; a pinned plugin and shared monitoring-read authority add maintenance. Prometheus adds useful history/rules, not synchronization authority.

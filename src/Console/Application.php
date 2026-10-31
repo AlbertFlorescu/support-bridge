@@ -14,6 +14,8 @@ use Bridge\Application\Command\Reconcile;
 use Bridge\Application\Command\IntakeEscalations;
 use Bridge\Application\Query\ListEscalations;
 use Bridge\Application\Command\SyncGitHubComments;
+use Bridge\Application\Command\SyncZendeskNotes;
+use Bridge\Application\Query\ListNoteDeliveries;
 use Bridge\Application\Query\ListCommentDeliveries;
 use Bridge\Application\Command\ResolveConflict;
 use Bridge\Application\Command\RetryPair;
@@ -37,6 +39,8 @@ php bin/bridge.php COMMAND [ARGUMENTS] [--home=var/local] [--mode=local|live]
   intake                               Discover tagged Zendesk tickets; create and link engineering issues
   escalations                          List durable intake outcomes without contacting providers
   sync-comments                        Copy GitHub issue comments as internal Zendesk notes
+  sync-notes                           Copy new internal Zendesk notes to GitHub comments
+  notes                                Inspect reverse deliveries and durable starting points
   comments                             Inspect comment deliveries and discovery without provider access
   status                               Show link status, retries and last success
   inspect PAIR                         Show baseline, pending plan, conflict and audit
@@ -98,6 +102,12 @@ TEXT;
                     break;
                 case 'sync-comments':
                     $this->output->result($context->handle(new SyncGitHubComments()));
+                    break;
+                case 'sync-notes':
+                    $this->output->result($context->handle(new SyncZendeskNotes()));
+                    break;
+                case 'notes':
+                    $this->output->result($context->ask(new ListNoteDeliveries()));
                     break;
                 case 'comments':
                     $this->output->result($context->ask(new ListCommentDeliveries()));

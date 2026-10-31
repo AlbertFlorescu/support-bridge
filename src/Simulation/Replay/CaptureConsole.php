@@ -44,7 +44,10 @@ final class CaptureConsole
             $checkpoint = (new CheckpointCapture($context))->capture($pair, $options['label'], $options['operation']);
             $queryUrl = $options['prometheus-query-url'] ?? $options['prometheus-url'] ?? null;
             if ($queryUrl !== null) {
-                $checkpoint['metrics'] = (new PrometheusCapture($queryUrl))->capture();
+                $metrics = (new PrometheusCapture($queryUrl))->capture();
+                if ($metrics !== []) {
+                    $checkpoint['metrics'] = $metrics;
+                }
             }
             $monitoring = [];
             foreach (['prometheus', 'grafana'] as $service) {
@@ -52,14 +55,17 @@ final class CaptureConsole
                     $monitoring[$service . '_url'] = $options[$service . '-url'];
                 }
             }
-            (new EvidenceArchive($options['output']))->append([
+            $run = [
                 'id' => $options['run'],
                 'mode' => $configuration->mode,
                 'captured_at' => $checkpoint['observed_at'],
                 'repository' => $configuration->repository,
                 'zendesk_subdomain' => $configuration->subdomain,
-                'monitoring' => $monitoring,
-            ], $checkpoint);
+            ];
+            if ($monitoring !== []) {
+                $run['monitoring'] = $monitoring;
+            }
+            (new EvidenceArchive($options['output']))->append($run, $checkpoint);
             echo json_encode([
                 'captured' => true,
                 'pair' => $pair,

@@ -20,6 +20,8 @@ final class StackVerification
         'support_bridge_linked_pair_last_success_timestamp_seconds',
         'support_bridge_linked_pair_notes_delivered',
         'support_bridge_linked_pair_notes_waiting',
+        'support_bridge_linked_pair_notes_to_github_delivered',
+        'support_bridge_linked_pair_notes_to_github_waiting',
     ];
 
     private readonly float $deadline;
@@ -211,8 +213,8 @@ final class StackVerification
         $panels = $dashboard['json']['dashboard']['panels'] ?? null;
         $this->check(
             $dashboard['status'] === 200 && ($dashboard['json']['meta']['provisioned'] ?? false) === true
-            && is_array($panels) && count($panels) === 7,
-            'Grafana did not load the provisioned seven-panel case, intake and comment dashboard.'
+            && is_array($panels) && count($panels) === 8,
+            'Grafana did not load the provisioned eight-panel linked-pair, intake and two-way conversation dashboard.'
         );
         $attention = array_filter($panels, static fn (array $panel): bool => ($panel['id'] ?? null) === 3);
         $expression = array_values($attention)[0]['targets'][0]['expr'] ?? '';
@@ -221,11 +223,13 @@ final class StackVerification
             'The dashboard must include plans awaiting approval.'
         );
         $expectedAttention = $this->sample($samples, 'support_bridge_comment_stream_errors')
-            + $this->sample($samples, 'support_bridge_comment_privacy_hold');
+            + $this->sample($samples, 'support_bridge_comment_privacy_hold')
+            + $this->sample($samples, 'support_bridge_note_stream_errors');
         foreach ([
             'support_bridge_pairs' => ['conflict', 'dead', 'awaiting_approval'],
             'support_bridge_intake_records' => ['creating', 'uncertain', 'blocked'],
             'support_bridge_comment_deliveries' => ['sending', 'uncertain', 'blocked'],
+            'support_bridge_note_deliveries' => ['sending', 'uncertain', 'blocked'],
         ] as $metric => $states) {
             foreach ($states as $state) {
                 $expectedAttention += $this->sample($samples, $metric . '{status="' . $state . '"}');
@@ -245,6 +249,14 @@ final class StackVerification
             && ($comments[0]['targets'][0]['expr'] ?? null) === 'support_bridge_comment_deliveries'
             && str_contains($expression, 'support_bridge_comment_stream_errors'),
             'The comment dashboard must expose durable delivery and discovery failures.'
+        );
+        $notes = array_values(array_filter($panels, static fn (array $panel): bool => ($panel['id'] ?? null) === 8));
+        $this->check(
+            count($notes) === 1
+            && ($notes[0]['targets'][0]['expr'] ?? null) === 'support_bridge_note_deliveries'
+            && ($notes[0]['targets'][1]['expr'] ?? null) === 'support_bridge_note_streams_initialized'
+            && str_contains($expression, 'support_bridge_note_stream_errors'),
+            'Reverse notes need their own delivery, cutover and failure evidence.'
         );
         $this->check(
             count($intake) === 1 && $intake[0]['type'] === 'bargauge'
@@ -284,6 +296,8 @@ final class StackVerification
         $issueColumn = array_search('GitHub issue', $columns, true);
         $this->check(
             $contextQuery['status'] === 200 && $subjectColumn !== false && $issueColumn !== false
+            && in_array('GitHub replies delivered', $columns, true)
+            && in_array('GitHub replies waiting', $columns, true)
             && count($frame['data']['values'][$issueColumn] ?? [])
                 === (int) $this->sample($samples, 'support_bridge_linked_pairs'),
             'The backend record query must return every linked row with its subject column.'
@@ -410,14 +424,15 @@ final class StackVerification
                 'support_bridge_pairs' => $label === 'status' && in_array($value, self::STATUSES, true),
                 'support_bridge_intake_records' => $label === 'status' && in_array($value,
                     ['prepared','creating','uncertain','linked','blocked','withdrawn'], true),
-                'support_bridge_comment_deliveries' => $label === 'status' && in_array($value,
+                'support_bridge_comment_deliveries', 'support_bridge_note_deliveries' => $label === 'status' && in_array($value,
                     ['pending','sending','uncertain','delivered','blocked'], true),
                 'support_bridge_reconciliation_duration_seconds_bucket' => $label === 'le' && in_array($value, self::BUCKETS, true),
                 'support_bridge_reconciliation_duration_seconds_sum',
                 'support_bridge_reconciliation_duration_seconds_count',
                 'support_bridge_telemetry_storage_available','support_bridge_pending_plans',
                 'support_bridge_last_success_timestamp_seconds','support_bridge_comment_stream_errors',
-                'support_bridge_comment_privacy_hold','support_bridge_linked_pairs' => $labels === [],
+                'support_bridge_comment_privacy_hold','support_bridge_linked_pairs',
+                'support_bridge_note_stream_errors','support_bridge_note_streams_initialized' => $labels === [],
                 default => in_array($name, self::LINK_METRICS, true)
                     && array_keys($labels) === ($name === 'support_bridge_linked_pair_status'
                         ? ['github_issue','zendesk_ticket'] : ['github_issue'])

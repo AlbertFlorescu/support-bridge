@@ -18,7 +18,8 @@ final readonly class CommandDispatcher
         private RetryPairHandler $retry,
         private EditLocalRecordHandler $edit,
         private ?IntakeEscalationsHandler $intake = null,
-        private ?SyncGitHubCommentsHandler $comments = null
+        private ?SyncGitHubCommentsHandler $comments = null,
+        private ?SyncZendeskNotesHandler $notes = null
     ) {
     }
 
@@ -34,6 +35,7 @@ final readonly class CommandDispatcher
             $command instanceof EditLocalRecord => $this->edit->handle($command),
             $command instanceof IntakeEscalations && $this->intake !== null => $this->intake->handle($command),
             $command instanceof SyncGitHubComments && $this->comments !== null => $this->comments->handle($command),
+            $command instanceof SyncZendeskNotes && $this->notes !== null => $this->notes->handle($command),
             default => throw new InvalidArgumentException('Unsupported application command.'),
         };
     }

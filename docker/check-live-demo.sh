@@ -8,8 +8,7 @@ export BRIDGE_GITHUB_REPOSITORY=example/credential-check
 export BRIDGE_ZENDESK_SUBDOMAIN=example
 export BRIDGE_ZENDESK_AUTH=oauth
 export BRIDGE_ZENDESK_EMAIL=
-# Windows Docker invoked through WSL needs explicit forwarding of these fake metadata values.
-export WSLENV="${WSLENV:+$WSLENV:}BRIDGE_GITHUB_REPOSITORY:BRIDGE_ZENDESK_SUBDOMAIN:BRIDGE_ZENDESK_AUTH:BRIDGE_ZENDESK_EMAIL"
+export BRIDGE_ZENDESK_NOTES_ENABLED=0
 
 compose() { "$docker" compose -p "$project" -f compose.yaml -f compose.live-demo.yaml -f docker/compose.live-check.yaml "$@"; }
 if [ -n "$(compose ps -a -q)" ] || [ -n "$("$docker" volume ls --filter "label=com.docker.compose.project=$project" --format '{{.Name}}')" ]; then
@@ -34,6 +33,7 @@ if ($importer['network_mode'] !== 'none' || $importer['user'] !== '10001:10001' 
 $volume = $importer['volumes'][0];
 if ($volume['source'] !== 'vendor-secret' || $volume['target'] !== '/var/lib/support-bridge' || ($volume['read_only'] ?? false)) { throw new RuntimeException('Importer volume ownership changed.'); }
 foreach (['api','cli','worker'] as $name) {
+    if ((string) $services[$name]['environment']['BRIDGE_ZENDESK_NOTES_ENABLED'] !== $argv[1]) { throw new RuntimeException('Reverse channel opt-in did not reach a reader.'); }
     $mounts = array_values(array_filter($services[$name]['volumes'], static fn(array $mount): bool => $mount['source'] === 'vendor-secret'));
     if (count($mounts) !== 1 || $mounts[0]['target'] !== '/run/secrets/vendor' || $mounts[0]['read_only'] !== true) { throw new RuntimeException('A vendor reader mount changed.'); }
     foreach (['github','zendesk'] as $provider) {
@@ -51,7 +51,9 @@ echo "PASS live service profiles and credential-volume readers.\n";
 PHP
 )
 compose --profile tools --profile live-worker --profile test config --format json |
-    "$docker" run --rm -i --network none --read-only --user 10001:10001 --entrypoint php support-bridge:local -r "$config_probe"
+    "$docker" run --rm -i --network none --read-only --user 10001:10001 --entrypoint php support-bridge:local -r "$config_probe" -- 0
+(export BRIDGE_ZENDESK_NOTES_ENABLED=1; compose --profile tools --profile live-worker --profile test config --format json) |
+    "$docker" run --rm -i --network none --read-only --user 10001:10001 --entrypoint php support-bridge:local -r "$config_probe" -- 1
 
 code=0
 invalid=$(printf '%s' '{"github-token":"synthetic-private-marker","zendesk-token":123}' | compose run --rm --no-deps -T credentials 2>&1) || code=$?

@@ -12,6 +12,7 @@ x-live-demo-environment: &live-demo-environment
   BRIDGE_ZENDESK_INTAKE_ENABLED: "${BRIDGE_ZENDESK_INTAKE_ENABLED:-0}"
   BRIDGE_ZENDESK_ESCALATION_TAG: "${BRIDGE_ZENDESK_ESCALATION_TAG:-support_bridge_escalate}"
   BRIDGE_GITHUB_COMMENTS_ENABLED: "${BRIDGE_GITHUB_COMMENTS_ENABLED:-0}"
+  BRIDGE_ZENDESK_NOTES_ENABLED: "${BRIDGE_ZENDESK_NOTES_ENABLED:-0}"
 
 x-live-vendor-files: &live-vendor-files
   BRIDGE_GITHUB_TOKEN_FILE: /run/secrets/vendor/github-token

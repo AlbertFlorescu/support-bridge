@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Bridge\Comments;
 
-interface InternalNotes
+interface InternalNotes extends CommentDestination
 {
     /** Return the unique internal note ID, or fail if absence cannot be established. */
     public function find(string $ticketId, string $marker): ?string;

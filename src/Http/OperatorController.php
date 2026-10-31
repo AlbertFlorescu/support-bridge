@@ -17,12 +17,15 @@ use Bridge\Application\Query\InspectPair;
 use Bridge\Application\Query\ListPairs;
 use Bridge\Application\Query\ListCommentDeliveries;
 use Bridge\Application\Command\SyncGitHubComments;
+use Bridge\Application\Command\SyncZendeskNotes;
+use Bridge\Application\Query\ListNoteDeliveries;
 
 final class OperatorController
 {
     public function dispatch(Request $request, array $route, Context $context): array
     {
-        if (!in_array($route['name'], ['list', 'escalations', 'comment_deliveries'], true) && $request->query !== []) {
+        $paged = in_array($route['name'], ['list', 'escalations', 'comment_deliveries', 'note_deliveries'], true);
+        if (!$paged && $request->query !== []) {
             throw new HttpFailure(422, 'invalid_query', 'This endpoint does not accept query parameters.');
         }
         return match ($route['name']) {
@@ -34,6 +37,8 @@ final class OperatorController
             'intake' => $this->intake($request, $context),
             'escalations' => $this->listing($request, $context, 'escalations'),
             'comment_deliveries' => $this->listing($request, $context, 'comments'),
+            'note_deliveries' => $this->listing($request, $context, 'notes'),
+            'sync_notes' => $this->syncNotes($request, $context),
             'sync_comments' => $this->syncComments($request, $context),
             'resolve' => $this->resolve($request, $context, $route['id']),
             'retry' => $this->retry($request, $context, $route['id']),
@@ -51,6 +56,7 @@ final class OperatorController
         return $context->ask(match ($kind) {
             'escalations' => new ListEscalations($limit, $offset),
             'comments' => new ListCommentDeliveries($limit, $offset),
+            'notes' => new ListNoteDeliveries($limit, $offset),
             default => new ListPairs($limit, $offset),
         });
     }
@@ -92,6 +98,12 @@ final class OperatorController
     {
         $request->json([]);
         return $context->handle(new SyncGitHubComments());
+    }
+
+    private function syncNotes(Request $request, Context $context): array
+    {
+        $request->json([]);
+        return $context->handle(new SyncZendeskNotes());
     }
 
     private function resolve(Request $request, Context $context, string $id): array

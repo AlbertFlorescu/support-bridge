@@ -25,15 +25,8 @@ class HttpClient
         if (!in_array($method, ['GET', 'PATCH', 'PUT', 'POST'], true)) {
             throw new \InvalidArgumentException('Unsupported HTTP method.');
         }
-        if (
-            $method === 'POST' && (
-            !preg_match('~^https://api\.github\.com/repos/(?!\.{1,2}/)[A-Za-z0-9_.-]+/'
-                . '(?!\.{1,2}/)[A-Za-z0-9_.-]+/issues$~D', $url)
-            || $json === null || count($json) !== 2
-            || !is_string($json['title'] ?? null) || !is_string($json['body'] ?? null)
-            )
-        ) {
-            throw new \InvalidArgumentException('POST is limited to creating a GitHub issue with title and body.');
+        if ($method === 'POST') {
+            $this->validatePost($url, $json);
         }
         foreach ($headers as $name => $value) {
             if (
@@ -57,6 +50,23 @@ class HttpClient
             }
         }
         return $this->curlRequest($method, $url, $headers, $json);
+    }
+
+    private function validatePost(string $url, ?array $json): void
+    {
+        $base = 'https://api\.github\.com/repos/(?!\.{1,2}/)[A-Za-z0-9_.-]+/'
+            . '(?!\.{1,2}/)[A-Za-z0-9_.-]+';
+        $issue = preg_match('~^' . $base . '/issues$~D', $url)
+            && $json !== null && count($json) === 2
+            && is_string($json['title'] ?? null) && is_string($json['body'] ?? null);
+        $comment = preg_match('~^' . $base . '/issues/[1-9][0-9]{0,15}/comments$~D', $url)
+            && $json !== null && array_keys($json) === ['body'] && is_string($json['body'])
+            && strlen($json['body']) <= 60_000 && preg_match('//u', $json['body'])
+            && !str_contains($json['body'], "\0")
+            && preg_match('/^Support Bridge note: [a-f0-9]{64}\n/', $json['body']);
+        if (!$issue && !$comment) {
+            throw new \InvalidArgumentException('POST permits only issue creation or a marked internal-note comment.');
+        }
     }
 
     private function validateUrl(string $url): void

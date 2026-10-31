@@ -47,6 +47,8 @@ final readonly class LinkedPairTable
                 'attempts' => $values['attempts'],
                 'notes_delivered' => $values['notes_delivered'],
                 'notes_waiting' => $values['notes_waiting'],
+                'notes_to_github_delivered' => $values['notes_to_github_delivered'],
+                'notes_to_github_waiting' => $values['notes_to_github_waiting'],
                 'last_success_ms' => $values['last_success_timestamp_seconds'] * 1000,
                 'zendesk_url' => $tenant === null ? null
                     : 'https://' . $tenant . '.zendesk.com/agent/tickets/' . $row['ticket'],

@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Support Bridge Operator API",
-    "version": "1.8.0",
-    "description": "Single-operator internal prototype for linked GitHub Issues and Zendesk Tickets. Local mode is the default. All /api operations require a process-configured bearer token of at least 32 non-whitespace characters. Never expose the built-in PHP development server publicly. No remote base URL, credentials, mode or state path can be supplied through this API. GET /metrics uses a separate strong read-only scrape token; tokens must be different. Deterministic governance policy escalation-state-v1 allows title-only updates for explicitly linked records and requires an operator attestation for any planned outbound open/closed transition before any effects of that plan. Never rely on AI in compliance: AI output cannot authorize an effect, override policy, or certify compliance. The shared operator credential does not prove a human identity or separation of duties. Explicit engineering-tag intake can create one open GitHub issue and link it to its Zendesk origin. This creation opt-in does not grant resolution approval or a conflicting-source decision. Explicitly enabled GitHub issue-comment delivery appends internal Zendesk notes only. It preserves source snapshots and unknown-outcome evidence, never approves a state plan, and pauses new notes while reconciliation work is pending. New engineering issues include a one-time copy of the initial Zendesk description and an explicit Zendesk ticket link; later replies and description edits do not rewrite their bodies."
+    "version": "1.9.0",
+    "description": "Single-operator internal prototype for linked GitHub Issues and Zendesk Tickets. Local mode is the default. All /api operations require a process-configured bearer token of at least 32 non-whitespace characters. Never expose the built-in PHP development server publicly. No remote base URL, credentials, mode or state path can be supplied through this API. GET /metrics uses a separate strong read-only scrape token; tokens must be different. Deterministic governance policy escalation-state-v1 allows title-only updates for explicitly linked records and requires an operator attestation for any planned outbound open/closed transition before any effects of that plan. Never rely on AI in compliance: AI output cannot authorize an effect, override policy, or certify compliance. The shared operator credential does not prove a human identity or separation of duties. Explicit engineering-tag intake can create one open GitHub issue and link it to its Zendesk origin. This creation opt-in does not grant resolution approval or a conflicting-source decision. Explicitly enabled GitHub issue-comment delivery appends internal Zendesk notes only. It preserves source snapshots and unknown-outcome evidence, never approves a state plan, and pauses new notes while reconciliation work is pending. New engineering issues include a one-time copy of the initial Zendesk description and an explicit Zendesk ticket link; later replies and description edits do not rewrite their bodies. A separately enabled reverse channel copies only new Zendesk internal notes into GitHub issue comments after each linked pair completes a durable first-scan cutover. Public replies and initial descriptions are excluded. Both channels preserve source attribution, use local origin evidence to prevent reflection loops, and never blindly repeat an attempted append."
   },
   "servers": [
     {
@@ -36,6 +36,10 @@
     {
       "name": "Comments",
       "description": "One-way GitHub issue comments to internal Zendesk notes."
+    },
+    {
+      "name": "Internal notes",
+      "description": "Explicit new-only Zendesk internal notes to GitHub comments; no public replies or approval authority."
     }
   ],
   "paths": {
@@ -1130,7 +1134,9 @@
                           "notes_waiting",
                           "last_success_ms",
                           "zendesk_url",
-                          "github_url"
+                          "github_url",
+                          "notes_to_github_delivered",
+                          "notes_to_github_waiting"
                         ],
                         "properties": {
                           "zendesk_ticket": {
@@ -1193,6 +1199,14 @@
                               "null"
                             ],
                             "description": "Fixed HTTPS configured-repository issue URL; null for local fixtures."
+                          },
+                          "notes_to_github_delivered": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "notes_to_github_waiting": {
+                            "type": "integer",
+                            "minimum": 0
                           }
                         }
                       }
@@ -1203,6 +1217,147 @@
             }
           }
         }
+      }
+    },
+    "/api/notes/sync": {
+      "post": {
+        "operationId": "syncZendeskNotes",
+        "summary": "Initialize or deliver new internal Zendesk notes to GitHub",
+        "tags": [
+          "Internal notes"
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded pass completed; unavailable or waiting work can remain.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteRunCounts"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          }
+        },
+        "description": "Requires live mode and BRIDGE_ZENDESK_NOTES_ENABLED=1. The first complete scan per linked pair only records existing IDs; it posts no history. Later eligible internal notes are delivered after fresh field and source checks. Unknown append outcomes remain observational recovery only. No caller-selected text, identity, source, credentials or approval is accepted.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [],
+                "properties": {}
+              },
+              "example": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/note-deliveries": {
+      "get": {
+        "operationId": "listNoteDeliveries",
+        "summary": "Inspect reverse deliveries and durable new-note starting points",
+        "tags": [
+          "Internal notes"
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteDeliveryPage"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server-generated correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            }
+          }
+        ],
+        "description": "Provider-free paginated local query. Contains sensitive immutable snapshots and source attribution. streams.initialized_at null means the first successful baseline scan has not happened; excluded_count counts historical IDs without exporting the full baseline list. items and streams are paged independently. privacy_hold is shared by both comment channels."
       }
     }
   },
@@ -1735,7 +1890,10 @@
           "intake",
           "comments",
           "comment_stream_errors",
-          "comment_privacy_hold"
+          "comment_privacy_hold",
+          "notes",
+          "note_stream_errors",
+          "note_streams_initialized"
         ],
         "properties": {
           "pairs": {
@@ -1802,6 +1960,17 @@
           },
           "comment_privacy_hold": {
             "type": "boolean"
+          },
+          "notes": {
+            "$ref": "#/components/schemas/CommentStateCounts"
+          },
+          "note_stream_errors": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "note_streams_initialized": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },
@@ -2308,6 +2477,224 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CommentStream"
+            }
+          },
+          "stream_total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "privacy_hold": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NoteRunCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "discovered",
+          "delivered",
+          "waiting",
+          "unavailable",
+          "held",
+          "initialized"
+        ],
+        "properties": {
+          "discovered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "delivered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "waiting": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unavailable": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "held": {
+            "type": "boolean",
+            "description": "Durable internal-only evidence hold; no further appends are allowed."
+          },
+          "initialized": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Linked streams whose first complete scan recorded a durable new-only starting point during this pass."
+          }
+        }
+      },
+      "NoteDelivery": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pair_id",
+          "comment_id",
+          "note",
+          "marker",
+          "source_version",
+          "status",
+          "attempted_at",
+          "destination_version",
+          "github_comment_id",
+          "next_run",
+          "error",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "pair_id": {
+            "type": "string"
+          },
+          "comment_id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "Zendesk source comment ID, not a GitHub comment ID."
+          },
+          "note": {
+            "type": "string",
+            "description": "Sensitive immutable literal-text GitHub payload with Zendesk author ID, available display name, source ticket URL and correlation marker. At most 60000 UTF-8 bytes."
+          },
+          "marker": {
+            "type": "string",
+            "pattern": "^Support Bridge note: [a-f0-9]{64}$"
+          },
+          "source_version": {
+            "type": "string",
+            "description": "Source creation timestamp; freshness also compares the complete newly observed formatted snapshot before the first append."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "sending",
+              "uncertain",
+              "delivered",
+              "blocked"
+            ]
+          },
+          "attempted_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "destination_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "next_run": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "github_comment_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "NoteStream": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pair_id",
+          "last_scan",
+          "next_run",
+          "error",
+          "initialized_at",
+          "excluded_count"
+        ],
+        "properties": {
+          "pair_id": {
+            "type": "string"
+          },
+          "last_scan": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "next_run": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "initialized_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Durable first successful source-scan time; never reset by restart, pause or re-enablement."
+          },
+          "excluded_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500,
+            "description": "IDs already present at cutover, including public comments and the initial report. These are not delivered."
+          }
+        }
+      },
+      "NoteDeliveryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "streams",
+          "stream_total",
+          "privacy_hold"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteDelivery"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "streams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteStream"
             }
           },
           "stream_total": {

@@ -64,6 +64,14 @@ The Grafana image installs the signed Infinity backend plugin at pinned version 
 
 Grafana's read-only monitoring credential permits `/metrics` and `/monitoring/pairs`; the latter exposes every linked last verified subject and fixed source URL. It cannot call operator commands. The backend allowlist is `http://api:8080`; no vendor/operator credential is provided. Keep this authority, viewer access and retention under deployment review. Subject cells use plain text and links derive from validated configured identities, not source text. No model decides data permission or compliance.
 
+## Conversation data transfer
+
+The two conversation channels are independently opt-in. GitHub comments become internal Zendesk notes. New internal Zendesk notes can become GitHub comments after the reverse channel records each pair's starting point. GitHub repository readers may be a wider audience than Zendesk agents; review permitted disclosure before enabling the reverse flag. There is no automatic redaction, identity-aware authorization or public-repository safety classification. Existing history and public Zendesk replies are excluded, but an internal label alone does not make content appropriate for GitHub. See [the contract and limits](docs/COMMENTS.md).
+
+The transport permits only the fixed issue-comment POST path with a bounded marked body; no arbitrary URL, public flag, author override or source-supplied command is accepted. Reverse source text and optional display names are fenced as literal text to avoid interpreting Markdown mentions or embeds. Numeric source user identity is retained alongside attribution; the integration account performs the actual append. Attribution does not prove role or permission.
+
+Opposite-ledger destination IDs and random markers suppress copied messages even when the integration account also authors ordinary messages. Markers are correlation evidence, not authentication. Edited/copied markers, compromised records, lost state or unrelated integrations remain operating limits. Pending reverse notes are rechecked for privacy and content; unknown append outcomes require unique destination evidence and are never blindly repeated. An observed public forward marker holds both channels durably. Source edits, deletion or later visibility changes do not retract already delivered copies. Required audit failures stop subsequent effects; no comment or model supplies state approval.
+
 ## Local verification
 
 Run the security-tool tests:

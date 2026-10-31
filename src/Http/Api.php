@@ -37,7 +37,7 @@ final class Api
                 return new Response(200, [
                     'status'  => 'ok',
                     'service' => 'support-bridge',
-                    'version' => '1.8.0',
+                    'version' => '1.9.0',
                 ], ['X-Request-Id' => $requestId]);
             }
             if (in_array($request->path, ['/metrics', '/monitoring/pairs'], true)) {

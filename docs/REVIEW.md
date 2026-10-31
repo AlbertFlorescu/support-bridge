@@ -2,6 +2,52 @@
 
 We separate controlled checks, actual deployment evidence and customer validation. The current demo uses one live project with original scenarios and Zendesk-first intake; Grafana automatically lists every stored mapping. Earlier dated fixed-case verification below describes the layout exercised then. Retired traffic-generation and native-monitoring results are not current capabilities; their implementation and operating guides have been removed.
 
+## Capture and replay contract: 2026-10-31
+
+Capture now omits optional monitoring observations and browser-link metadata when none were supplied or available. Empty PHP arrays previously serialized as JSON arrays that the strict viewer rejected. Numeric zero remains a valid observed value. Existing archives are not rewritten.
+
+A new cross-language check runs the actual local initializer and capture command, then renders each resulting archive with both absent and unavailable monitoring. It also verifies that capture does not reconcile the new pair. This is a controlled producer/viewer contract check, separate from vendor validation and from the earlier private presentation normalization.
+
+## Approved regression reopening: 2026-10-31
+
+The operator explicitly approved the existing regression reopening plan under `escalation-state-v1`. The normal approval command re-read both providers and accepted the exact current hash; a subsequent normal pass reopened GitHub while Zendesk was already Open. Only after verified canonical convergence did the queued internal regression note become eligible for delivery. The earlier closure approval was not reused.
+
+The reopened pair was read back as Open/Open and Synced. Four reverse messages were verified against their exact stored GitHub payloads and three forward deliveries against internal Zendesk notes. A further fictional engineering question/update and internal support reply travelled through the ordinary channels. The pair has no waiting conversation delivery. The separate SSO conflict and its two held messages remain unresolved; no source decision was supplied.
+
+The regression replay, video, transcript and Grafana snapshot were extended with these observed stages. Earlier waiting checkpoints and the previous review-only presentation remain preserved privately. This is a continuation of the bounded fictional run, not customer verification or general failure-recovery evidence. The updated artifacts remain in private presentation storage.
+
+## Five customer case recordings: 2026-10-30
+
+Seven retired Zendesk samples/demo tickets and six GitHub demonstration issues were removed after their source content, conversations and consistent idle business state were archived privately. The vulnerability tracker remained. The retired database had six synced pairs with no pending plans or approvals. It was archived before selecting fresh active state; no pending evidence was reset to advance a narrative. The existing project, eight volume identities, credentials, Grafana account and Prometheus history were retained. This is an explicit demonstration retirement, not a general unlink or restore capability.
+
+Five fictional Zendesk reports were created. Ordinary tagged intake created all five engineering issues and mappings; setup did not create matching GitHub issues manually. One untagged ticket was observed through an intake pass with no issue, then explicitly escalated. Every issue's initial description and fixed Zendesk link were read back and verified. Reverse starting points were recorded before support replies.
+
+The [case catalogue](DEMO_CASES.md) covers CSV resolution, pending webhook investigation, SSO summary conflict, an external invoice dependency and preference regression. Twenty-seven original fictional conversation messages produced thirteen observed internal Zendesk copies and eleven observed GitHub copies. Three later copies remain waiting: one in each direction behind the SSO conflict, and the regression note behind its reopening review. Author attribution and source links remain in copied messages. The roles use the actual integration account and do not establish separate authenticated individuals.
+
+The operator explicitly approved two exact closure plans; Zendesk became Solved after the normal fresh execution checks. The separate regression reopening was captured with Zendesk Open, GitHub Closed, the last closed baseline and a new exact plan awaiting its own decision. No reopening approval or conflicting-source choice was invented. At this recorded checkpoint the active workflows are three synced pairs, one conflict and one awaiting approval. Pending and Solved are actual Zendesk states; the SSO conflict deliberately remains unresolved.
+
+The account rejected a requested source Hold update with HTTP 422 and an invalid-custom-status error. A read-only status listing confirmed that On-hold is inactive. No account setting was changed. A fresh comment read established that the rejected note was absent, and the invoice case continued with Pending and an explicit vendor-wait tag. This is an observed source validation constraint, not an injected outage or proof of arbitrary provider recovery.
+
+Two repeated normal passes without source changes produced no additional vendor comments. All five active mappings, ten source anchors, twelve table columns and direction counts matched the rendered Grafana table; recurring refresh was observed. Its run-start time window excludes retired cases from the selected timeline while preserving retained history. Monitoring made no vendor writes or decisions.
+
+The private package contains five captioned videos, five interactive conversation replays, standard field/review replays, curated message evidence and transcripts. Forty observations include thirty-three canonical field checkpoints; initial unlinked/starting observations are labelled separately. Provider, conversation and monitoring reads remain sequential, not a cross-vendor transaction. Standard viewer inputs omit empty unobserved metric arrays; raw archives remain preserved and no numeric observation was filled in.
+
+The videos are condensed playback of captured live-source observations, not unedited recordings of the vendor browser interfaces. MP4 decoding and the portable WebM browser players were checked, along with all forty replay steps, without external requests or script errors. Raw responses, credentials, unrelated metadata, command journals and retired backups stay outside the presentation folder. All nine read-only service-network integration groups passed using the persisted Grafana account through the private credential adapter. All five operating services were healthy and the eight original volume identities matched. The normal worker resumed with its review/conflict gates intact. The documentation records the executed scope separately from the private run artifacts.
+
+## New internal support replies: 2026-10-30
+
+The reverse channel uses the shared append workflow with its own ledger and an additive per-pair starting point. Existing GitHub-to-Zendesk rows, field plans, baselines and approvals retain their previous representation. The first complete reverse scan records all old Zendesk comment IDs and posts nothing. Public replies, the initial report and recognized copied messages remain excluded; attribution retains the source user ID and optional display name. New reverse appends recheck source privacy/content and fresh canonical fields. Opposite-ledger destination IDs and markers prevent ordinary loops, while uncertain attempts are observed rather than resubmitted. See [conversation operation](COMMENTS.md).
+
+All 27 new controlled conversation checks passed, alongside the 21 retained forward checks and the full PHP gate. They include a complete engineering-question/support-answer exchange with repeated scans, same-account ordinary messages, marker edits, lost responses/acknowledgements, hidden destination evidence, pending source edits/public conversion/deletion, audit failures, field review, locks, bounds and an additive migration preserving legacy evidence. These injected transports are not vendor failure certification. PSR-12, strict PSR-4, the locked Composer advisory audit and OpenAPI/38-response-fixture validation passed. Documentation links/fences and skill metadata passed. Eight changed or related diagrams parsed/rendered in native Linux tooling; the updated conversation/customer views were visually inspected. Development browser/tool files remain private and outside runtime/source.
+
+The networkless verification image passed. Six promtool cases passed, including reverse uncertainty and missing reverse inputs. Disposable lifecycle checks preserved an unapproved plan and credentials through recreation; live-overlay bootstrap checks verified reverse flag off/on propagation to API, CLI and worker without vendor access. A stale smoke allowlist initially rejected the new families; it was corrected, then the full lifecycle check passed. A separate disposable rendering check verified eight panels, twelve columns, independent reverse delivered/waiting counts and recurring refresh using controlled ledger fixtures, with no source-system effects.
+
+The existing live project was then upgraded with the worker paused and a private consistent business backup. Existing API/worker application settings were compared before recreation, with only the new reverse flag added. All eight volume identities and every existing business-table row matched after the additive upgrade. No credentials/accounts were reset and no plan or approval evidence was rewritten.
+
+The authorized first live reverse pass initialized **six** linked streams, with **zero** discovered/delivered/waiting/unavailable notes and no privacy hold. The prior pair, intake and forward-delivery evidence remained unchanged; only starting-point rows and their audit events were added. The existing worker was resumed afterward. This proves successful account history reads and new-only initialization, not a subsequent live support-reply POST or failure recovery at either vendor.
+
+All nine read-only integration groups passed on the upgraded live service network using the persisted Grafana account through a private credential adapter. The standard smoke verifier still assumes bootstrap credentials and was not represented as validating a rotated account unchanged. A fresh isolated Linux headless browser separately signed in, verified all six mappings and baseline subjects, twelve exact HTTPS source-anchor destinations, twelve table columns, eight panels and three recurring table queries. The browser blocked external navigation; anchors establish configured destinations, not provider-page availability. Private browser captures and raw business observations stay outside source. Hosted checks belong to their published source revision and remain separate from these live observations.
+
 ## Retired source publication evidence: 2026-10-30
 
 An earlier general publication workflow preserved a maintainer-authored SHA, ran reusable verification and opened a bot PR. Its local evidence included 18 controlled publisher tests and the shared PHP/API/style/security/documentation/container gates. These are historical results; those publisher tests and the reusable entry point are removed from current CI.
@@ -13,7 +59,7 @@ The earlier local validator did not recognize the unchanged vulnerability-alert 
 
 ## Automated checks
 
-The current local validation passed **281 PHP checks**, **nine recovery-demo assertions**, **13 replay checks**, **three documentation-check tests**, **70 security-tool tests** and **four Prometheus rule cases**. Syntax passed for **175 PHP files**. Configured PSR-12 and strict PSR-4 gates passed, with **139 classes** in the optimized mapping. The locked Composer advisory audit reported no advisories for its development dependencies. Runtime images contain no Composer or Node development dependency tree.
+The current local validation passed **309 PHP checks**, **nine recovery-demo assertions**, **14 replay checks**, **three documentation-check tests**, **70 security-tool tests (one platform-specific skip)** and **six Prometheus rule cases**. Syntax passed for **189 PHP files**. Configured PSR-12 and strict PSR-4 gates passed, with **151 classes** in the optimized mapping. The locked Composer advisory audit reported no advisories for its development dependencies. Runtime images contain no Composer or Node development dependency tree.
 
 | Suite | Checks | Scope |
 | --- | ---: | --- |
@@ -28,17 +74,18 @@ The current local validation passed **281 PHP checks**, **nine recovery-demo ass
 | Managed credential rotation | 8 | Per-request hot reads, static compatibility, expiry rejection and no inline write replay |
 | Engineering intake | 24 | Explicit-tag creation, unknown outcomes, link-audit recovery, cooldown, bounded adapters, provider-free queries and retained state gate |
 | Internal comment delivery | 21 | Immutable snapshots, internal-only payload/read-back, unknown outcomes, audit failures, review holds, privacy holds, bounds and query separation |
+| Bidirectional conversations | 27 | New-only starting points, attribution, loop suppression, source eligibility, unknown outcomes, audit/approval boundaries, legacy migration and reverse API/metrics |
 | Live bootstrap | 8 | Explicit identity/opt-in without source access or records |
 | Credential import | 10 | Isolated import, private files, rotation and sanitized failures |
 | Recorded evidence | 13 | Read-only capture, identity, bounds, ordering and exclusions |
 | Provider HTTP | 20 | Controlled transport contracts, updates, versions and rate guidance |
 | Observability | 26 | Durable telemetry, complete linked-pair/subject projections, fixed source URLs, precision/privacy validation, note totals and 105-link coverage |
 | Operator API | 31 | Authentication, read-only monitoring context, strict contracts, approval and error mapping |
-| Wire HTTP | 19 | Loopback HTTP, Swagger, exporter, protected table context and exact-plan workflow |
+| Wire HTTP | 20 | Loopback HTTP, Swagger, exporter, protected table context and exact-plan workflow |
 
-`php bin/check.php` runs the PHP checks and recovery assertions. The Docker verification target also runs style, Swagger asset equality, **16 OpenAPI paths**, **35 actual loopback response fixtures** under JSON Schema 2020-12 and the dependency-free replay tests. Controlled fixtures stay outside the operating demo's data.
+`php bin/check.php` runs the PHP checks and recovery assertions. The Docker verification target also runs style, Swagger asset equality, **18 OpenAPI paths**, **38 actual loopback response fixtures** under JSON Schema 2020-12 and the dependency-free replay tests. Controlled fixtures stay outside the operating demo's data.
 
-These current changes have been verified locally and have not been pushed or run in hosted CI. GitHub Actions runs the PHP and container jobs and the aggregate **Required checks** gate. [Actions](https://github.com/AlbertFlorescu/support-bridge/actions) records the result for each published revision. A green workflow does not establish server-side branch protection.
+The native results above are local validation, separate from hosted checks. GitHub Actions runs the PHP and container jobs and the aggregate **Required checks** gate. [Actions](https://github.com/AlbertFlorescu/support-bridge/actions) records the result for each published revision. A green workflow does not establish server-side branch protection.
 
 ## Design, documentation and monitoring review: 2026-10-30
 
@@ -174,6 +221,6 @@ Dependabot proposals remain visible across runtime lines. The vulnerability work
 
 The PHP development server, shared operator token and SQLite lock support a single-host demonstration. General backup restoration, production ingress/identity, individual approval attribution, provider-wide rate budgets, customer policy validation and production capacity remain unfinished. Titles are stored without application encryption and are not automatically redacted.
 
-Metrics are best effort and independent of the business commit. Every stored mapping appears automatically with validated numeric vendor-ID labels, seven series per link and no content/review labels. Monitoring access, retention and capacity require broader review. Stored states are last observed, with no provider request during scraping. Quiet manual time is expected and no longer triggers a polling-age alert. Three local rules have no configured notification recipient.
+Metrics are best effort and independent of the business commit. Every stored mapping appears automatically with validated numeric vendor-ID labels, nine series per link and no content/review labels. Monitoring access, retention and capacity require broader review. Stored states are last observed, with no provider request during scraping. Quiet manual time is expected and no longer triggers a polling-age alert. Three local rules have no configured notification recipient.
 
 Never rely on AI in compliance. AI assisted development, review and documentation as disclosed in the [README](../README.md#ai-use); it cannot determine policy satisfaction, choose conflicting sources or approve writes.

@@ -1,6 +1,6 @@
 # Support Bridge
 
-Support Bridge connects a Zendesk support escalation to its GitHub engineering issue. Support tags a ticket; the bridge creates and links an issue, reconciles their summaries and resolution state, and copies GitHub comments into internal Zendesk notes.
+Support Bridge connects a Zendesk support escalation to its GitHub engineering issue. Support tags a ticket; the bridge creates and links an issue, reconciles their summaries and resolution state, and carries engineering questions and new internal support replies between the two systems.
 
 It is a headless, deterministic PHP application with SQLite, a CLI and an authenticated HTTP API. There is no PHP framework, runtime LLM, queue or Composer runtime dependency.
 
@@ -8,7 +8,7 @@ It is a headless, deterministic PHP application with SQLite, a CLI and an authen
 
 Our assumed customer is one B2B SaaS support team working in Zendesk with engineering in a private GitHub repository. Manual copying leaves stale summaries and hides engineering updates from support. We expect the bridge to reduce copying and follow-ups. Customer discovery, measured savings and production capacity remain unvalidated.
 
-The [CSV-export scenario](docs/SCENARIO.md) is the primary walkthrough: intake, summary edits, internal notes, resolution review, reopening, conflicts and interrupted-write recovery. The [documentation index](docs/README.md) separates the customer flow, setup, implementation and verification guides.
+The [CSV-export scenario](docs/SCENARIO.md) is the primary walkthrough: intake, summary edits, internal notes, resolution review, reopening, conflicts and interrupted-write recovery. The [five-case catalogue](docs/DEMO_CASES.md) covers a verified fix, investigation, conflict, external dependency and regression. The [documentation index](docs/README.md) separates the customer flow, setup, implementation and verification guides.
 
 ## Start an escalation
 
@@ -16,8 +16,8 @@ The [CSV-export scenario](docs/SCENARIO.md) is the primary walkthrough: intake, 
 2. Add **`support_bridge_escalate`** and save. This is support's explicit engineering-escalation decision. An ordinary untagged ticket creates nothing.
 3. With the configured worker enabled, wait for its next pass. It creates an open GitHub issue containing the initial description, an explicit Zendesk link and a recovery marker, then saves the one-to-one mapping. Do not create a second issue manually.
 4. Find the linked issue in GitHub. One-sided subject/title edits propagate after polling. Any bridge write that changes open/closed state holds its entire field plan for exact-plan operator approval.
-5. Add a GitHub issue comment. With comment delivery enabled, it becomes an **internal Zendesk note** after field reconciliation permits delivery. Source edits/deletion and Zendesk replies do not propagate through this channel.
-6. Open **All linked ticket and issue pairs** in [Grafana](http://127.0.0.1:1990/d/supportbridge-overview?refresh=5s). Every stored mapping appears automatically. The subject is the last verified summary; click either number to open its source in a new tab. Delivered/waiting note counts show stored delivery evidence.
+5. Add a GitHub issue comment. With comment delivery enabled, it becomes an **internal Zendesk note** after field reconciliation permits delivery. With reverse delivery separately enabled and its first scan initialized, add a new **internal note** in Zendesk to answer in GitHub. Public replies and historical notes stay in Zendesk; copied messages do not bounce back.
+6. Open **All linked ticket and issue pairs** in [Grafana](http://127.0.0.1:1990/d/supportbridge-overview?refresh=5s). Every stored mapping appears automatically. The subject is the last verified summary; click either number to open its source in a new tab. Separate delivered/waiting counts show each direction's stored evidence.
 
 The worker waits 60 seconds after each pass by default. Provider visibility, pagination, work duration, review and retries add delay. Monitoring refreshes separately; it does not poll vendors or authorize effects. [The full walkthrough](docs/SCENARIO.md#start-in-zendesk) explains what to inspect at each stage.
 
@@ -60,6 +60,12 @@ composer audit --locked --no-plugins
 
 Classes follow `Bridge\` → `src/` under PSR-4. The checked-in [PSR-12 ruleset](phpcs.xml.dist) defines source coverage and harness exceptions. Node 24 is used for documentation, Swagger/OpenAPI and replay checks. [Development and verification](docs/CI.md#local-reproduction-and-limits) lists the complete gates.
 
+## Enable internal support replies
+
+Set `BRIDGE_ZENDESK_NOTES_ENABLED=1` in the selected private deployment file only after reviewing the GitHub destination's audience. Reverse delivery defaults off and uses the existing worker; no extra service is added. The first complete scan per linked pair records existing Zendesk comment IDs without posting them. Inspect `notes` or `GET /api/note-deliveries` for a non-null `initialized_at`, then add a new internal note.
+
+Use `BRIDGE_GITHUB_COMMENTS_ENABLED=1` for the forward direction. Copied message IDs and durable markers prevent loops, including after lost acknowledgements. New appends wait during field review; neither message text nor AI can approve a state change. [Conversation operation](docs/COMMENTS.md) explains the two flags, new-only starting point and recovery limits.
+
 ## Review a state change
 
 Inspect the pending pair and its `governance.plan_hash`. An authorized operator reviews the exact target, both preimages/versions and policy, then explicitly approves that hash with a reason. Approval itself re-reads evidence and writes no vendor record. A later sweep checks freshness before applying effects.
@@ -71,9 +77,9 @@ Source selection and retry cannot grant approval. Conflicting same-field edits s
 - One repository, one Zendesk tenant, one host and one serial worker share a local SQLite business store.
 - The explicit tag authorizes creating an open issue and transferring its initial description, which may have been internal. Both destinations must be approved for that data.
 - Summary/state ownership is shared. Binary open/closed semantics intentionally lose richer vendor workflow distinctions.
-- Comment enablement includes existing visible user/bot comments. Copies retain first-observed text; later editing, deletion and redaction are separate work.
+- Forward comment enablement includes eligible existing GitHub user/bot comments. Reverse enablement records all existing Zendesk IDs at its first successful scan, then copies only new internal notes. Wait for initialized_at before adding the first reverse-demo reply. Copies retain immutable text; later editing, deletion and redaction are separate work.
 - Operators share broad authority. There is no verified individual identity, independent approver role or per-pair authorization.
-- Grafana viewers may read linked baseline subjects and configured source links. Prometheus retains numeric identifiers, with seven gauge series per link; access, retention and scale need review.
+- Grafana viewers may read linked baseline subjects and configured source links. Prometheus retains numeric identifiers, with nine gauge series per link; access, retention and scale need review.
 
 The [assumptions register](docs/ASSUMPTIONS.md) records each decision, consequence and validation boundary.
 
@@ -84,15 +90,16 @@ The [assumptions register](docs/ASSUMPTIONS.md) records each decision, consequen
 | Zendesk subject ↔ GitHub title | Three-way merge against the last verified baseline; patch only changed fields |
 | Resolution state | Canonical open/closed; Zendesk writes use open/solved; every outbound transition requires exact-plan approval |
 | Initial Zendesk description → issue body | Creation-only literal text, explicit source link and durable marker; 30,000 UTF-8-byte source bound |
-| GitHub issue comments → Zendesk | One-way internal notes with immutable first-observed snapshot and source attribution |
+| GitHub issue comments → Zendesk | Internal notes with immutable first-observed snapshot and source attribution |
+| New internal Zendesk notes → GitHub | Separately enabled, new-only comments with source user attribution; public replies, initial report and bridge copies excluded |
 
-Titles are nonempty and at most 500 UTF-8 bytes. Zendesk new/open/pending/hold map to open; solved/closed map to closed. An immutable closed ticket cannot be edited. Assignees, priority, attachments, deletion, closure reasons and reverse comment synchronization are outside the contract. [Intake](docs/INTAKE.md), [comment delivery](docs/COMMENTS.md) and [architecture](docs/ARCHITECTURE.md) define the recovery details.
+Titles are nonempty and at most 500 UTF-8 bytes. Zendesk new/open/pending/hold map to open; solved/closed map to closed. An immutable closed ticket cannot be edited. Assignees, priority, attachment bytes, deletion, closure reasons and public Zendesk replies are outside the contract. [Intake](docs/INTAKE.md), [comment delivery](docs/COMMENTS.md) and [architecture](docs/ARCHITECTURE.md) define the recovery details.
 
 ## Architecture overview
 
 ```mermaid
 flowchart TB
-    ZD["Zendesk ticket"] <--> Workflow["Intake, field reconciliation and internal notes"]
+    ZD["Zendesk ticket"] <--> Workflow["Intake, field reconciliation and two-way comments"]
     GH["GitHub issue"] <--> Workflow
     Operator["Explicit state-change review"] --> Workflow
     Workflow <--> Store[("Business state and audit")]
@@ -108,7 +115,7 @@ flowchart TB
 
 CLI and HTTP dispatch shared typed commands and queries. Constructor dependencies make connection, transaction and lock ownership explicit. Policies for merge, retry and governance are pure; there is no global database Singleton. Plans persist target/preimages/versions before effects, and baselines advance only after verified agreement. A lost field-write response is recovered by reading first. Creation and comment append have stricter recovery: an attempted unknown outcome is never blindly repeated.
 
-Grafana uses two data sources. Its current table reads protected JSON directly from the bridge; Prometheus supplies the other six panels and sampled history. Grafana does not require Prometheus in principle; this deployment retains it for metric history and rules. Monitoring is not part of the synchronization decision. See the [implementation design](docs/ARCHITECTURE.md) and [monitoring guide](docs/OBSERVABILITY.md).
+Grafana uses two data sources. Its current table reads protected JSON directly from the bridge; Prometheus supplies the other seven panels and sampled history. Grafana does not require Prometheus in principle; this deployment retains it for metric history and rules. Monitoring is not part of the synchronization decision. See the [implementation design](docs/ARCHITECTURE.md) and [monitoring guide](docs/OBSERVABILITY.md).
 
 ## Trade-offs
 
@@ -117,7 +124,7 @@ Grafana uses two data sources. Its current table reads protected JSON directly f
 | Tagged intake with durable creation evidence | A support ticket starts engineering work automatically | Bounded polling and conservative uncertainty can delay creation |
 | Two-way field merge | Preserves independent edits | Conflicts require review; one-way ownership would be simpler |
 | Whole-plan state approval | Reviews outbound resolution/reopening effects | Holds accompanying title changes and adds review latency |
-| First-observed internal notes | Brings engineering discussion into support | Copies sensitive text; corrections/redaction and uncertain appends need investigation |
+| Two attributed append channels | Keeps engineering questions and internal support replies together | Copies sensitive text; destination audience must be approved, cutover must complete, and corrections/uncertainty need investigation |
 | SQLite, typed use cases and plain PHP | Explicit ownership and a small runtime | Serial single-host work, more wiring and HTTP/deployment maintenance |
 | Current JSON table plus numeric Prometheus history | Useful subject/source context without titles in metric labels | Pinned Infinity plugin, monitoring-read authority and growing complete-snapshot/series costs |
 | Separate credential renewer | Short-lived Zendesk access rotates without reader restarts | Issuer service/volume, network dependency and shared vendor-volume access |
