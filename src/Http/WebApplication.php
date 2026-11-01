@@ -14,8 +14,11 @@ final class WebApplication
                 "frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
     ];
 
-    public function __construct(private readonly Api $api, private readonly StaticAssets $assets)
-    {
+    public function __construct(
+        private readonly Api $api,
+        private readonly StaticAssets $assets,
+        private readonly ?\Bridge\Http\Review\Controller $review = null
+    ) {
     }
 
     public function run(): void
@@ -29,7 +32,13 @@ final class WebApplication
             file_get_contents('php://input', false, null, 0, 16_385) ?: '',
             $_GET
         );
-        $response = $this->assets->handle($request) ?? $this->api->handle($request);
-        (new Response($response->status, $response->body, self::SECURITY_HEADERS + $response->headers))->send();
+        $review = $request->path === '/review' || str_starts_with($request->path, '/review/');
+        $response = $review && $this->review !== null
+            ? $this->review->handle($request) : ($this->assets->handle($request) ?? $this->api->handle($request));
+        (new Response(
+            $response->status,
+            $response->body,
+            array_replace(self::SECURITY_HEADERS, $response->headers)
+        ))->send();
     }
 }

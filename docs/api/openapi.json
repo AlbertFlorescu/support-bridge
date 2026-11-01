@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Support Bridge Operator API",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "description": "Single-operator internal prototype for linked GitHub Issues and Zendesk Tickets. Local mode is the default. All /api operations require a process-configured bearer token of at least 32 non-whitespace characters. Never expose the built-in PHP development server publicly. No remote base URL, credentials, mode or state path can be supplied through this API. GET /metrics uses a separate strong read-only scrape token; tokens must be different. Deterministic governance policy escalation-state-v1 allows title-only updates for explicitly linked records and requires an operator attestation for any planned outbound open/closed transition before any effects of that plan. Never rely on AI in compliance: AI output cannot authorize an effect, override policy, or certify compliance. The shared operator credential does not prove a human identity or separation of duties. Explicit engineering-tag intake can create one open GitHub issue and link it to its Zendesk origin. This creation opt-in does not grant resolution approval or a conflicting-source decision. Explicitly enabled GitHub issue-comment delivery appends internal Zendesk notes only. It preserves source snapshots and unknown-outcome evidence, never approves a state plan, and pauses new notes while reconciliation work is pending. New engineering issues include a one-time copy of the initial Zendesk description and an explicit Zendesk ticket link; later replies and description edits do not rewrite their bodies. A separately enabled reverse channel copies only new Zendesk internal notes into GitHub issue comments after each linked pair completes a durable first-scan cutover. Public replies and initial descriptions are excluded. Both channels preserve source attribution, use local origin evidence to prevent reflection loops, and never blindly repeat an attempted append."
   },
   "servers": [
@@ -40,6 +40,10 @@
     {
       "name": "Internal notes",
       "description": "Explicit new-only Zendesk internal notes to GitHub comments; no public replies or approval authority."
+    },
+    {
+      "name": "Browser review",
+      "description": "Explicit local browser review reached from Grafana; monitoring credentials stay read-only."
     }
   ],
   "paths": {
@@ -1359,6 +1363,644 @@
         ],
         "description": "Provider-free paginated local query. Contains sensitive immutable snapshots and source attribution. streams.initialized_at null means the first successful baseline scan has not happened; excluded_count counts historical IDs without exporting the full baseline list. items and streams are paged independently. privacy_hold is shared by both comment channels."
       }
+    },
+    "/review": {
+      "get": {
+        "tags": [
+          "Browser review"
+        ],
+        "security": [
+          {
+            "grafanaSession": []
+          }
+        ],
+        "summary": "List current linked escalations for an enabled browser reviewer.",
+        "operationId": "listBrowserReviews",
+        "description": "HTML browser adapter. GET constructs no vendor providers, changes no business state and grants no approval. The session check reads only the fixed internal Grafana /api/user. Use the configured loopback origin and sign in through Grafana first.",
+        "responses": {
+          "200": {
+            "description": "Current stored review evidence, HTML escaped; not a fresh provider observation.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired Grafana session.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unlisted account, invalid origin or form proof.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review page or mapping not found.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale plan, invalid state or busy worker; refresh and inspect.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Form exceeds 16 KiB.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Use the rendered form.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid form fields, confirmation or rationale.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Provider failure while checking approval.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Review disabled, invalid configuration or sign-in verification unavailable.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/links/{github_id}/{zendesk_id}": {
+      "parameters": [
+        {
+          "name": "github_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,15}$"
+          }
+        },
+        {
+          "name": "zendesk_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,15}$"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Browser review"
+        ],
+        "security": [
+          {
+            "grafanaSession": []
+          }
+        ],
+        "summary": "Find the exact linked mapping from numeric Grafana row context.",
+        "operationId": "findBrowserReview",
+        "description": "HTML browser adapter. GET constructs no vendor providers, changes no business state and grants no approval. The session check reads only the fixed internal Grafana /api/user. Use the configured loopback origin and sign in through Grafana first.",
+        "responses": {
+          "303": {
+            "description": "Open the exact local review page.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired Grafana session.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unlisted account, invalid origin or form proof.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review page or mapping not found.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale plan, invalid state or busy worker; refresh and inspect.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Form exceeds 16 KiB.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Use the rendered form.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid form fields, confirmation or rationale.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Provider failure while checking approval.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Review disabled, invalid configuration or sign-in verification unavailable.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/pairs/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Browser review"
+        ],
+        "security": [
+          {
+            "grafanaSession": []
+          }
+        ],
+        "summary": "Render the stored exact field plan and an expiring approval form.",
+        "operationId": "inspectBrowserReview",
+        "description": "HTML browser adapter. GET constructs no vendor providers, changes no business state and grants no approval. The session check reads only the fixed internal Grafana /api/user. Use the configured loopback origin and sign in through Grafana first.",
+        "responses": {
+          "200": {
+            "description": "Current stored review evidence, HTML escaped; not a fresh provider observation.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired Grafana session.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unlisted account, invalid origin or form proof.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review page or mapping not found.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale plan, invalid state or busy worker; refresh and inspect.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Form exceeds 16 KiB.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Use the rendered form.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid form fields, confirmation or rationale.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Provider failure while checking approval.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Review disabled, invalid configuration or sign-in verification unavailable.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/pairs/{id}/approve": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Browser review"
+        ],
+        "security": [
+          {
+            "grafanaSession": []
+          }
+        ],
+        "operationId": "submitBrowserApproval",
+        "summary": "Record explicit approval of the exact rendered plan.",
+        "description": "Requires the enabled allowlisted Grafana administrator session, exact configured Host and Origin, same-origin form proof bound to session/pair/hash for ten minutes, and explicit confirmation. Dispatches the existing ApprovePlan command with fresh vendor checks under the canonical lock. Does not reconcile, change a vendor, resolve a conflict or execute arbitrary operator commands. The form expires; recorded business approvals retain their existing no-expiry semantics.",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured review origin, normally http://127.0.0.1:1988."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "plan_hash",
+                  "csrf",
+                  "reason",
+                  "confirm"
+                ],
+                "properties": {
+                  "plan_hash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "csrf": {
+                    "type": "string",
+                    "description": "Opaque proof from this exact rendered form; never synthesize or reuse another plan."
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "description": "Operator-supplied UTF-8 reason, at most 500 bytes."
+                  },
+                  "confirm": {
+                    "type": "string",
+                    "const": "yes"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "303": {
+            "description": "Approval recorded; return to current review status while the worker applies it later.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired Grafana session.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Unlisted account, invalid origin or form proof.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review page or mapping not found.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale plan, invalid state or busy worker; refresh and inspect.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Form exceeds 16 KiB.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Use the rendered form.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid form fields, confirmation or rationale.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Provider failure while checking approval.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Review disabled, invalid configuration or sign-in verification unavailable.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1372,6 +2014,12 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Separate strong read-only monitoring credential for Prometheus /metrics and the Grafana /monitoring/pairs context view. The latter includes baseline subjects and configured record URLs. Cannot access operator endpoints."
+      },
+      "grafanaSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "support-bridge-live-demo_grafana_session",
+        "description": "Project-scoped Grafana browser session, verified against the fixed internal Grafana. Browser review must be explicitly enabled and the account must be an allowlisted Grafana administrator. No operator bearer is exposed to the browser; other project names change this cookie name."
       }
     },
     "schemas": {

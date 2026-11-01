@@ -54,7 +54,7 @@ Local mode needs no credentials. Live provider operations require BRIDGE_GITHUB_
 BRIDGE_GITHUB_TOKEN, BRIDGE_ZENDESK_SUBDOMAIN and Zendesk access credentials.
 Tokens can use *_FILE variables; managed Zendesk OAuth uses BRIDGE_ZENDESK_OAUTH_BUNDLE_FILE.
 Use BRIDGE_ZENDESK_AUTH=oauth for an OAuth access token; legacy api-token mode
-also requires BRIDGE_ZENDESK_EMAIL. See README.md and docs/LIVE_DEMO.md.
+also requires BRIDGE_ZENDESK_EMAIL. See README.md and docs/OPERATIONS.md#live-demonstrations.
 API reference: /docs on the local HTTP server.
 
 TEXT;

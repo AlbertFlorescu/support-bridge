@@ -66,7 +66,7 @@ Grafana's read-only monitoring credential permits `/metrics` and `/monitoring/pa
 
 ## Conversation data transfer
 
-The two conversation channels are independently opt-in. GitHub comments become internal Zendesk notes. New internal Zendesk notes can become GitHub comments after the reverse channel records each pair's starting point. GitHub repository readers may be a wider audience than Zendesk agents; review permitted disclosure before enabling the reverse flag. There is no automatic redaction, identity-aware authorization or public-repository safety classification. Existing history and public Zendesk replies are excluded, but an internal label alone does not make content appropriate for GitHub. See [the contract and limits](docs/COMMENTS.md).
+The two conversation channels are independently opt-in. GitHub comments become internal Zendesk notes. New internal Zendesk notes can become GitHub comments after the reverse channel records each pair's starting point. GitHub repository readers may be a wider audience than Zendesk agents; review permitted disclosure before enabling the reverse flag. There is no automatic redaction, identity-aware authorization or public-repository safety classification. Existing history and public Zendesk replies are excluded, but an internal label alone does not make content appropriate for GitHub. See [the contract and limits](docs/OPERATIONS.md#live-demonstrations).
 
 The transport permits only the fixed issue-comment POST path with a bounded marked body; no arbitrary URL, public flag, author override or source-supplied command is accepted. Reverse source text and optional display names are fenced as literal text to avoid interpreting Markdown mentions or embeds. Numeric source user identity is retained alongside attribution; the integration account performs the actual append. Attribution does not prove role or permission.
 
@@ -105,7 +105,7 @@ Trivy's PHP package scanning covers Composer manifests, but the runtime has no C
 
 External databases can lag, disagree or omit analysis. Database freshness does not prove completeness, and a vendor fixed version may not yet exist in a supported distribution or image.
 
-As checked on 2026-10-26, the source repository is public, `main` is unprotected and no repository ruleset is installed. CI and reports do not block direct pushes; the prepared rule is not enforced. See [CI controls](docs/CI.md#branch-protection-is-a-separate-setting). Workflow permissions and the file allowlist do not establish separation of duties or human review. Maintainers remain responsible for risk acceptance and deployment; AI output cannot make those decisions.
+As checked on 2026-10-26, the source repository is public, `main` is unprotected and no repository ruleset is installed. CI and reports do not block direct pushes; the prepared rule is not enforced. See [CI controls](docs/CI.md#publishing-and-protection). Workflow permissions and the file allowlist do not establish separation of duties or human review. Maintainers remain responsible for risk acceptance and deployment; AI output cannot make those decisions.
 
 ## Reporting a vulnerability
 

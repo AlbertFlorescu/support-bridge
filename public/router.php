@@ -10,9 +10,15 @@ use Bridge\Http\WebApplication;
 
 require dirname(__DIR__) . '/bootstrap.php';
 
+$contextFactory = static fn (): Context => new Context(Configuration::fromEnvironment());
 $api = new Api(
-    static fn (): Context => new Context(Configuration::fromEnvironment()),
+    $contextFactory,
     getenv('BRIDGE_API_TOKEN') ?: '',
     getenv('BRIDGE_METRICS_TOKEN') ?: ''
 );
-(new WebApplication($api, new StaticAssets(dirname(__DIR__))))->run();
+$review = new \Bridge\Http\Review\Controller(
+    $contextFactory,
+    getenv('BRIDGE_API_TOKEN') ?: '',
+    getenv('BRIDGE_METRICS_TOKEN') ?: ''
+);
+(new WebApplication($api, new StaticAssets(dirname(__DIR__)), $review))->run();

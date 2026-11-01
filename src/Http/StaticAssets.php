@@ -16,6 +16,7 @@ final class StaticAssets
             return null;
         }
         $assets = [
+            '/assets/review.css' => ['/public/assets/review.css', 'text/css; charset=utf-8'],
             '/'                                       => [
                 '/public/docs.html',
                 'text/html; charset=utf-8',

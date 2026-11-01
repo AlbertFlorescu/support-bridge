@@ -1,77 +1,72 @@
-# GitHub verification and merge controls
+# Verification and maintenance
 
-Our [Verify workflow](../.github/workflows/ci.yml) runs PHP/API tests and container checks. [GitHub Actions](https://github.com/AlbertFlorescu/support-bridge/actions) records each published revision's results.
+[Verify](../.github/workflows/ci.yml) runs on every PR to main, main push, manual dispatch and merge group. It has no path filters. **Required checks** passes only when both jobs succeed; failed, skipped or cancelled dependencies fail the gate.
 
-## Required status check
-
-Require **`Required checks`** on `main`. This unique aggregate check passes only when both verification jobs succeed. Failed, cancelled or skipped dependencies fail the gate.
-
-| Check | Coverage |
+| Job | Coverage |
 | --- | --- |
-| `PHP checks` | Locked Composer development install and audit, strict PSR-4 autoload verification, configured PSR-12 style check, PHP syntax/application tests, synthetic demo, OAuth/bootstrap/checkpoint contracts, dependency-free replay checks, vulnerability-tool tests, offline Markdown link/anchor/fence checks and their fixtures, Swagger asset freshness, OpenAPI parsing and real loopback response-fixture validation |
-| `Container checks` | Image builds, isolated PHP/style/OpenAPI/replay verification, local stack startup, service-network smoke checks, six in-memory Prometheus rule cases with labelled inputs, numeric attention-query assertions, graceful shutdown, pending-plan/credential persistence through recreation and a disposable live-overlay import/bootstrap check without vendors |
-| `Required checks` | Both jobs succeeded for the revision under review |
+| PHP checks | Locked Composer install/audit, strict PSR-4 and PSR-12, PHP behavior/recovery tests, API/OpenAPI fixtures, Swagger freshness, security-tool tests, replay, Markdown checks and native-browser approval submission |
+| Container checks | Isolated verification image, real local stack smoke, labelled Prometheus rule cases, persistence/recreation, real Grafana session/form checks, live-overlay bootstrap and networkless OAuth renewal checks |
+| Required checks | Both jobs succeeded for the revision under review |
 
-Verify runs for PRs targeting `main`, pushes to `main`, manual dispatch and merge groups. It has no path filters, so documentation changes also produce the required status. [Concurrency settings](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) cancel outdated runs for the same PR or ref. Merge-group checks support a future merge queue; they do not enable one.
+## Publishing and protection
 
-## Maintainer workflow
+Use a maintainer branch under `feature/`, `fix/`, `chore/`, `docs/` or `ci/`. Review the diff, push, open a PR and merge only its current tested revision. Verify does not publish images or deploy services. General source-bot publishing remains disabled; repository Actions tokens default to read-only and cannot create/approve PRs.
 
-Create source changes on a product branch under `feature/`, `fix/`, `chore/`, `docs/` or `ci/` using the configured maintainer identity. Review the diff, exclude private files, push the branch and open a PR targeting main. Require the named **Required checks** gate for the current revision before merging. A passing workflow does not authorize deployment or customer-state changes.
+On 2026-11-02 the [main ruleset](../.github/rulesets/main.json) was activated and read back from GitHub: main is protected. It requires a PR, resolved conversations, an up-to-date branch and **Required checks** from GitHub Actions; force pushes and deletion are blocked. There are no bypass actors. Zero peer approvals are required while a separate reviewer is unavailable. This does not establish independent review. Check actual settings after administrative changes; checked-in JSON alone enforces nothing.
 
-There is no general source-publishing bot, special staging pipeline or reusable publication entry point. Verify retains read-only contents access. GitHub Actions PR creation/review approval is disabled at repository level; default tokens remain read-only. Dependabot proposals, the vulnerability tracker and bounded dependency-asset repair retain their separate documented responsibilities and job permissions.
+Checkout removes credentials. Actions and container bases use reviewed pins. Composer/npm development installs disable plugins/lifecycle scripts. Runtime images contain neither Composer nor browser/development dependencies. Synthetic API/native-browser artifacts last seven days; security reports last fourteen and prepared asset repair one. Private credentials, vendor responses and application volumes are never uploaded.
 
-## Branch protection is a separate setting
+## Reproduce checks
 
-Read-only repository, branch and ruleset API checks on 2026-10-30 confirmed that this source repository is public, `main` is unprotected, and the ruleset list is empty. PRs with passing checks are maintainer practice rather than a server-side restriction. The checked-in JSON does not enforce that practice. [GitHub's availability and settings](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) describe the separate repository controls.
+Run inside Ubuntu WSL, with locked development tools installed:
 
-The prepared [main ruleset](../.github/rulesets/main.json) requires:
+~~~bash
+composer install --no-interaction --no-plugins --no-scripts
+composer validate --strict
+composer autoload:check
+composer style
+composer audit --locked --no-plugins
+php bin/check.php
+node --test tools/docs/check.test.cjs tools/demo-viewer/viewer.test.cjs
+node tools/docs/check.cjs
+node tools/browser/check.mjs
+(cd tools/api-docs && npm ci --ignore-scripts --no-audit --no-fund && node check-vendor.cjs && node validate.cjs)
+python3 -m unittest discover -s tools/security -p 'test_*.py'
+~~~
 
-- A PR, resolved review conversations and an up-to-date branch.
-- `Required checks`, with GitHub Actions as the expected source.
-- No force pushes, deletion or administrator bypass.
+The browser check uses Node 24 and a Linux Chrome/Chromium binary, optionally selected with `BRIDGE_TEST_BROWSER`. GitHub's [Ubuntu runner image](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md) supplies a browser. It submits the actual native approval form against isolated local providers with a synthetic Grafana-session verifier, then checks that approval alone caused no destination write. Container lifecycle checks separately verify actual Grafana authentication. Neither contacts vendors or approves live records.
 
-It has no bypass actors and requires zero peer approvals while a separate reviewer is unavailable; a maintainer cannot approve their own PR. To enable the prepared rule, import it through **Settings → Rules → Rulesets → New ruleset → Import a ruleset** and verify enforcement. The JSON requests active enforcement but has no effect until imported. An equivalent classic rule is an alternative; avoid conflicting duplicate rules.
+For container changes use a **disposable project**, never the retained live project:
 
-## Permissions, dependencies and artifacts
+~~~bash
+export COMPOSE_PROJECT_NAME=support-bridge-verification
+export BRIDGE_HTTP_PORT=18081 BRIDGE_PROMETHEUS_PORT=19091 BRIDGE_GRAFANA_PORT=13001
+docker compose --profile test run --build --rm verify
+docker compose up --build -d --wait --wait-timeout 120
+sh docker/check-alerts.sh
+docker compose --profile test run --rm smoke
+sh docker/check-lifecycle.sh
+sh docker/check-live-demo.sh
+sh docker/check-oauth-renewal.sh
+docker compose down --volumes --remove-orphans
+~~~
 
-Verify has read-only repository contents access, and checkout removes its credentials. Official Actions use verified commit pins. Composer installs the root lockfile with plugins and scripts disabled, then verifies optimized PSR-4 autoloading, runs the configured style gate and a locked package audit including development dependencies. npm uses its lockfile, disabled lifecycle scripts and GitHub's package cache. Container builds use the checked-in digest pins and local layers within a job. Verify neither publishes images nor deploys services. Separate security publishers have the issue/content/Actions permissions listed in [SECURITY.md](../SECURITY.md).
+The final command deletes only that disposable project's volumes. Lifecycle/bootstrap scripts create their own uniquely named fixtures. Never substitute the live project or delete its volumes.
 
-The verification image pins Composer 2.10.3 and installs PHP_CodeSniffer 4.0.4 from the root lockfile. Native CI installs Composer from the runner's package repository. These are development tools: the runtime image contains neither Composer nor the development `vendor/` tree. [The PSR-12 ruleset](../phpcs.xml.dist) defines checked paths and standalone-harness exceptions, while `composer.json` records PSR-4 namespace mapping and style commands. A passing style check is separate from behavior, recovery and governance evidence.
+Markdown checks cover local files, anchors and fences. Parse/render changed Mermaid separately and inspect the output. Native/browser, controlled container, hosted CI and selected live-provider observations are different evidence.
 
-[Git attributes](../.gitattributes) keep detected text files on LF line endings in both Windows and Linux checkouts. This prevents host Git settings from making a local Docker build fail the PSR-12 line-ending rule while a Linux CI checkout passes. Existing working files with CRLF need normalization before rebuilding; changing attributes does not rewrite already modified files.
+## Dependencies and security
 
-| Artifact | Retention |
-| --- | ---: |
-| Synthetic API response fixtures | 7 days |
-| Vulnerability reports | 14 days |
-| Prepared asset repair | 1 day |
+[Dependabot](../.github/dependabot.yml) proposes daily updates for Actions, npm, Composer and allowlisted images, including newer major runtime lines. Selected PHP 8.3, Node 24 and Prometheus 3.13 lines are deployment choices, not filters hiding newer releases. Review support deadlines and migration needs before adoption; updates are not automatically merged or deployed.
 
-API fixtures contain controlled test responses, not vendor records or deployment configuration. Failed container jobs print bounded diagnostics. Disposable runner volumes hold CI credentials and state and are removed after the job. Credential volumes, Compose environment dumps and application state directories are never uploaded.
+[Security maintenance](../SECURITY.md) owns alerts, image scanning, CVE List/NVD enrichment and bounded Swagger asset repair. A vendor's fixed package version is not necessarily an available parent image. Retain unresolved findings until an available image or reviewed rebuild is scanned. Scanners, feeds and passing CI do not certify compliance or complete vulnerability coverage.
 
-OAuth issuance tests inject a controlled transport; live-bootstrap tests verify empty bound initialization without provider effects. `docker/check-live-demo.sh` exercises the live overlay's credential import/bootstrap boundaries and disabled/enabled reverse-flag propagation in a disposable project with controlled tokens and no vendor access. It must leave normal project volumes intact. Checkpoint and viewer tests use controlled evidence and check bounds, exclusions and read-only navigation. The actual local capture command is round-tripped through the renderer with both omitted and unavailable monitoring. `tests/conversations.php` adds the bidirectional question/answer path, new-only cutover, attribution and literal text, public/history exclusion, opposite-ledger loop suppression, source revalidation, uncertain append recovery, shared holds, additive legacy migration and provider-free reverse API/metrics. `tests/comments.php` checks durable internal-note delivery, unknown outcomes, privacy holds, review boundaries, narrow payloads, bounded reads and provider-free queries using controlled ports. `tests/intake.php` additionally exercises durable tagged creation/recovery, cooldown, opt-in withdrawal, bounds, API/query separation and the unchanged exact-plan state gate with controlled ports. CI does not issue real OAuth credentials, create vendor records, enable the live worker or publish private demonstration JSON/HTML/video. A green replay or import check is separate from evidence that a vendor workflow was actually executed.
+## Verification evidence
 
-[Dependabot](../.github/dependabot.yml) schedules daily version checks at 08:00 UTC for GitHub Actions, npm API tooling, root Composer development packages, PHP/Node/Composer/monitoring images and the Trivy scanner. Each ecosystem entry allows ten version-update PRs. A wildcard cooldown exclusion removes release-age delay for tracked dependencies; locally built image names are excluded by the Docker allowlist. See [open proposals](https://github.com/AlbertFlorescu/support-bridge/pulls?q=is%3Apr+is%3Aopen+author%3Aapp%2Fdependabot) and [configuration options](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
+The 2026-11-02 revision adds a native-form regression check for the browser approval adapter. A deliberate temporary `no-referrer` regression failed that check; restoring `same-origin` passed while opaque/null origins remained rejected. The fixture is local and automatic approval is confined to isolated tests.
 
-Earlier recorded setup enabled native alerts and automatic security updates for supported manifests, including the Composer development lockfile. That historical observation is not a fresh feature-settings audit; verify service-side enablement after administrative changes. Security updates include development dependencies and respond to alerts independently of the version schedule. npm security PRs are grouped separately from routine npm updates. Our [security workflow](../SECURITY.md) adds image scanning, CVE List/NVD enrichment, one tracker and Swagger asset repair. The locked Composer audit is a Verify check; it is not another custom tracker feed. `Required checks` tests the reporting/repair code and rejects stale Swagger files; vulnerability inventory runs retain their own statuses and evidence.
+Local PHP/style/audit, API/OpenAPI, security-tool, replay and documentation gates passed. Disposable container verification, rule cases, lifecycle/Grafana-session checks, live bootstrap and OAuth renewal passed; the retained stack passed nine read-only smoke checks without resetting accounts or volumes. All five Mermaid diagrams were rendered and visually inspected.
 
-## Dependency maintenance policy
+The ten [demonstration cases](SCENARIO.md#demonstration-cases) are bounded fictional vendor observations, not customer acceptance. Actual Grafana rendering verified ten rows, twenty source links, twelve columns, automatic refresh and both pending review forms without approval submission. Raw responses, screenshots, recordings and previous detailed review logs remain private; Git history retains earlier guides. [Actions](https://github.com/AlbertFlorescu/support-bridge/actions) records hosted results for each published revision. Local success does not establish a hosted result before publication.
 
-PHP 8.3, Node 24 and Prometheus 3.13 are our selected runtime lines, not proposal filters. Dependabot may show patch, minor and major updates for every allowlisted image. npm minor/patch updates are grouped; majors can appear separately. Image digests and Actions pins change only through reviewed updates.
-
-Our 2026-10-25 review recorded PHP 8.3 security support through 2027-12-31, Node 24 LTS and Prometheus 3.13 LTS. See [PHP support](https://www.php.net/supported-versions.php), the [Node release schedule](https://github.com/nodejs/Release/blob/main/schedule.json) and [Prometheus release policy](https://prometheus.io/docs/introduction/release-cycle/).
-
-A new runtime line needs a reason, migration review, updated documentation and relevant tests. Revisit the selection before support ends or when a required fix is unavailable. Updates are not merged or deployed automatically. Dependabot does not monitor every support deadline. [Earlier review evidence](REVIEW.md#dependency-review-2026-10-25) records candidate decisions and remaining migration work.
-
-The tracker's **Vendor fixed version** is a package-level fix, not an available parent-image tag. Dependabot can edit our manifests and image pins, but not a Go module or OS package inside an upstream image. Those findings need an upstream release, image refresh or reviewed rebuild and a new scan. Cases without an available image stay tracked.
-
-## Documentation checks
-
-`node --test tools/docs/check.test.cjs` verifies fenced-example handling, heading slugs and local-target failures. `node tools/docs/check.cjs` checks maintained Markdown guides and repository skills for local file/heading links and closed fences, with no external requests or new package dependency. It runs in the existing **PHP checks** job after Node setup, so the named aggregate gate is unchanged. Local guide changes do not become hosted CI evidence until published.
-
-This check deliberately does not validate prose, external URLs or Mermaid syntax. For a diagram change, also parse/render it with the [official Mermaid API](https://mermaid.js.org/config/usage) and inspect the result. A local rendering pass can use an isolated development tool prefix; no Mermaid runtime is added to the application. Keep generated previews and private observations outside source.
-
-## Local reproduction and limits
-
-Use `php bin/check.php`, `composer autoload:check`, `composer style`, `composer audit --locked --no-plugins` and the locked OpenAPI validator for native checks, or follow [Docker operation](DOCKER.md). Install locked Composer development packages first with `composer install --no-interaction --no-plugins --no-scripts`. The lifecycle script creates a uniquely named synthetic project and must never remove the normal stack's volumes.
-
-CI uses synthetic data. Live provider behavior, production capacity and restore procedures need separate validation. Passing checks do not verify human identity, approve customer state changes or establish compliance. Never rely on AI in compliance; runtime approval remains a separate control.
+Tests do not demonstrate production throughput, high availability, tested restore/rollback, independent human identity or policy satisfaction. **Never rely on AI in compliance.**
