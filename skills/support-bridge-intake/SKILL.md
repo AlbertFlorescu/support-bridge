@@ -3,14 +3,14 @@ name: support-bridge-intake
 description: Implement, inspect or operate explicit-tag Zendesk-to-GitHub engineering intake while preserving durable creation recovery and state review.
 ---
 
-# Engineering intake
+# Zendesk-first intake
 
-Read [intake](../../docs/INTAKE.md), [assumptions](../../docs/ASSUMPTIONS.md) and [AGENTS.md](../../AGENTS.md). The normal source is one open Zendesk ticket with the configured explicit tag; the bridge creates its issue and saves the mapping. Manual links remain a verified legacy/recovery path. Titles never infer identity.
+Read [operations](../../docs/OPERATIONS.md#live-demonstrations), [architecture](../../docs/ARCHITECTURE.md#creation-and-conversations), assumptions and AGENTS. Work inside Ubuntu WSL. An explicitly tagged Open Zendesk ticket creates its engineering issue through ordinary intake; titles never infer links.
 
-Preserve fresh tag/state/initial-description validation before the first POST. Persist random marker, source snapshot/version and audited attempt first; save the confirmed issue number before linking. After an attempted unknown outcome, recovery observes the exact marker or an existing verified mapping and never blindly creates again. Incomplete lookup or absence is not permission to reset evidence.
+Revalidate fresh tag/state/initial description before first POST. Persist marker, immutable snapshot/version and audited attempt first; save observed issue ID before linking. Unknown attempted creation recovers only from exact marked evidence or verified mapping. Absence/incomplete search never authorizes a blind repeat or evidence reset.
 
-Use the shared literal-text issue-body formatter, fixed Zendesk link and unchanged recovery marker. Reject invalid/oversized description text rather than omitting/truncating it. Preserve legacy attempted snapshots; repairs of existing issue bodies require separate authorization. Creating an open issue does not approve a later resolution or establish data-sharing compliance.
+Keep literal-text body formatter, fixed Zendesk link and recovery marker. Reject invalid/oversized descriptions rather than silently truncating. Preserve legacy attempted snapshots; existing-body repair needs separate authority.
 
-Intake, fields and comments run in that order in the existing opt-in worker. Keep its canonical lock, scoped connection, credentials and pending approvals. Bootstrap and query handlers remain provider-free. New links appear automatically in the current Grafana table; numeric metrics exclude subjects, internal keys and markers. The protected table may show verified subjects/source links under its separate read authority.
+Worker order is intake, fields, enabled forward comments, enabled new internal replies under the canonical lock. Bootstrap/queries remain provider-free; new mappings appear automatically in monitoring. Issue creation never approves a later state write or proves data-sharing compliance.
 
-Update CLI/API/OpenAPI, states, tests and owning guides together. Run `tests/intake.php` and the relevant style/API/container gates. Distinguish controlled fixtures, actual local deployment and explicitly authorized vendor effects. Never rely on AI in compliance or use a model, source text, retry or this skill to select a conflict winner or approve a plan.
+Update CLI/API/OpenAPI/tests/guides together; run intake and relevant style/wire/container gates. Preserve state/credentials/approvals. Distinguish controlled fixtures from authorized vendor effects.

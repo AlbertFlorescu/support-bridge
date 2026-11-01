@@ -8,7 +8,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 12,
+  "version": 13,
   "refresh": "5s",
   "time": {
     "from": "now-1h",
@@ -218,7 +218,7 @@
       "id": 4,
       "type": "table",
       "title": "All linked ticket and issue pairs",
-      "description": "Every stored link. Ticket subject is the last verified common title, not a fresh provider read or an unapproved target. Click record numbers to open the configured Zendesk/GitHub source in a new tab. Unknown subjects remain explicit. Subjects and destination URLs are fetched through the authenticated read-only records datasource, never Prometheus labels.",
+      "description": "Every stored link. Ticket subject is the last verified common title, not a fresh provider read or an unapproved target. Click record numbers to open the configured Zendesk/GitHub source in a new tab. Unknown subjects remain explicit. Subjects and destination URLs are fetched through the authenticated read-only records datasource, never Prometheus labels. Use the workflow-state link to review an exact pending change. Approval occurs in the separate authenticated bridge page; the datasource remains read-only.",
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
         "uid": "supportbridge-records"
@@ -227,7 +227,7 @@
         "x": 0,
         "y": 16,
         "w": 24,
-        "h": 13
+        "h": 24
       },
       "targets": [
         {
@@ -483,6 +483,16 @@
               {
                 "id": "custom.width",
                 "value": 155
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Review this escalation",
+                    "url": "http://127.0.0.1:1988/review/links/${__data.fields[\"GitHub issue\"]}/${__data.fields[\"Zendesk ticket\"]}",
+                    "targetBlank": true
+                  }
+                ]
               }
             ]
           },
@@ -765,7 +775,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 40,
         "w": 24,
         "h": 6
       },
@@ -1001,5 +1011,16 @@
   },
   "templating": {
     "list": []
-  }
+  },
+  "links": [
+    {
+      "title": "Review pending changes",
+      "type": "link",
+      "url": "http://127.0.0.1:1988/review",
+      "targetBlank": true,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false
+    }
+  ]
 }

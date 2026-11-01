@@ -4,6 +4,8 @@ set -eu
 cd "$(dirname "$0")/.."
 docker=${DOCKER:-docker}
 project="support-bridge-lifecycle-$$"
+export BRIDGE_REVIEW_ENABLED=1
+export BRIDGE_REVIEW_LOGINS=admin
 export BRIDGE_HTTP_PORT=${BRIDGE_LIFECYCLE_HTTP_PORT:-18080}
 export BRIDGE_PROMETHEUS_PORT=${BRIDGE_LIFECYCLE_PROMETHEUS_PORT:-19090}
 export BRIDGE_GRAFANA_PORT=${BRIDGE_LIFECYCLE_GRAFANA_PORT:-13000}
@@ -44,5 +46,8 @@ compose down
 compose up -d --wait --wait-timeout 120
 after=$(printf '%s' "$probe" | compose exec -T api php)
 test "$before" = "$after"
+compose --profile test run --rm --no-deps \
+    -e BRIDGE_TEST_REVIEW_ORIGIN="http://127.0.0.1:$BRIDGE_HTTP_PORT" \
+    --entrypoint php smoke /app/docker/check-browser-review.php
 compose --profile test run --rm smoke
 echo 'PASS graceful worker termination, pending-plan persistence and unchanged credentials after recreation'

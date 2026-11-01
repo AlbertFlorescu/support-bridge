@@ -41,6 +41,11 @@ services:
       <<: *application-environment
       BRIDGE_API_TOKEN_FILE: /run/secrets/operator/token
       BRIDGE_METRICS_TOKEN_FILE: /run/secrets/metrics/token
+      BRIDGE_REVIEW_ENABLED: "${BRIDGE_REVIEW_ENABLED:-0}"
+      BRIDGE_REVIEW_LOGINS: "${BRIDGE_REVIEW_LOGINS:-}"
+      BRIDGE_REVIEW_GRAFANA_COOKIE: "${COMPOSE_PROJECT_NAME}_grafana_session"
+      BRIDGE_REVIEW_ORIGIN: "http://127.0.0.1:${BRIDGE_HTTP_PORT:-1988}"
+      BRIDGE_REVIEW_GRAFANA_ORIGIN: "http://127.0.0.1:${BRIDGE_GRAFANA_PORT:-1990}"
     restart: unless-stopped
     depends_on:
       init:

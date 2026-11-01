@@ -40,3 +40,7 @@
 **/node_modules
 **/__pycache__
 **/*.log
+
+!tools/browser/
+!tools/browser/*.mjs
+!tools/browser/*.php
