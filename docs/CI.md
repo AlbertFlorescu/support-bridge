@@ -5,7 +5,7 @@
 | Job | Coverage |
 | --- | --- |
 | PHP checks | Locked Composer install/audit, strict PSR-4 and PSR-12, PHP behavior/recovery tests, API/OpenAPI fixtures, Swagger freshness, security-tool tests, replay, Markdown checks and native-browser approval submission |
-| Container checks | Isolated verification image, real local stack smoke, labelled Prometheus rule cases, persistence/recreation, real Grafana session/form checks, live-overlay bootstrap and networkless OAuth renewal checks |
+| Container checks | Isolated verification image, real local stack smoke, labelled Prometheus rule cases, persistence/recreation, real Grafana session/form checks, live-overlay bootstrap and controlled no-vendor OAuth renewal checks |
 | Required checks | Both jobs succeeded for the revision under review |
 
 ## Publishing and protection
