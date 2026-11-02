@@ -38,7 +38,7 @@ flowchart TB
   Zendesk["Zendesk OAuth<br/>[External software system]<br/>Issues ticket-scoped access tokens"]:::external
 
   Operator -->|"Signs in and views dashboard<br/>HTTP, loopback 1990"| Grafana
-  Operator -->|"Reviews exact plans<br/>HTTP, loopback 1988"| API
+  Operator -->|"Chooses conflict sources and reviews exact state plans<br/>HTTP, loopback 1988"| API
   Grafana -->|"Protected current JSON via Infinity<br/>HTTP /monitoring/pairs; monitoring token"| API
   Grafana -->|"Queries numeric history<br/>HTTP / PromQL"| Prom
   API -->|"Verifies selected project session<br/>Fixed internal HTTP /api/user; cookie"| Grafana

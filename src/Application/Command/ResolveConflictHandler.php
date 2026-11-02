@@ -14,7 +14,7 @@ final readonly class ResolveConflictHandler
 
     public function handle(ResolveConflict $command): array
     {
-        $this->engines->create()->resolve($command->id, $command->source);
+        $this->engines->create()->resolve($command->id, $command->source, $command->conflictHash);
 
         return [
             'id'     => $command->id,

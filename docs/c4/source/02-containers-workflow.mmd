@@ -33,7 +33,7 @@ flowchart TB
   Zendesk["Zendesk Support<br/>[External software system]<br/>Ticket fields and internal notes"]:::external
   GitHub["GitHub Issues<br/>[External software system]<br/>Issue fields and comments"]:::external
 
-  Operator -->|"Reviews and submits exact approval<br/>HTTP, loopback 1988"| API
+  Operator -->|"Chooses conflict sources and approves exact state plans<br/>HTTP, loopback 1988"| API
   Operator -->|"Runs authorized commands<br/>Linux shell / PHP CLI"| CLI
   API -->|"Commands and provider-free queries<br/>PDO SQLite; canonical file lock for commands"| Business
   Worker -->|"Persists intent, audit and verified results<br/>PDO SQLite; canonical file lock"| Business
@@ -48,7 +48,7 @@ flowchart TB
   CLI -->|"Explicit provider commands only<br/>HTTPS REST"| Zendesk
   CLI -->|"Explicit provider commands only<br/>HTTPS REST"| GitHub
 
-  Legend["Key: blue = executable container; green cylinder = persistent data store;<br/>grey = external system. Arrows name caller, purpose and technology.<br/>API queries and browser GET pages make no vendor requests; approval submission only reads vendors."]:::key
+  Legend["Key: blue = executable container; green cylinder = persistent data store;<br/>grey = external system. Arrows name caller, purpose and technology.<br/>API queries and browser GET pages make no vendor requests; source-choice and approval submissions only read vendors."]:::key
 
   classDef person fill:#133b65,stroke:#0b2540,color:#fff
   classDef system fill:#1e5c9a,stroke:#133b65,color:#fff

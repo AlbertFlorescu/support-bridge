@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bridge;
 
 use Bridge\Contract\PairRepository;
+use Bridge\Domain\ConflictSnapshot;
 use Bridge\Domain\GovernancePolicy;
 use Bridge\Domain\MergePolicy;
 use Bridge\Domain\RetryPolicy;
@@ -61,15 +62,19 @@ final class Engine
         });
     }
 
-    public function resolve(string $id, string $source): void
+    public function resolve(string $id, string $source, ?string $conflictHash = null): void
     {
         if (!isset($this->providers[$source])) {
             throw new ValidationFailure('Resolution source must be github or zendesk.');
         }
-        $this->store->withExclusiveLock(function () use ($id, $source): void {
+        $this->store->withExclusiveLock(function () use ($id, $source, $conflictHash): void {
             $pair = $this->store->get($id);
             if ($pair['status'] !== 'conflict') {
                 throw new StateConflict('Only a quarantined conflict can be resolved.');
+            }
+            if ($conflictHash !== null && !hash_equals(ConflictSnapshot::hash($pair), $conflictHash)) {
+                throw new StateConflict('The conflict changed since this page was opened. ' .
+                    'Inspect again before resolving.');
             }
             $records = $this->read($pair);
             if (

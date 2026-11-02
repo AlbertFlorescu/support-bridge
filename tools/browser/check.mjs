@@ -90,8 +90,19 @@ try {
     '--user-data-dir=' + path.join(home, 'browser'), 'about:blank'], {stdio: ['ignore', 'ignore', 'pipe']});
   let browserErrors = '';
   browser.stderr.on('data', chunk => { browserErrors = (browserErrors + chunk).slice(-12000); });
-  const endpoint = await until(() => browserErrors.match(/DevTools listening on (ws:\/\/[^\s]+)/)?.[1],
-    'Chromium did not expose its local test endpoint');
+  const endpoint = await until(() => {
+    const activePort = path.join(home, 'browser', 'DevToolsActivePort');
+    if (fs.existsSync(activePort)) {
+      const [port, endpointPath] = fs.readFileSync(activePort, 'utf8').trim().split(/\r?\n/);
+      if (/^[0-9]+$/.test(port) && endpointPath?.startsWith('/devtools/browser/')) {
+        return 'ws://127.0.0.1:' + port + endpointPath;
+      }
+    }
+    return browserErrors.match(/DevTools listening on (ws:\/\/[^\s]+)/)?.[1];
+  }, 'Chromium did not expose its local test endpoint', 20000).catch(error => {
+    throw new Error(error.message + '; exit=' + browser.exitCode + '; signal=' + browser.signalCode +
+      '\nIsolated Chromium startup diagnostics:\n' + browserErrors.slice(-4000));
+  });
   const socket = new WebSocket(endpoint);
   await new Promise((resolve, reject) => {
     socket.addEventListener('open', resolve, {once: true});
@@ -139,12 +150,59 @@ try {
   assert.equal(completed.pair.status, 'synced');
   assert.equal(completed.pair.baseline.state, 'closed');
   assert.equal(completed.pair.plan, null);
-  const report = {nativeFormSubmitted: true, sameOriginPolicy: true, approvalRecorded: true,
+  const nativeChoices = [];
+  for (const source of ['zendesk', 'github']) {
+    cli('local-edit', 'github', '101', 'title', 'Engineering ' + source);
+    cli('local-edit', 'zendesk', '501', 'title', 'Support ' + source);
+    cli('sync');
+    const before = cli('inspect', 'escalation-1').pair;
+    assert.equal(before.status, 'conflict');
+    const writes = ['github', 'zendesk'].map(side => JSON.parse(fs.readFileSync(path.join(home, side + '.json'))).writes);
+    await protocol.send('Page.navigate', {url: origin + '/review/pairs/escalation-1'}, sessionId);
+    const selector = 'form:has(input[name=source][value=' + source + '])';
+    await until(() => evaluate('Boolean(document.querySelector(' + JSON.stringify(selector) + '))'),
+      'Conflict did not render both native source choices');
+    // Native constraint validation must hold the unchecked source form.
+    await evaluate('document.querySelector(' + JSON.stringify(selector + ' button') + ').click(); true');
+    assert.equal(cli('inspect', 'escalation-1').pair.status, 'conflict');
+    await evaluate('document.querySelector(' + JSON.stringify(selector + ' input[name=confirm]') + ').checked = true;' +
+      'document.querySelector(' + JSON.stringify(selector + ' button') + ').click(); true');
+    await until(() => evaluate('document.querySelector("[data-testid=workflow-state]")?.textContent === "Ready for next pass"'),
+      'Native source choice failed to queue its reviewed conflict');
+    const selected = cli('inspect', 'escalation-1').pair;
+    assert.equal(selected.status, 'new');
+    assert.equal(selected.approval, null);
+    assert.deepEqual(selected.plan.target, before.conflict.observed[source]);
+    assert.deepEqual(['github', 'zendesk'].map(side =>
+      JSON.parse(fs.readFileSync(path.join(home, side + '.json'))).writes), writes);
+    cli('sync');
+    assert.equal(cli('inspect', 'escalation-1').pair.status, 'synced');
+    nativeChoices.push(source);
+  }
+  cli('local-edit', 'github', '101', 'title', 'Reopened engineering diagnosis');
+  cli('local-edit', 'github', '101', 'state', 'open');
+  cli('local-edit', 'zendesk', '501', 'title', 'Support remains resolved');
+  cli('sync');
+  await protocol.send('Page.navigate', {url: origin + '/review/pairs/escalation-1'}, sessionId);
+  await until(() => evaluate('Boolean(document.querySelector("form input[name=conflict_hash]"))'),
+    'State disagreement conflict did not render');
+  await evaluate('const f = document.querySelector("form:has(input[name=source][value=github])");' +
+    'f.querySelector("[name=confirm]").checked = true; f.querySelector("button").click(); true');
+  await until(() => evaluate('document.querySelector("[data-testid=workflow-state]")?.textContent === "Ready for next pass"'),
+    'Native state source choice failed');
+  cli('sync');
+  const held = cli('inspect', 'escalation-1');
+  assert.equal(held.pair.status, 'awaiting_approval');
+  assert.equal(held.governance.approved, false);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(home, 'zendesk.json'))).records['501'].fields.state, 'closed');
+  const report = {nativeSourceChoices: nativeChoices, sourceConfirmationRequired: true,
+    sourceChoiceNeedsSeparateStateApproval: true,
+    nativeFormSubmitted: true, sameOriginPolicy: true, approvalRecorded: true,
     noWriteBeforeSweep: true, convergedAfterSweep: true, providers: 'isolated local fixtures',
     grafanaVerifier: 'injected fixture; real Grafana session covered by container lifecycle'};
   fs.mkdirSync(path.join(root, 'var'), {recursive: true});
   fs.writeFileSync(path.join(root, 'var/native-browser-check.json'), JSON.stringify(report, null, 2) + '\n');
-  console.log('PASS native Chromium form, exact approval without immediate effects, and later verified convergence.');
+  console.log('PASS native Chromium source buttons, confirmation, separate state approval and verified convergence.');
 } finally {
   if (protocol) {
     await protocol.send('Browser.close').catch(() => {});

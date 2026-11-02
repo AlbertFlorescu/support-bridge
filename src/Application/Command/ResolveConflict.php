@@ -8,7 +8,8 @@ final readonly class ResolveConflict implements Command
 {
     public function __construct(
         public string $id,
-        public string $source
+        public string $source,
+        public ?string $conflictHash = null
     ) {
     }
 }

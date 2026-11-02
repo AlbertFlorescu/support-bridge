@@ -54,8 +54,8 @@ $assert = static function (bool $condition, string $message): void {
         throw new RuntimeException($message);
     }
 };
-$api = static function () use ($request, $operator): array {
-    $result = $request('http://api:8080/api/pairs/escalation-1', headers: [
+$api = static function (string $id = 'escalation-1') use ($request, $operator): array {
+    $result = $request('http://api:8080/api/pairs/' . rawurlencode($id), headers: [
         'Authorization: Bearer ' . $operator,
     ]);
     if ($result['status'] !== 200) {
@@ -124,6 +124,47 @@ $assert(
 );
 $duplicate = $request($path, 'POST', [...$headers, 'Origin: ' . $origin], http_build_query($form));
 $assert($duplicate['status'] === 409, 'Repeated decision did not stop at the existing engine gate.');
+$conflictBefore = $api('browser-conflict');
+$assert($conflictBefore['pair']['status'] === 'conflict', 'Disposable conflict was not prepared.');
+$conflictPage = $request('http://api:8080/review/pairs/browser-conflict', headers: $headers);
+$assert($conflictPage['status'] === 200, 'Real Grafana session could not inspect the conflict.');
+$assert(
+    str_contains($conflictPage['body'], 'Use Zendesk') && str_contains($conflictPage['body'], 'Use GitHub'),
+    'Both source buttons must be rendered for the real session.'
+);
+foreach ($conflictPage['headers']['set-cookie'] ?? [] as $line) {
+    if (str_starts_with($line, explode('=', $cookie, 2)[0] . '=')) {
+        $cookie = explode(';', $line, 2)[0];
+    }
+}
+$headers = ['Host: ' . $host, 'Cookie: ' . $cookie, 'Content-Type: application/x-www-form-urlencoded'];
+preg_match_all('~<form.*?</form>~s', $conflictPage['body'], $forms);
+foreach ($forms[0] as $formHtml) {
+    if (!str_contains($formHtml, 'name="source" value="zendesk"')) {
+        continue;
+    }
+    preg_match('/name="conflict_hash" value="([^"]+)"/', $formHtml, $hash);
+    preg_match('/name="csrf" value="([^"]+)"/', $formHtml, $proof);
+}
+$assert(isset($hash[1], $proof[1]), 'Conflict source form is missing.');
+$choice = ['conflict_hash' => $hash[1], 'csrf' => $proof[1], 'source' => 'zendesk', 'confirm' => 'yes'];
+$path = 'http://api:8080/review/pairs/browser-conflict/resolve';
+$denied = $request($path, 'POST', [...$headers, 'Origin: null'], http_build_query($choice));
+$assert($denied['status'] === 403, 'Opaque origin selected a source.');
+$selected = $request($path, 'POST', [...$headers, 'Origin: ' . $origin], http_build_query($choice));
+$assert($selected['status'] === 303, 'Real-session conflict source choice failed.');
+$conflictAfter = $api('browser-conflict');
+$assert(
+    $conflictAfter['pair']['status'] === 'new' && $conflictAfter['pair']['approval'] === null
+        && $conflictAfter['pair']['plan']['target'] === $conflictBefore['pair']['conflict']['observed']['zendesk'],
+    'Source choice failed to queue the complete source independently of state approval.'
+);
+$assert(
+    $conflictAfter['pair']['baseline'] === $conflictBefore['pair']['baseline'],
+    'Source selection must not advance the baseline.'
+);
+$duplicate = $request($path, 'POST', [...$headers, 'Origin: ' . $origin], http_build_query($choice));
+$assert($duplicate['status'] === 409, 'Duplicate source choice was not rejected.');
 $stillSignedIn = $request('http://grafana:3000/api/user', headers: ['Cookie: ' . $cookie]);
 $assert($stillSignedIn['status'] === 200, 'Review invalidated the Grafana session.');
-echo "PASS real Grafana session, browser form, origin denial, exact approval without sync and duplicate rejection.\n";
+echo "PASS real Grafana session, source buttons, separate approval, origin denial and duplicate rejection.\n";

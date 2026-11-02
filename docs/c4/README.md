@@ -27,13 +27,13 @@ Open an image directly to zoom or export its SVG. Each image has a title/key; ed
 
 ![C4 workflow containers: API, scheduled worker and on-demand CLI sharing business and diagnostic stores](images/02-containers-workflow.svg)
 
-[Editable source](source/02-containers-workflow.mmd). The API, worker and CLI reuse the same handlers and one business store. Queries remain provider-free. Only selected commands can contact vendors; browser approval re-reads evidence and records authority without a vendor write.
+[Editable source](source/02-containers-workflow.mmd). The API, worker and CLI reuse the same handlers and one business store. Queries remain provider-free. Only selected commands can contact vendors; browser source choice and approval re-read evidence and queue their separate decisions without a vendor write.
 
 ## L2: monitoring and credential containers
 
 ![C4 monitoring and credential containers: Grafana, Prometheus, API and isolated Zendesk renewer with their state stores](images/03-containers-operations.svg)
 
-[Editable source](source/03-containers-operations.mmd). This is a second view of the same system, expanding monitoring and credential boundaries. Grafana's current table uses protected JSON; Prometheus provides numeric history. Monitoring receives no operator or vendor credential. The separate browser adapter verifies an enabled Grafana session and invokes the existing approval command.
+[Editable source](source/03-containers-operations.mmd). This is a second view of the same system, expanding monitoring and credential boundaries. Grafana's current table uses protected JSON; Prometheus provides numeric history. Monitoring receives no operator or vendor credential. The separate browser adapter verifies an enabled Grafana session and invokes the existing source-choice or approval command.
 
 Only the renewer reads issuer configuration. Its shared vendor volume also exposes the unused GitHub token; the design does not enforce isolation between files in that volume. Bootstrap and importers are one-off lifecycle operations, not extra always-running services.
 
@@ -121,7 +121,7 @@ These coexist with ledger states; treating them as one combined “ticket status
 | Reverse `initialized_at` absent/present | First complete scan persists historical IDs and posts nothing. Subsequent eligible original internal notes may be discovered; no automatic reset/backfill exists. |
 | Privacy hold clear/set | Shared durable `comments_privacy_hold` stops both directions after unsafe public-copy evidence. There is no automatic clear or retraction. |
 | Approval absent/present | Exact pair/plan/policy attestation, not a pair status. `requires_approval`/`approved` are derived governance results. Source choice and retry never supply approval. |
-| Browser review | A currently allowed Grafana session and valid ten-minute session/pair/hash form proof are required. Expired or cross-origin forms confer no authority; form expiry does not expire recorded approval. |
+| Browser review | A currently allowed Grafana session and valid ten-minute session/action/pair/hash form proof are required. Conflict choices additionally bind the selected side and complete saved snapshot; state approval remains separate. Expired or cross-origin forms confer no authority; form expiry does not expire recorded approval. |
 | Discovery/cooldown | Page, scan time, `next_run` and error evidence schedule work independently of row status. |
 | OAuth `current` / `renewed` / `renewal_failed` | Renewal tick/heartbeat observations, not business states. Readers require a valid, tenant-bound, unexpired bundle; the renewer additionally checks client binding. Renewal failure never fabricates a replacement. Health also requires a matching recent heartbeat. |
 | No baseline / no success timestamp | No verified subject/resolution, or Never verified. Dashboard Unknown/Not observed is presentation/absence, not a new database status. |

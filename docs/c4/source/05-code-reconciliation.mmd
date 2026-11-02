@@ -21,7 +21,7 @@ classDiagram
   direction LR
   class Engine {
     +run() array
-    +resolve(string id, string source) void
+    +resolve(id, source, conflictHash=null) void
     +approve(string id, string hash, string reason) void
     +retry(string id) void
   }

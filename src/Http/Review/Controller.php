@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bridge\Http\Review;
 
 use Bridge\Application\Command\ApprovePlan;
+use Bridge\Application\Command\ResolveConflict;
 use Bridge\Application\Context;
 use Bridge\Application\Query\GetStatus;
 use Bridge\Application\Query\InspectPair;
@@ -14,7 +15,7 @@ use Bridge\Http\HttpFailure;
 use Bridge\Http\Request;
 use Bridge\Http\Response;
 
-/** Browser adapter for the existing exact-plan command; never reconciles or selects a source. */
+/** Browser adapter for the existing operator decisions; never reconciles or writes vendors. */
 final class Controller
 {
     private readonly \Closure $contextFactory;
@@ -64,8 +65,13 @@ final class Controller
                 return $this->response(303, '', $requestId, $configuration, $session, [
                     'Location' => '/review/pairs/' . rawurlencode($id),
                 ]);
-            } elseif ($route['name'] === 'approve') {
-                $this->approve($request, $context, $route['id'], $session, $configuration, $protection);
+            } elseif (in_array($route['name'], ['approve', 'resolve'], true)) {
+                $this->requireSubmissionOrigin($request, $configuration);
+                if ($route['name'] === 'approve') {
+                    $this->approve($request, $context, $route['id'], $session, $protection);
+                } else {
+                    $this->resolve($request, $context, $route['id'], $session, $protection);
+                }
                 return $this->response(303, '', $requestId, $configuration, $session, [
                     'Location' => '/review/pairs/' . rawurlencode($route['id']),
                 ]);
@@ -95,17 +101,17 @@ final class Controller
             $route = ['name' => 'link', 'github' => $m[1], 'zendesk' => $m[2]];
         } elseif (
             preg_match(
-                '~^/review/pairs/([A-Za-z0-9][A-Za-z0-9_-]{0,63})(/approve)?$~D',
+                '~^/review/pairs/([A-Za-z0-9][A-Za-z0-9_-]{0,63})(?:/(approve|resolve))?$~D',
                 $request->path,
                 $m
             )
         ) {
-            $route = ['name' => isset($m[2]) ? 'approve' : 'inspect', 'id' => $m[1]];
+            $route = ['name' => $m[2] ?? 'inspect', 'id' => $m[1]];
         }
         if ($route === null) {
             throw new HttpFailure(404, 'route_not_found', 'This review page does not exist.');
         }
-        $method = $route['name'] === 'approve' ? 'POST' : 'GET';
+        $method = in_array($route['name'], ['approve', 'resolve'], true) ? 'POST' : 'GET';
         if ($request->method !== $method) {
             throw new HttpFailure(
                 405,
@@ -127,21 +133,24 @@ final class Controller
         throw new NotFound('The numeric pair is not linked.');
     }
 
+    private function requireSubmissionOrigin(Request $request, Configuration $configuration): void
+    {
+        if (
+            $request->header('Origin') !== $configuration->origin
+            || !in_array($request->header('Sec-Fetch-Site'), ['', 'same-origin'], true)
+        ) {
+            throw new HttpFailure(403, 'invalid_review_origin', 'Submit decisions from the review page itself.');
+        }
+    }
+
     private function approve(
         Request $request,
         Context $context,
         string $id,
         Session $session,
-        Configuration $configuration,
         FormProtection $protection
     ): void {
-        if (
-            $request->header('Origin') !== $configuration->origin
-            || !in_array($request->header('Sec-Fetch-Site'), ['', 'same-origin'], true)
-        ) {
-            throw new HttpFailure(403, 'invalid_review_origin', 'Submit approval from the review page itself.');
-        }
-        $body = $this->form($request);
+        $body = $this->form($request, ['plan_hash', 'csrf', 'reason', 'confirm']);
         $protection->verify($body['csrf'], $session->incoming, $id, $body['plan_hash']);
         if ($body['confirm'] !== 'yes') {
             throw new HttpFailure(
@@ -153,7 +162,31 @@ final class Controller
         $context->handle(new ApprovePlan($id, $body['plan_hash'], $body['reason']));
     }
 
-    private function form(Request $request): array
+    private function resolve(
+        Request $request,
+        Context $context,
+        string $id,
+        Session $session,
+        FormProtection $protection
+    ): void {
+        $body = $this->form($request, ['conflict_hash', 'source', 'csrf', 'confirm']);
+        if (!in_array($body['source'], ['github', 'zendesk'], true)) {
+            throw new HttpFailure(422, 'invalid_resolution_source', 'Choose GitHub or Zendesk.');
+        }
+        $protection->verify(
+            $body['csrf'],
+            $session->incoming,
+            $id,
+            $body['conflict_hash'],
+            'resolve:' . $body['source']
+        );
+        if ($body['confirm'] !== 'yes') {
+            throw new HttpFailure(422, 'review_confirmation_required', 'Confirm the complete source choice.');
+        }
+        $context->handle(new ResolveConflict($id, $body['source'], $body['conflict_hash']));
+    }
+
+    private function form(Request $request, array $required): array
     {
         if (strlen($request->body) > 16384) {
             throw new HttpFailure(413, 'body_too_large', 'Review forms are limited to 16 KiB.');
@@ -171,7 +204,6 @@ final class Controller
             }
             $fields[$name] = urldecode($entry[1]);
         }
-        $required = ['plan_hash', 'csrf', 'reason', 'confirm'];
         if (array_diff(array_keys($fields), $required) !== [] || array_diff($required, array_keys($fields)) !== []) {
             throw new HttpFailure(422, 'invalid_review_fields', 'Use the exact review form fields.');
         }

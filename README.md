@@ -12,7 +12,7 @@ Our assumed customer is a B2B software team using both systems. The expected val
 4. Close or reopen one source record. The bridge prepares the corresponding state-change plan and waits for approval.
 5. In Grafana, choose **Review pending changes**, inspect the complete proposal, enter a reason, confirm review and click **Approve this exact change**. A later worker pass checks freshness, applies it and verifies agreement.
 
-One-sided summary edits propagate automatically. Divergent edits to the same field stop for an operator source decision. The worker normally waits 60 seconds after each pass; provider calls, review and retries add delay.
+One-sided summary edits propagate automatically. Divergent edits to the same field stop for an operator source decision: open its workflow link in Grafana, compare both versions, confirm and click **Use Zendesk** or **Use GitHub**. The choice uses that source’s title and canonical state; closing/reopening still needs separate approval. The worker normally waits 60 seconds after each pass; provider calls, review and retries add delay.
 
 | Surface | Local address | Access |
 | --- | --- | --- |
@@ -58,7 +58,7 @@ flowchart TB
     Read -->|"Numeric samples"| Prometheus["Prometheus"]
     Prometheus --> Grafana
     Grafana -->|"Open review"| Review["Operator review page"]
-    Review -->|"Explicit exact-plan approval"| Workflow
+    Review -->|"Explicit source choice or exact-plan approval"| Workflow
 ~~~
 
 Plain PHP, constructor dependencies, PSR-4 and PSR-12 keep adapters and policies explicit. CLI, HTTP, browser review and the worker share typed commands and queries. One SQLite store and canonical lock coordinate business work; telemetry uses separate storage. There is no framework, queue, runtime LLM or process-global database Singleton.
