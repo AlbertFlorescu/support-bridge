@@ -90,8 +90,19 @@ try {
     '--user-data-dir=' + path.join(home, 'browser'), 'about:blank'], {stdio: ['ignore', 'ignore', 'pipe']});
   let browserErrors = '';
   browser.stderr.on('data', chunk => { browserErrors = (browserErrors + chunk).slice(-12000); });
-  const endpoint = await until(() => browserErrors.match(/DevTools listening on (ws:\/\/[^\s]+)/)?.[1],
-    'Chromium did not expose its local test endpoint');
+  const endpoint = await until(() => {
+    const activePort = path.join(home, 'browser', 'DevToolsActivePort');
+    if (fs.existsSync(activePort)) {
+      const [port, endpointPath] = fs.readFileSync(activePort, 'utf8').trim().split(/\r?\n/);
+      if (/^[0-9]+$/.test(port) && endpointPath?.startsWith('/devtools/browser/')) {
+        return 'ws://127.0.0.1:' + port + endpointPath;
+      }
+    }
+    return browserErrors.match(/DevTools listening on (ws:\/\/[^\s]+)/)?.[1];
+  }, 'Chromium did not expose its local test endpoint', 20000).catch(error => {
+    throw new Error(error.message + '; exit=' + browser.exitCode + '; signal=' + browser.signalCode +
+      '\nIsolated Chromium startup diagnostics:\n' + browserErrors.slice(-4000));
+  });
   const socket = new WebSocket(endpoint);
   await new Promise((resolve, reject) => {
     socket.addEventListener('open', resolve, {once: true});
