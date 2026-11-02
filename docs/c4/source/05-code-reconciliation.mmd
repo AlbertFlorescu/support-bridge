@@ -1,0 +1,70 @@
+---
+title: C4 L4 - Reconciliation component code
+config:
+  htmlLabels: false
+  theme: base
+  themeVariables:
+    primaryColor: '#edf4ff'
+    primaryTextColor: '#142b45'
+    primaryBorderColor: '#456d9e'
+    lineColor: '#4d6276'
+    edgeLabelBackground: '#ffffff'
+    noteBkgColor: '#f5f7fa'
+    noteBorderColor: '#94a3b8'
+  fontFamily: DejaVu Sans, sans-serif
+  class:
+    htmlLabels: false
+---
+classDiagram
+  accTitle: C4 L4 - Reconciliation component code
+  accDescr: Selected classes of the reconciliation component. Policies are constructed by Engine. Provider and PairRepository contracts are injected. Store is the external persistence implementation.
+  direction LR
+  class Engine {
+    +run() array
+    +resolve(string id, string source) void
+    +approve(string id, string hash, string reason) void
+    +retry(string id) void
+  }
+  class MergePolicy {
+    <<pure policy>>
+    +decide(baseline, github, zendesk) MergeDecision
+  }
+  class GovernancePolicy {
+    <<pure policy>>
+    +review(array pair) array
+    +validatePlan(array plan) void
+  }
+  class RetryPolicy {
+    <<pure policy>>
+    +afterFailure(attempts, retryable, retryAfter, now, jitter) RetryDecision
+  }
+  class PairRepository {
+    <<injected interface>>
+    +withExclusiveLock(callable operation) mixed
+    +get(string id) array
+    +update(string id, array values) void
+    +event(string id, string type, array details) void
+  }
+  class Provider {
+    <<injected interface>>
+    +fetch(string id) Record
+    +patch(string id, array changes, Record expected) void
+  }
+  class Record {
+    <<value object>>
+    +array fields
+    +string version
+    +bool writable
+  }
+  class Store {
+    <<external SQLite adapter>>
+  }
+
+  Engine *-- MergePolicy : constructs
+  Engine *-- GovernancePolicy : constructs
+  Engine *-- RetryPolicy : constructs
+  Engine ..> PairRepository : injected business boundary
+  Engine ..> Provider : two injected field providers
+  Provider ..> Record : returns and checks
+  Store ..|> PairRepository : implements
+  note for Engine "Key: solid diamond = owned policy; dashed arrow = dependency;<br/>hollow triangle = interface implementation.<br/>Selected methods only; external collaborators are not additional Engine services."

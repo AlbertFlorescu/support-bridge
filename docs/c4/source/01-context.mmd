@@ -1,0 +1,46 @@
+---
+title: C4 L1 - Support Bridge system context
+config:
+  htmlLabels: false
+  theme: base
+  themeVariables:
+    primaryColor: '#edf4ff'
+    primaryTextColor: '#142b45'
+    primaryBorderColor: '#456d9e'
+    lineColor: '#4d6276'
+    edgeLabelBackground: '#ffffff'
+    noteBkgColor: '#f5f7fa'
+    noteBorderColor: '#94a3b8'
+  fontFamily: DejaVu Sans, sans-serif
+  flowchart:
+    htmlLabels: false
+    curve: linear
+    nodeSpacing: 32
+    rankSpacing: 60
+---
+flowchart TB
+  accTitle: C4 L1 - Support Bridge system context
+  accDescr: Support and engineering work in their source systems. An escalation operator reviews exact changes in Support Bridge. Roles do not establish separate authenticated identities.
+  Support["Support engineer<br/>[Person / functional role]<br/>Owns customer escalation and new internal replies"]:::person
+  Engineer["Software engineer<br/>[Person / functional role]<br/>Investigates issues and records engineering updates"]:::person
+  Operator["Escalation operator<br/>[Person / functional role]<br/>Inspects conflicts and reviews exact state plans"]:::person
+  Zendesk["Zendesk Support<br/>[External software system]<br/>Customer tickets and internal notes"]:::external
+  GitHub["GitHub Issues<br/>[External software system]<br/>Engineering issues and comments"]:::external
+  Bridge["Support Bridge<br/>[Software system in scope]<br/>Tagged intake, durable field reconciliation,<br/>conversation delivery and operator visibility"]:::system
+
+  Support -->|"Tags reports and adds internal context"| Zendesk
+  Engineer -->|"Investigates, comments and closes issues"| GitHub
+  Operator -->|"Inspects evidence and explicitly approves plans"| Bridge
+  Bridge -->|"Reads reports and notes; updates fields<br/>and appends internal engineering notes"| Zendesk
+  Bridge -->|"Creates linked issues; updates fields<br/>and appends internal support replies"| GitHub
+  Support -->|"Views linked-pair progress"| Bridge
+
+  Legend["Key: dark = person; blue = our software system; grey = external system.<br/>Each arrow describes a directed interaction. Source text and dashboards confer no approval."]:::key
+
+  classDef person fill:#133b65,stroke:#0b2540,color:#fff
+  classDef system fill:#1e5c9a,stroke:#133b65,color:#fff
+  classDef container fill:#e9f2fd,stroke:#245c95,color:#142b45
+  classDef component fill:#eef4fd,stroke:#456d9e,color:#142b45
+  classDef store fill:#e5f4eb,stroke:#28754c,color:#173e2a
+  classDef external fill:#f1f2f4,stroke:#697586,color:#283442
+  classDef key fill:#fff,stroke:#a6b0bc,color:#283442

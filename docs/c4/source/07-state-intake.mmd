@@ -1,0 +1,53 @@
+---
+title: Zendesk intake - all six persisted intent states
+config:
+  htmlLabels: false
+  layout: elk
+  theme: base
+  themeVariables:
+    primaryColor: '#edf4ff'
+    primaryTextColor: '#142b45'
+    primaryBorderColor: '#456d9e'
+    lineColor: '#4d6276'
+    edgeLabelBackground: '#ffffff'
+    noteBkgColor: '#f5f7fa'
+    noteBorderColor: '#94a3b8'
+  state:
+    nodeSpacing: 70
+    rankSpacing: 85
+  fontFamily: DejaVu Sans, sans-serif
+---
+stateDiagram-v2
+  accTitle: Zendesk intake - all six persisted intent states
+  accDescr: Creation persists an attempt before POST. Creating or uncertain work can only recover by observation and linking, never by an automatic second create request.
+  direction TB
+  state "prepared" as Prepared
+  state "creating" as Creating
+  state "uncertain" as Uncertain
+  state "linked" as Linked
+  state "blocked" as Blocked
+  state "withdrawn" as Withdrawn
+
+  [*] --> Prepared: eligible tagged report
+  Prepared --> Prepared: preflight unavailable
+  Prepared --> Withdrawn: eligibility withdrawn
+  Withdrawn --> Prepared: eligible again / unattempted
+  Prepared --> Creating: audit snapshot and attempt
+  Prepared --> Linked: marked issue / matching mapping
+  Prepared --> Blocked: identity collision
+  Creating --> Linked: ID observed and linked
+  Creating --> Uncertain: unconfirmed outcome
+  Creating --> Blocked: mapping conflict
+  Uncertain --> Uncertain: not uniquely observed
+  Uncertain --> Linked: unique recovery
+  Uncertain --> Blocked: mapping conflict
+  Blocked --> Linked: matching mapping observed
+
+  note right of Creating
+    Key: every named state is persisted.
+    Audit precedes POST; recovery never blindly repeats it.
+  end note
+  note right of Linked
+    Intake complete; field reconciliation continues.
+    Linking is not state approval.
+  end note

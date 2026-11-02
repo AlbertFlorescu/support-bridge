@@ -1,0 +1,54 @@
+---
+title: Field reconciliation - all six persisted pair states
+config:
+  htmlLabels: false
+  theme: base
+  themeVariables:
+    primaryColor: '#edf4ff'
+    primaryTextColor: '#142b45'
+    primaryBorderColor: '#456d9e'
+    lineColor: '#4d6276'
+    edgeLabelBackground: '#ffffff'
+    noteBkgColor: '#f5f7fa'
+    noteBorderColor: '#94a3b8'
+  state:
+    nodeSpacing: 70
+    rankSpacing: 85
+  fontFamily: DejaVu Sans, sans-serif
+---
+stateDiagram-v2
+  accTitle: Field reconciliation - all six persisted pair states
+  accDescr: New, synced and due retry pairs are evaluated. Conflicts, dead work and pending approval require explicit action. Evaluation is transient, not a seventh stored status.
+  direction TB
+  state "new" as New
+  state "synced" as Synced
+  state "retry" as Retry
+  state "conflict" as Conflict
+  state "dead" as Dead
+  state "awaiting_approval" as Review
+  state "Evaluate fresh evidence" as Evaluate
+
+  [*] --> New: mapping saved
+  New --> Evaluate: sweep
+  Synced --> Evaluate: next sweep
+  Retry --> Evaluate: retry due
+  Evaluate --> Synced: target verified
+  Evaluate --> Review: state approval missing
+  Evaluate --> Conflict: stale / divergent / mismatch
+  Evaluate --> Retry: temporary failure
+  Evaluate --> Dead: permanent / fifth failure
+  Review --> New: fresh exact approval
+  Review --> Conflict: source changed at approval
+  Conflict --> New: fresh source choice
+  Conflict --> Conflict: source changed at choice
+  Dead --> New: explicit retry
+  Retry --> New: explicit retry
+
+  note right of Evaluate
+    Key: lower-case states are persisted.
+    Evaluate is transient; skipped is a pass outcome.
+  end note
+  note right of Review
+    Approval queues work without a vendor write.
+    Source selection never grants approval.
+  end note

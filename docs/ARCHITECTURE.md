@@ -2,6 +2,8 @@
 
 Support starts in Zendesk. The explicit escalation tag authorizes issue creation and an exact one-to-one mapping. The bridge then reconciles summary/state and separately delivers enabled conversations.
 
+For the four C4 zoom levels, persistent state ownership and complete workflow lifecycles, see the separate [C4 architecture pack](c4/README.md).
+
 ## Components
 
 ~~~mermaid

@@ -27,7 +27,7 @@ Perform project work inside Ubuntu WSL at `/home/aflorescu/adobe` using Linux pa
 
 ## Documentation and publication
 
-[SCENARIO.md](docs/SCENARIO.md) owns the primary walkthrough and ten-case catalogue; [OPERATIONS.md](docs/OPERATIONS.md) owns runtime procedures; [CI.md](docs/CI.md) owns checks and concise evidence. Keep one owner per procedure instead of adding overlapping guides. Separate proposed narratives, controlled tests, actual rendering and selected vendor observations. Never fabricate history or reset pending work to advance a demo.
+[SCENARIO.md](docs/SCENARIO.md) owns the primary walkthrough and ten-case catalogue; [OPERATIONS.md](docs/OPERATIONS.md) owns runtime procedures; [CI.md](docs/CI.md) owns checks and concise evidence. Keep one owner per procedure instead of adding overlapping guides. The optional [C4 pack](docs/c4/README.md) owns visual zoom levels and state lifecycles; update its editable sources and rendered SVGs against code/schema/Compose changes. Separate proposed narratives, controlled tests, actual rendering and selected vendor observations. Never fabricate history or reset pending work to advance a demo.
 
 Update handlers, CLI/API/OpenAPI, metrics, behavior checks and guides together. Run appropriate PHP/style gates, offline Markdown checks and separate Mermaid render/inspection. Container changes require disposable verification/lifecycle/bootstrap/renewal checks and real-stack smoke. Never remove normal volumes.
 

@@ -1,0 +1,63 @@
+---
+title: C4 L2 - Monitoring and credential containers
+config:
+  htmlLabels: false
+  layout: elk
+  theme: base
+  themeVariables:
+    primaryColor: '#edf4ff'
+    primaryTextColor: '#142b45'
+    primaryBorderColor: '#456d9e'
+    lineColor: '#4d6276'
+    edgeLabelBackground: '#ffffff'
+    noteBkgColor: '#f5f7fa'
+    noteBorderColor: '#94a3b8'
+  fontFamily: DejaVu Sans, sans-serif
+  flowchart:
+    htmlLabels: false
+    curve: linear
+    nodeSpacing: 32
+    rankSpacing: 60
+---
+flowchart TB
+  accTitle: C4 L2 - Monitoring and credential containers
+  accDescr: Grafana reads current JSON from the API and historical metrics from Prometheus. API review verifies the selected Grafana session. An isolated renewer publishes hot Zendesk credentials and cannot operate business state.
+  Operator["Enabled reviewer<br/>[Person]<br/>Allowlisted Grafana server administrator"]:::person
+  subgraph Bridge["Support Bridge - monitoring and credential container view"]
+    Grafana["Grafana with Infinity backend<br/>[Container: Grafana]<br/>Current linked-pair table, numeric history and review links"]:::container
+    API["Operator API and browser review<br/>[Container: PHP HTTP process]<br/>Separate monitoring-read and operator/session authority"]:::container
+    Prom["Prometheus<br/>[Container: Prometheus]<br/>Scrapes numeric observations and evaluates rules"]:::container
+    Business[("Business state<br/>[Data-store container: live.sqlite]<br/>Current verified baseline and workflow evidence")]:::store
+    Telemetry[("Diagnostic registry<br/>[Data-store container: metrics.sqlite]<br/>Persisted numeric counters and histograms")]:::store
+    TSDB[("Prometheus history<br/>[Data-store container: TSDB]<br/>Numeric samples; seven-day default retention")]:::store
+    Sessions[("Grafana state<br/>[Data-store container: Grafana SQLite/files]<br/>Accounts, sessions and retained application settings")]:::store
+    Renewer["Zendesk token renewer<br/>[Container: isolated PHP process]<br/>Issues bounded grants; no business or operator mount"]:::container
+    Issuer[("Issuer configuration<br/>[Data-store container: private files]<br/>Only renewer reads confidential client configuration")]:::store
+    Tokens[("Vendor credential bundle<br/>[Data-store container: private files]<br/>Atomic Zendesk access bundle and startup GitHub token")]:::store
+  end
+  Zendesk["Zendesk OAuth<br/>[External software system]<br/>Issues ticket-scoped access tokens"]:::external
+
+  Operator -->|"Signs in and views dashboard<br/>HTTP, loopback 1990"| Grafana
+  Operator -->|"Reviews exact plans<br/>HTTP, loopback 1988"| API
+  Grafana -->|"Protected current JSON via Infinity<br/>HTTP /monitoring/pairs; monitoring token"| API
+  Grafana -->|"Queries numeric history<br/>HTTP / PromQL"| Prom
+  API -->|"Verifies selected project session<br/>Fixed internal HTTP /api/user; cookie"| Grafana
+  Grafana -->|"Persists accounts and sessions<br/>Filesystem / SQLite"| Sessions
+  Prom -->|"Authenticated numeric scrape<br/>HTTP /metrics; monitoring token"| API
+  Prom -->|"Retains samples<br/>Filesystem"| TSDB
+  API -->|"Reads current evidence without vendors<br/>Read-only SQLite snapshot"| Business
+  API -->|"Reads numeric diagnostics<br/>SQLite"| Telemetry
+  Renewer -->|"Reads client identity and secret<br/>Read-only private file mount"| Issuer
+  Renewer -->|"Requests four-hour ticket-only grant<br/>HTTPS OAuth"| Zendesk
+  Renewer -->|"Publishes bundle and heartbeat<br/>Atomic files under credential lock"| Tokens
+  API -->|"Reads managed Zendesk bundle per request<br/>Read-only private file mount"| Tokens
+
+  Legend["Key: blue = application container; green cylinder = state store; grey = external system.<br/>Worker and explicit CLI also read vendor files, as in the workflow view.<br/>Token renewer also sees the unused GitHub token in the shared volume; no per-file isolation is claimed."]:::key
+
+  classDef person fill:#133b65,stroke:#0b2540,color:#fff
+  classDef system fill:#1e5c9a,stroke:#133b65,color:#fff
+  classDef container fill:#e9f2fd,stroke:#245c95,color:#142b45
+  classDef component fill:#eef4fd,stroke:#456d9e,color:#142b45
+  classDef store fill:#e5f4eb,stroke:#28754c,color:#173e2a
+  classDef external fill:#f1f2f4,stroke:#697586,color:#283442
+  classDef key fill:#fff,stroke:#a6b0bc,color:#283442

@@ -5,6 +5,7 @@ Start with [the product overview](../README.md), then choose one guide.
 | Question | Guide |
 | --- | --- |
 | How do the components, merge and recovery rules work? | [Architecture](ARCHITECTURE.md) |
+| Where are the C4 views and complete state lifecycles? | [Optional C4 architecture pack](c4/README.md) |
 | How do I run, sign in, approve changes and diagnose failures? | [Operations](OPERATIONS.md) |
 | How do I demonstrate the customer flow and the ten cases? | [CSV walkthrough and case catalogue](SCENARIO.md) |
 | What assumptions and limits did we choose? | [Assumptions](ASSUMPTIONS.md) |

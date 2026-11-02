@@ -1,0 +1,51 @@
+---
+title: Conversation delivery - five states in each independent direction
+config:
+  htmlLabels: false
+  theme: base
+  themeVariables:
+    primaryColor: '#edf4ff'
+    primaryTextColor: '#142b45'
+    primaryBorderColor: '#456d9e'
+    lineColor: '#4d6276'
+    edgeLabelBackground: '#ffffff'
+    noteBkgColor: '#f5f7fa'
+    noteBorderColor: '#94a3b8'
+  state:
+    nodeSpacing: 70
+    rankSpacing: 85
+  fontFamily: DejaVu Sans, sans-serif
+---
+stateDiagram-v2
+  accTitle: Conversation delivery - five states in each independent direction
+  accDescr: The same append engine uses independent GitHub-to-Zendesk and Zendesk-to-GitHub ledgers. Pending originals may append once. Sending and uncertain work only recover through unique marked destination evidence.
+  direction TB
+  state "pending" as Pending
+  state "sending" as Sending
+  state "uncertain" as Uncertain
+  state "delivered" as Delivered
+  state "blocked" as Blocked
+
+  [*] --> Pending: eligible original snapshot
+  Pending --> Pending: fields / review / preflight wait
+  Pending --> Sending: audit then append
+  Pending --> Delivered: marked copy exists
+  Pending --> Blocked: unsafe / changed / immutable
+  Sending --> Delivered: unique read-back
+  Sending --> Uncertain: unconfirmed outcome
+  Sending --> Blocked: privacy violation
+  Uncertain --> Uncertain: missing copy - never resend
+  Uncertain --> Delivered: unique recovery
+  Uncertain --> Blocked: privacy violation
+
+  note right of Pending
+    Key: same five states in each independent ledger.
+    New appends need fresh synced fields without review.
+  end note
+  note right of Blocked
+    Public-copy evidence holds both channels.
+    No automatic reset or resend.
+  end note
+  note right of Delivered
+    Retain destination ID; suppress copied origins.
+  end note

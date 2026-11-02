@@ -63,7 +63,7 @@ flowchart TB
 
 Plain PHP, constructor dependencies, PSR-4 and PSR-12 keep adapters and policies explicit. CLI, HTTP, browser review and the worker share typed commands and queries. One SQLite store and canonical lock coordinate business work; telemetry uses separate storage. There is no framework, queue, runtime LLM or process-global database Singleton.
 
-[Architecture](docs/ARCHITECTURE.md) explains durable plans, unknown outcomes, conversation ledgers and the authentication boundaries.
+[Architecture](docs/ARCHITECTURE.md) explains durable plans, unknown outcomes, conversation ledgers and the authentication boundaries. The optional [C4 pack](docs/c4/README.md) adds four zoom levels and complete state lifecycles.
 
 ## Assumptions and trade-offs
 
