@@ -65,14 +65,24 @@ The worker runs intake, fields, GitHub comments and new Zendesk notes in order, 
 
 In Grafana, open both linked source records using their numbers. The table contains every mapping automatically.
 
-Choose **Review pending changes**, or a row's workflow-state link. For a pending plan:
+Choose **Review pending changes**, or a row's workflow-state link.
+
+For **Conflict**:
+
+1. Compare the last verified agreement with the saved GitHub and Zendesk title/state observations. Open both linked records to understand their context.
+2. Under the desired source, confirm that you reviewed both records and click **Use Zendesk** or **Use GitHub**. This selects that source's **whole supported record**, title and canonical state, rather than individual fields.
+3. The server rechecks both vendors and queues a durable plan without writing them. Changed evidence returns a conflict: reload the page and make a fresh decision. Repeated clicks cannot silently resolve newer evidence.
+4. A later worker pass applies title-only changes, or shows **Awaiting approval** if closing/reopening is needed. Choosing a source never approves that state change.
+5. After fresh verification shows **Synced**, eligible waiting messages resume. Conflict pairs stay paused until an explicit source choice; editing both sources to agree does not itself release the hold.
+
+For a pending state-change plan:
 
 1. Check both record IDs and every proposed title/state update.
 2. Expand plan identity/versions if needed.
 3. Enter your own reason, confirm the review and click **Approve this exact change**.
 4. Refresh current evidence after another worker pass. Verified completion shows Synced and no pending plan.
 
-The server carries the exact hash; no token or hash copying is needed. The enabled login must be both allowlisted and a Grafana server administrator. The datasource remains read-only and receives no operator credential.
+The server carries the exact plan/conflict hash; no token or hash copying is needed. Source forms are bound to their action and selected side, session, pair and complete stored conflict; approval forms remain separate. The enabled login must be both allowlisted and a Grafana server administrator. The datasource remains read-only and receives no operator credential.
 
 A review form expires after ten minutes. Reload an old page after an update; native form responses must preserve their same-origin Origin header. Stale source evidence is rejected, not overwritten. If a client times out, inspect before resubmitting. Recorded business approvals themselves have no automatic expiry/revocation.
 

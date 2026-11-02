@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bridge\Http\Review;
 
+use Bridge\Domain\ConflictSnapshot;
+
 /** Escape source text and render decisions for the operator; the view grants no authority. */
 final readonly class Page
 {
@@ -25,7 +27,7 @@ final readonly class Page
         return $this->layout(
             'Review pending changes',
             '<p>Signed in through Grafana as <strong>' . self::escape($login) . '</strong>.</p>' .
-            '<p>Select an escalation. Only an exact pending state-change plan can be approved.</p>' .
+            '<p>Select an escalation. Review a conflict source or approve an exact pending state-change plan.</p>' .
             '<table><thead><tr><th>Support ticket</th><th>Engineering issue</th><th>Workflow</th>' .
             '<th>Action</th></tr></thead><tbody>' . $rows . '</tbody></table>' .
             '<p class="muted">Source changes are observed by the worker. Refresh to load current stored evidence.</p>'
@@ -61,6 +63,12 @@ final readonly class Page
         } elseif ($pair['status'] === 'synced') {
             $body .= '<p class="notice success">The supported fields were last verified in agreement. ' .
                 'No approval is pending.</p>';
+        } elseif ($pair['status'] === 'conflict') {
+            $body .= '<p class="notice">Synchronization is paused. Compare the saved observations below and ' .
+                'choose which complete source record should be used. New messages wait until fields agree.</p>';
+        } elseif ($pair['status'] === 'new') {
+            $body .= '<p class="notice">Work is queued. The worker will recheck both records. ' .
+                'A closing or reopening still requires separate exact-plan approval.</p>';
         } elseif ($pair['status'] !== 'awaiting_approval') {
             $body .= '<p class="notice">This pair has no approvable state-change plan. ' .
                 'Conflicts and failures need separate investigation.</p>';
@@ -68,8 +76,11 @@ final readonly class Page
         if ($pair['baseline'] !== null) {
             $body .= '<p>Last verified subject: <strong>' . self::escape($pair['baseline']['title']) . '</strong></p>';
         }
+        if ($pair['status'] === 'conflict') {
+            $body .= $this->conflict($pair, $session, $protection);
+        }
         $plan = $pair['plan'];
-        if ($plan !== null) {
+        if ($plan !== null && $pair['status'] !== 'conflict') {
             $body .= '<h2>Proposed change</h2><ul class="changes">' . $this->changes($pair) . '</ul>' .
                 '<table><thead><tr><th>Field</th><th>GitHub observed</th><th>Zendesk observed</th>' .
                 '<th>Common target</th></tr></thead><tbody>';
@@ -116,6 +127,41 @@ final readonly class Page
         );
     }
 
+    private function conflict(array $pair, Session $session, FormProtection $protection): string
+    {
+        $conflict = $pair['conflict'];
+        $hash = ConflictSnapshot::hash($pair);
+        $body = '<h2>Choose a conflict source</h2><p>These are stored observations, not a live vendor read. ' .
+            'Submission checks both fields and versions again. If either record changed, review fresh evidence.</p>' .
+            '<table><thead><tr><th>Field</th><th>Last verified agreement</th><th>GitHub observed</th>' .
+            '<th>Zendesk observed</th></tr></thead><tbody>';
+        foreach (['title' => 'Subject / title', 'state' => 'Canonical state'] as $field => $label) {
+            $body .= '<tr><th>' . $label . '</th><td>' .
+                self::escape($pair['baseline'][$field] ?? 'Never verified') . '</td><td>' .
+                self::escape($conflict['observed']['github'][$field]) . '</td><td>' .
+                self::escape($conflict['observed']['zendesk'][$field]) . '</td></tr>';
+        }
+        $body .= '</tbody></table><p>Each choice uses <strong>both the title and canonical state</strong> ' .
+            'from that source. It queues a plan without writing either vendor or approving a state change. ' .
+            'Zendesk New/Open/Pending/Hold mean open; Solved/Closed mean closed. State writes use Open/Solved.</p>' .
+            '<details><summary>Conflict identity and observed versions</summary><dl><dt>Reason</dt><dd>' .
+            self::escape($conflict['reason']) . '</dd><dt>Conflict hash</dt><dd class="hash">' .
+            self::escape($hash) . '</dd><dt>GitHub version</dt><dd>' .
+            self::escape($conflict['versions']['github']) . '</dd><dt>Zendesk version</dt><dd>' .
+            self::escape($conflict['versions']['zendesk']) . '</dd></dl></details><div class="source-choices">';
+        foreach (['zendesk' => 'Zendesk', 'github' => 'GitHub'] as $source => $label) {
+            $proof = $protection->issue($session->current, $pair['id'], $hash, 'resolve:' . $source);
+            $body .= '<form method="post" action="/review/pairs/' . rawurlencode($pair['id']) . '/resolve">' .
+                '<input type="hidden" name="conflict_hash" value="' . self::escape($hash) . '">' .
+                '<input type="hidden" name="source" value="' . $source . '">' .
+                '<input type="hidden" name="csrf" value="' . self::escape($proof) . '">' .
+                '<label class="confirmation"><input type="checkbox" name="confirm" value="yes" required> ' .
+                'I reviewed both records and choose ' . $label . '&#39;s title and canonical state.</label>' .
+                '<button type="submit">Use ' . $label . '</button></form>';
+        }
+        return $body . '</div>';
+    }
+
     private function changes(array $pair): string
     {
         $rows = '';
@@ -144,7 +190,7 @@ final readonly class Page
             '</head><body><main><header><p class="brand">SUPPORT BRIDGE</p><h1>' . self::escape($title) .
             '</h1><a href="' . self::escape($this->configuration->grafanaOrigin .
                 '/d/supportbridge-overview?refresh=5s') . '">Back to Grafana</a></header>' . $body .
-            '<footer>Approval covers only the change shown. The worker checks current records ' .
+            '<footer>Source choice is separate from state approval. The worker checks current records ' .
             'before applying it.</footer></main></body></html>';
     }
 

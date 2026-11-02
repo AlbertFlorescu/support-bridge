@@ -4,7 +4,7 @@
 
 | Job | Coverage |
 | --- | --- |
-| PHP checks | Locked Composer install/audit, strict PSR-4 and PSR-12, PHP behavior/recovery tests, API/OpenAPI fixtures, Swagger freshness, security-tool tests, replay, Markdown checks and native-browser approval submission |
+| PHP checks | Locked Composer install/audit, strict PSR-4 and PSR-12, PHP behavior/recovery tests, API/OpenAPI fixtures, Swagger freshness, security-tool tests, replay, Markdown checks and native-browser source-choice and approval submission |
 | Container checks | Isolated verification image, real local stack smoke, labelled Prometheus rule cases, persistence/recreation, real Grafana session/form checks, live-overlay bootstrap and controlled no-vendor OAuth renewal checks |
 | Required checks | Both jobs succeeded for the revision under review |
 
@@ -34,7 +34,7 @@ node tools/browser/check.mjs
 python3 -m unittest discover -s tools/security -p 'test_*.py'
 ~~~
 
-The browser check uses Node 24 and a Linux Chrome/Chromium binary, optionally selected with `BRIDGE_TEST_BROWSER`. GitHub's [Ubuntu runner image](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md) supplies a browser. It submits the actual native approval form against isolated local providers with a synthetic Grafana-session verifier, then checks that approval alone caused no destination write. Container lifecycle checks separately verify actual Grafana authentication. Neither contacts vendors or approves live records.
+The browser check uses Node 24 and a Linux Chrome/Chromium binary, optionally selected with `BRIDGE_TEST_BROWSER`. GitHub's [Ubuntu runner image](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md) supplies a browser. It submits actual native conflict-source and approval forms against isolated local providers with a synthetic Grafana-session verifier, then checks that neither source selection nor approval alone caused a destination write. Both source choices, stale conflict evidence and the separate state-approval gate are covered. Container lifecycle checks separately verify actual Grafana authentication. Neither contacts vendors or approves live records.
 
 For container changes use a **disposable project**, never the retained live project:
 
@@ -63,7 +63,7 @@ Markdown checks cover local files, anchors and fences. Parse/render changed Merm
 
 ## Verification evidence
 
-The 2026-11-02 revision adds a native-form regression check for the browser approval adapter. A deliberate temporary `no-referrer` regression failed that check; restoring `same-origin` passed while opaque/null origins remained rejected. The fixture is local and automatic approval is confined to isolated tests.
+The 2026-11-02 revision adds a native-form regression check for the browser approval adapter. A deliberate temporary `no-referrer` regression failed that check; restoring `same-origin` passed while opaque/null origins remained rejected. The fixture is local and automatic approval is confined to isolated tests. Browser conflict coverage also checks both source buttons, mandatory confirmation, action/source/snapshot binding, stale tabs, duplicate clicks and the separate state-approval gate; real Grafana sessions are checked in the disposable lifecycle.
 
 Local PHP/style/audit, API/OpenAPI, security-tool, replay and documentation gates passed. Disposable container verification, rule cases, lifecycle/Grafana-session checks, live bootstrap and OAuth renewal passed; the retained stack passed nine read-only smoke checks without resetting accounts or volumes. All five Mermaid diagrams were rendered and visually inspected.
 

@@ -27,14 +27,16 @@ final class BrowserReviewFixture
     public array $cookies = [];
     public ?string $authBody = null;
 
-    public function __construct()
+    public function __construct(bool $pendingPlan = true)
     {
         $this->home = sys_get_temp_dir() . '/bridge-browser-' . bin2hex(random_bytes(8));
         $this->context = new Context(new Configuration('local', $this->home, 'local/demo', 'local'));
         $this->context->initialize();
         $this->context->engine()->run();
-        $this->github()->edit('101', ['state' => 'closed']);
-        $this->context->engine()->run();
+        if ($pendingPlan) {
+            $this->github()->edit('101', ['state' => 'closed']);
+            $this->context->engine()->run();
+        }
         $this->protection = new FormProtection(self::TOKEN, fn(): int => $this->now);
     }
 
@@ -93,14 +95,37 @@ function browserSame(mixed $expected, mixed $actual): void
     }
 }
 $fixtures = [];
-function browserFixture(): BrowserReviewFixture
+function browserFixture(bool $pendingPlan = true): BrowserReviewFixture
 {
     global $fixtures;
-    return $fixtures[] = new BrowserReviewFixture();
+    return $fixtures[] = new BrowserReviewFixture($pendingPlan);
 }
 register_shutdown_function(static function () use (&$fixtures): void {
     foreach ($fixtures as $fixture) { $fixture->cleanup(); }
 });
+
+function browserConflict(bool $stateChange = false): BrowserReviewFixture
+{
+    $f = browserFixture(false);
+    $f->github()->edit('101', ['title' => 'Engineering diagnosis', 'state' => $stateChange ? 'closed' : 'open']);
+    $f->zendesk()->edit('501', ['title' => 'Support diagnosis']);
+    $f->context->engine()->run();
+    browserSame('conflict', $f->context->store->get('escalation-1')['status']);
+    return $f;
+}
+function browserConflictForm(BrowserReviewFixture $f, string $source): array
+{
+    $response = $f->request();
+    browserSame(200, $response->status);
+    preg_match_all('~<form.*?</form>~s', $response->body, $forms);
+    foreach ($forms[0] as $form) {
+        if (!str_contains($form, 'name="source" value="' . $source . '"')) { continue; }
+        preg_match('/name="conflict_hash" value="([^"]+)"/', $form, $hash);
+        preg_match('/name="csrf" value="([^"]+)"/', $form, $csrf);
+        return ['conflict_hash' => $hash[1], 'source' => $source, 'csrf' => $csrf[1], 'confirm' => 'yes'];
+    }
+    throw new RuntimeException('Conflict source form missing.');
+}
 
 $tests = [];
 $tests['Browser review defaults off and missing authentication never constructs business context'] = static function (): void {
@@ -249,6 +274,116 @@ $tests['Native form policy preserves same-origin POST identity while opaque orig
         ['Origin' => 'null'])->status);
     browserSame(null, $f->context->store->get('escalation-1')['approval']);
     browserSame(303, $f->request('POST', '/review/pairs/escalation-1/approve', $form)->status);
+};
+
+$tests['Conflict page compares saved evidence, escapes it and makes no decisions on GET'] = static function (): void {
+    $f = browserConflict();
+    $f->github()->edit('101', ['title' => '<script>unsafe</script>']);
+    try { $f->context->engine()->resolve('escalation-1', 'github'); } catch (\Bridge\Exception\StateConflict) {}
+    $before = $f->context->store->get('escalation-1');
+    $r = $f->request();
+    browserSame(200, $r->status);
+    browserSame(true, str_contains($r->body, 'Use Zendesk'));
+    browserSame(true, str_contains($r->body, 'Use GitHub'));
+    browserSame(true, str_contains($r->body, 'Support diagnosis'));
+    browserSame(true, str_contains($r->body, '&lt;script&gt;unsafe&lt;/script&gt;'));
+    browserSame(false, str_contains($r->body, '<script>'));
+    browserSame(false, str_contains($r->body, '/approve'));
+    browserSame(false, str_contains($r->body, BrowserReviewFixture::TOKEN));
+    browserSame($before, $f->context->store->get('escalation-1'));
+    browserSame(0, $f->github()->writes() + $f->zendesk()->writes());
+    browserSame(405, $f->request(path: '/review/pairs/escalation-1/resolve')->status);
+};
+$tests['Either source button queues its whole record without approval or immediate vendor writes'] = static function (): void {
+    foreach (['github', 'zendesk'] as $source) {
+        $f = browserConflict();
+        $before = $f->context->store->get('escalation-1');
+        $form = browserConflictForm($f, $source);
+        $r = $f->request('POST', '/review/pairs/escalation-1/resolve', $form);
+        browserSame(303, $r->status);
+        browserSame('/review/pairs/escalation-1', $r->headers['Location']);
+        $after = $f->context->store->get('escalation-1');
+        browserSame('new', $after['status']);
+        browserSame($before['conflict']['observed'][$source], $after['plan']['target']);
+        browserSame($before['baseline'], $after['baseline']);
+        browserSame(null, $after['approval']);
+        browserSame(null, $after['conflict']);
+        browserSame(0, $f->github()->writes() + $f->zendesk()->writes());
+        browserSame(409, $f->request('POST', '/review/pairs/escalation-1/resolve', $form)->status);
+        $f->context->engine()->run();
+        browserSame('synced', $f->context->store->get('escalation-1')['status']);
+        browserSame($after['plan']['target'], $f->github()->fetch('101')->fields);
+        browserSame($after['plan']['target'], $f->zendesk()->fetch('501')->fields);
+        browserSame(false, str_contains($f->request()->body, '/resolve'));
+    }
+};
+$tests['A complete-source state change still needs a separate exact-plan browser approval'] = static function (): void {
+    foreach (['github', 'zendesk'] as $source) {
+        $f = browserConflict(true);
+        $form = browserConflictForm($f, $source);
+        browserSame(303, $f->request('POST', '/review/pairs/escalation-1/resolve', $form)->status);
+        $f->context->engine()->run();
+        browserSame('awaiting_approval', $f->context->store->get('escalation-1')['status']);
+        browserSame(null, $f->context->store->get('escalation-1')['approval']);
+        browserSame(0, $f->github()->writes() + $f->zendesk()->writes());
+        $approval = $f->form();
+        browserSame(303, $f->request('POST', '/review/pairs/escalation-1/approve', $approval)->status);
+        browserSame(0, $f->github()->writes() + $f->zendesk()->writes());
+        $f->context->engine()->run();
+        browserSame('synced', $f->context->store->get('escalation-1')['status']);
+    }
+};
+$tests['Conflict forms bind source, action, session, pair, snapshot and expiry'] = static function (): void {
+    $f = browserConflict(); $form = browserConflictForm($f, 'github');
+    foreach ([
+        array_replace($form, ['source' => 'zendesk']),
+        array_replace($form, ['conflict_hash' => str_repeat('0', 64)]),
+        array_replace($form, ['csrf' => $f->protection->issue(BrowserReviewFixture::COOKIE, 'escalation-1', $form['conflict_hash'])]),
+    ] as $changed) {
+        browserSame(403, $f->request('POST', '/review/pairs/escalation-1/resolve', $changed)->status);
+    }
+    browserSame(403, $f->request('POST', '/review/pairs/other/resolve', $form)->status);
+    browserSame(403, $f->request('POST', '/review/pairs/escalation-1/resolve', $form,
+        ['Cookie' => 'demo_grafana_session=' . str_repeat('a', 40)])->status);
+    $f->now += 601;
+    browserSame(403, $f->request('POST', '/review/pairs/escalation-1/resolve', $form)->status);
+    browserSame('conflict', $f->context->store->get('escalation-1')['status']);
+    browserSame(0, $f->github()->writes() + $f->zendesk()->writes());
+};
+$tests['Conflict choices retain exact origin, authentication, confirmation and form boundaries'] = static function (): void {
+    $f = browserConflict(); $form = browserConflictForm($f, 'zendesk');
+    foreach (['null', '', 'http://evil.invalid'] as $origin) {
+        browserSame(403, $f->request('POST', '/review/pairs/escalation-1/resolve', $form, ['Origin' => $origin])->status);
+    }
+    browserSame(403, $f->request('POST', '/review/pairs/escalation-1/resolve', $form, ['Sec-Fetch-Site' => 'cross-site'])->status);
+    browserSame(403, $f->request('POST', '/review/pairs/escalation-1/resolve', $form, ['Host' => 'evil.invalid:1988'])->status);
+    browserSame(401, $f->request('POST', '/review/pairs/escalation-1/resolve', $form, ['Cookie' => ''])->status);
+    foreach ([array_replace($form, ['confirm' => 'no']), array_replace($form, ['source' => 'other']),
+        $form + ['approve' => 'yes'], array_diff_key($form, ['confirm' => true])] as $bad) {
+        browserSame(422, $f->request('POST', '/review/pairs/escalation-1/resolve', $bad)->status);
+    }
+    browserSame(415, $f->request('POST', '/review/pairs/escalation-1/resolve', $form, ['Content-Type' => 'application/json'])->status);
+    browserSame('conflict', $f->context->store->get('escalation-1')['status']);
+};
+$tests['Vendor edits refresh conflicts and stale open tabs cannot choose refreshed evidence'] = static function (): void {
+    $f = browserConflict(); $form = browserConflictForm($f, 'github');
+    $f->zendesk()->edit('501', ['title' => 'Newer support diagnosis']);
+    browserSame(409, $f->request('POST', '/review/pairs/escalation-1/resolve', $form)->status);
+    browserSame('changed_since_conflict', $f->context->store->get('escalation-1')['conflict']['reason']);
+    browserSame(409, $f->request('POST', '/review/pairs/escalation-1/resolve', $form)->status);
+    browserSame(null, $f->context->store->get('escalation-1')['approval']);
+    browserSame(0, $f->github()->writes() + $f->zendesk()->writes());
+    $fresh = browserConflictForm($f, 'zendesk');
+    browserSame(303, $f->request('POST', '/review/pairs/escalation-1/resolve', $fresh)->status);
+    browserSame('Newer support diagnosis', $f->context->store->get('escalation-1')['plan']['target']['title']);
+};
+$tests['A rotated Grafana session carries conflict proof into the subsequent POST'] = static function (): void {
+    $f = browserConflict(); $next = str_repeat('c', 40);
+    $f->cookies = ['demo_grafana_session=' . $next . '; Path=/; HttpOnly'];
+    $form = browserConflictForm($f, 'zendesk');
+    $f->cookies = [];
+    browserSame(303, $f->request('POST', '/review/pairs/escalation-1/resolve', $form,
+        ['Cookie' => 'demo_grafana_session=' . $next])->status);
 };
 
 $failed = 0;

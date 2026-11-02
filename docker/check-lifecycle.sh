@@ -46,6 +46,19 @@ compose down
 compose up -d --wait --wait-timeout 120
 after=$(printf '%s' "$probe" | compose exec -T api php)
 test "$before" = "$after"
+compose stop worker
+# A separate owned local pair exercises real-session conflict choices without altering the retained plan.
+compose exec -T api php <<'PHP'
+<?php
+require '/app/bootstrap.php';
+$context = new Bridge\Application\Context(Bridge\Application\Configuration::fromEnvironment());
+[$github, $zendesk] = $context->providers();
+$owner = str_repeat('c', 32);
+$github->ensureRecord('202', ['title' => 'Engineering conflict', 'state' => 'closed'], $owner);
+$zendesk->ensureRecord('602', ['title' => 'Support conflict', 'state' => 'open'], $owner);
+$context->link('browser-conflict', '202', '602');
+$context->engine()->run();
+PHP
 compose --profile test run --rm --no-deps \
     -e BRIDGE_TEST_REVIEW_ORIGIN="http://127.0.0.1:$BRIDGE_HTTP_PORT" \
     --entrypoint php smoke /app/docker/check-browser-review.php

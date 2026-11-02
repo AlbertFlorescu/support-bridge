@@ -22,13 +22,13 @@ Policy `escalation-state-v1` binds approval to the pair identities, target, both
 
 The operator reads the proposal and supplies its exact hash and rationale. The browser form carries the hash automatically and requires reason/confirmation. The command re-reads both vendors under the canonical lock, audits the attestation and queues work without a vendor write. A later sweep checks freshness again, patches necessary fields and verifies convergence before advancing the baseline.
 
-Source selection, retry, comments, metrics, replay and models cannot grant approval. A stale decision refreshes conflict evidence; it cannot authorize overwriting newer edits. Reopening after closure requires a separate plan. Recovery may acknowledge an already achieved target without another effect.
+The browser’s **Use Zendesk** / **Use GitHub** buttons select the entire supported source record after confirmation. Their expiring proofs bind the action, side and complete conflict snapshot; the engine rechecks stored and vendor evidence under its lock. Source selection, retry, comments, metrics, replay and models cannot grant approval. A stale decision refreshes conflict evidence; it cannot authorize overwriting newer edits. Reopening after closure requires a separate plan. Recovery may acknowledge an already achieved target without another effect.
 
 Business approvals have no automatic expiry, revocation or rejection command. The browser's ten-minute form proof is a different control. Customer requirements for approval lifetime, cancellation or independent review remain open.
 
 ## Identity and data
 
-JSON API authority is one broad shared operator bearer. Browser review is separately opt-in and limited to explicitly allowed Grafana server administrators. It verifies the selected session on every request and exposes only inspection and exact-plan approval; the operator secret stays server-side.
+JSON API authority is one broad shared operator bearer. Browser review is separately opt-in and limited to explicitly allowed Grafana server administrators. It verifies the selected session on every request and exposes inspection, explicit conflict-source choice and exact-plan approval; the operator secret stays server-side.
 
 Both paths record `shared-operator`. A Grafana login does not prove a distinct human, separate approver or customer role. There is no per-pair RBAC, scoped agent credential or separation of duties. The read-only review skill is guidance, not server-enforced authorization; an advisory integration needs a restricted facade.
 

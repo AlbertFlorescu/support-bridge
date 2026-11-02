@@ -6,7 +6,7 @@ namespace Bridge\Http\Review;
 
 use Bridge\Http\HttpFailure;
 
-/** Short-lived form proof binds session, exact pair and reviewed plan without storing a new session. */
+/** Short-lived form proof binds session, action, exact pair and reviewed evidence without storing a new session. */
 final class FormProtection
 {
     private readonly \Closure $clock;
@@ -19,13 +19,13 @@ final class FormProtection
         $this->clock = \Closure::fromCallable($clock ?? time(...));
     }
 
-    public function issue(string $cookie, string $pair, string $hash): string
+    public function issue(string $cookie, string $pair, string $hash, string $action = 'approve'): string
     {
         $prefix = (($this->clock)() + 600) . '.' . bin2hex(random_bytes(16));
-        return $prefix . '.' . $this->signature($prefix, $cookie, $pair, $hash);
+        return $prefix . '.' . $this->signature($prefix, $cookie, $pair, $hash, $action);
     }
 
-    public function verify(string $proof, string $cookie, string $pair, string $hash): void
+    public function verify(string $proof, string $cookie, string $pair, string $hash, string $action = 'approve'): void
     {
         $parts = explode('.', $proof);
         $now = ($this->clock)();
@@ -33,7 +33,7 @@ final class FormProtection
             count($parts) !== 3 || preg_match('/^[0-9]{1,12}$/D', $parts[0]) !== 1
             || preg_match('/^[a-f0-9]{32}$/D', $parts[1]) !== 1
             || (int) $parts[0] < $now || (int) $parts[0] > $now + 600
-            || !hash_equals($this->signature($parts[0] . '.' . $parts[1], $cookie, $pair, $hash), $parts[2])
+            || !hash_equals($this->signature($parts[0] . '.' . $parts[1], $cookie, $pair, $hash, $action), $parts[2])
         ) {
             throw new HttpFailure(
                 403,
@@ -43,10 +43,10 @@ final class FormProtection
         }
     }
 
-    private function signature(string $prefix, string $cookie, string $pair, string $hash): string
+    private function signature(string $prefix, string $cookie, string $pair, string $hash, string $action): string
     {
         return hash_hmac('sha256', json_encode([
-            'browser-review-v1', $prefix, hash('sha256', $cookie), $pair, $hash,
+            'browser-review-v1', $prefix, hash('sha256', $cookie), $pair, $hash, $action,
         ], JSON_THROW_ON_ERROR), $this->secret);
     }
 }
