@@ -1,0 +1,59 @@
+---
+title: C4 L2 - Workflow containers
+config:
+  htmlLabels: false
+  layout: elk
+  theme: base
+  themeVariables:
+    primaryColor: '#edf4ff'
+    primaryTextColor: '#142b45'
+    primaryBorderColor: '#456d9e'
+    lineColor: '#4d6276'
+    edgeLabelBackground: '#ffffff'
+    noteBkgColor: '#f5f7fa'
+    noteBorderColor: '#94a3b8'
+  fontFamily: DejaVu Sans, sans-serif
+  flowchart:
+    htmlLabels: false
+    curve: linear
+    nodeSpacing: 32
+    rankSpacing: 60
+---
+flowchart TB
+  accTitle: C4 L2 - Workflow containers
+  accDescr: The API, scheduled worker and explicit CLI compose the same PHP application. SQLite files are shared storage, not database servers. Every source effect uses the ordinary governance and recovery rules.
+  Operator["Operator<br/>[Person]<br/>Browser review or explicit administration"]:::person
+  subgraph Bridge["Support Bridge - workflow container view"]
+    API["Operator API and browser review<br/>[Container: PHP 8.3 HTTP process]<br/>Authenticates requests and dispatches shared use cases"]:::container
+    Worker["Scheduled worker<br/>[Container: PHP 8.3 process]<br/>Intake, fields, forward comments, then reverse notes"]:::container
+    CLI["Administrative CLI<br/>[Container: on-demand PHP 8.3 process]<br/>Explicit commands, queries and private capture"]:::container
+    Business[("Business state and required audit<br/>[Data-store container: live.sqlite]<br/>Pairs, plans, approvals, intake and independent note ledgers")]:::store
+    Telemetry[("Diagnostic registry<br/>[Data-store container: metrics.sqlite]<br/>Best-effort counters and histograms")]:::store
+  end
+  Zendesk["Zendesk Support<br/>[External software system]<br/>Ticket fields and internal notes"]:::external
+  GitHub["GitHub Issues<br/>[External software system]<br/>Issue fields and comments"]:::external
+
+  Operator -->|"Reviews and submits exact approval<br/>HTTP, loopback 1988"| API
+  Operator -->|"Runs authorized commands<br/>Linux shell / PHP CLI"| CLI
+  API -->|"Commands and provider-free queries<br/>PDO SQLite; canonical file lock for commands"| Business
+  Worker -->|"Persists intent, audit and verified results<br/>PDO SQLite; canonical file lock"| Business
+  CLI -->|"Shares handlers, state and lock<br/>PDO SQLite / flock"| Business
+  API -->|"Reads and records diagnostics<br/>SQLite"| Telemetry
+  Worker -->|"Records best-effort observations<br/>SQLite"| Telemetry
+  CLI -->|"Reads or records diagnostics<br/>SQLite"| Telemetry
+  API -->|"Operator commands can read/write<br/>HTTPS REST; existing effect gates"| Zendesk
+  API -->|"Operator commands can read/write<br/>HTTPS REST; existing effect gates"| GitHub
+  Worker -->|"Polls and delivers eligible changes<br/>HTTPS REST"| Zendesk
+  Worker -->|"Creates, reconciles and delivers<br/>HTTPS REST"| GitHub
+  CLI -->|"Explicit provider commands only<br/>HTTPS REST"| Zendesk
+  CLI -->|"Explicit provider commands only<br/>HTTPS REST"| GitHub
+
+  Legend["Key: blue = executable container; green cylinder = persistent data store;<br/>grey = external system. Arrows name caller, purpose and technology.<br/>API queries and browser GET pages make no vendor requests; approval submission only reads vendors."]:::key
+
+  classDef person fill:#133b65,stroke:#0b2540,color:#fff
+  classDef system fill:#1e5c9a,stroke:#133b65,color:#fff
+  classDef container fill:#e9f2fd,stroke:#245c95,color:#142b45
+  classDef component fill:#eef4fd,stroke:#456d9e,color:#142b45
+  classDef store fill:#e5f4eb,stroke:#28754c,color:#173e2a
+  classDef external fill:#f1f2f4,stroke:#697586,color:#283442
+  classDef key fill:#fff,stroke:#a6b0bc,color:#283442

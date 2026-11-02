@@ -1,0 +1,64 @@
+---
+title: C4 L3 - Scheduled worker components
+config:
+  htmlLabels: false
+  layout: elk
+  theme: base
+  themeVariables:
+    primaryColor: '#edf4ff'
+    primaryTextColor: '#142b45'
+    primaryBorderColor: '#456d9e'
+    lineColor: '#4d6276'
+    edgeLabelBackground: '#ffffff'
+    noteBkgColor: '#f5f7fa'
+    noteBorderColor: '#94a3b8'
+  fontFamily: DejaVu Sans, sans-serif
+  flowchart:
+    htmlLabels: false
+    curve: linear
+    nodeSpacing: 32
+    rankSpacing: 60
+---
+flowchart TB
+  accTitle: C4 L3 - Scheduled worker components
+  accDescr: Components are PHP responsibilities inside one scheduled worker. Their shared implementation is also composed by the API and CLI; these components are not independently deployed services.
+  subgraph Worker["Scheduled worker - PHP container boundary"]
+    Runner["WorkerRunner<br/>[Component: PHP]<br/>Orders enabled passes and writes liveness heartbeat"]:::component
+    Context["Application Context and command handlers<br/>[Component: PHP]<br/>Composes scoped dependencies and dispatches typed commands"]:::component
+    Intake["EscalationWorkflow<br/>[Component: PHP]<br/>Durable tagged creation and exact-marker recovery"]:::component
+    Engine["Engine<br/>[Component: PHP]<br/>Reads, plans, authorizes, patches and verifies fields"]:::component
+    Conversation["CommentWorkflow<br/>[Component: PHP]<br/>Two directions; independent ledgers and shared append rules"]:::component
+    Policy["MergePolicy / GovernancePolicy / RetryPolicy<br/>[Component: pure PHP policies]<br/>Deterministic merge, approval and retry decisions"]:::component
+    Repository["Persistence adapters<br/>[Component: PHP / PDO]<br/>Store, EscalationRepository and CommentRepository"]:::component
+    Gateways["Provider and capability adapters<br/>[Component: PHP / cURL]<br/>Narrow field, creation and conversation ports"]:::component
+  end
+  Business[("Business state<br/>[External container: live.sqlite]<br/>Required audit and durable work")]:::store
+  Telemetry[("Diagnostic registry<br/>[External container: metrics.sqlite]<br/>Best-effort observations")]:::store
+  GitHub["GitHub Issues<br/>[External software system]"]:::external
+  Zendesk["Zendesk Support<br/>[External software system]"]:::external
+
+  Runner -->|"Dispatches ordered commands"| Context
+  Context -->|"Runs enabled intake first"| Intake
+  Context -->|"Runs field reconciliation second"| Engine
+  Context -->|"Runs enabled forward, then reverse channel"| Conversation
+  Engine -->|"Evaluates pure decisions"| Policy
+  Intake -->|"Commits intent and creation evidence"| Repository
+  Engine -->|"Persists plans, approvals and audit"| Repository
+  Conversation -->|"Persists snapshots and delivery evidence"| Repository
+  Intake -->|"Reads tickets and creates marked issues"| Gateways
+  Engine -->|"Reads and minimally patches fields"| Gateways
+  Conversation -->|"Reads sources and appends marked copies"| Gateways
+  Repository -->|"Scoped connection; transactions and canonical lock<br/>PDO SQLite / flock"| Business
+  Context -->|"Makes diagnostic recording available<br/>SQLite; best effort"| Telemetry
+  Gateways -->|"Bounded field, issue and comment requests<br/>HTTPS REST"| GitHub
+  Gateways -->|"Bounded ticket and internal-note requests<br/>HTTPS REST"| Zendesk
+
+  Legend["Key: pale blue = PHP component inside the worker; green = external data-store container;<br/>grey = external software system. Internal arrows are in-process PHP calls.<br/>No queue, runtime LLM, global database Singleton or separate read database is introduced."]:::key
+
+  classDef person fill:#133b65,stroke:#0b2540,color:#fff
+  classDef system fill:#1e5c9a,stroke:#133b65,color:#fff
+  classDef container fill:#e9f2fd,stroke:#245c95,color:#142b45
+  classDef component fill:#eef4fd,stroke:#456d9e,color:#142b45
+  classDef store fill:#e5f4eb,stroke:#28754c,color:#173e2a
+  classDef external fill:#f1f2f4,stroke:#697586,color:#283442
+  classDef key fill:#fff,stroke:#a6b0bc,color:#283442
