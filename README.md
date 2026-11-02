@@ -1,91 +1,57 @@
 # Support Bridge
 
-Support Bridge keeps a Zendesk escalation and its GitHub engineering issue connected. Support tags a ticket; the bridge creates the issue, reconciles their summaries and resolution state, and carries engineering comments and new internal support replies between the teams.
+Support Bridge connects Zendesk support with GitHub engineering. Tag a ticket to create its issue, keep their summaries and resolution aligned, and exchange GitHub comments with new internal Zendesk notes.
 
-Our assumed customer is a B2B software team using both systems. The expected value is less copying and fewer stale handoffs. Customer discovery, time savings and production capacity remain unmeasured.
+We assume a B2B software team working across both systems. The intended value is less copying and fewer stale handoffs; customer savings and production capacity remain unmeasured.
 
-## Use the demonstration
+## Try it
 
-1. Create an owned fictional Zendesk ticket, submit it Open and add `support_bridge_escalate`.
-2. Wait for the enabled worker. It creates and links an open GitHub issue containing the initial description and Zendesk link.
-3. Exchange a GitHub comment and a new internal Zendesk note. Enabled channels copy each once with source attribution. Reverse delivery must complete its initial scan first.
-4. Close or reopen one source record. The bridge prepares the corresponding state-change plan and waits for approval.
-5. In Grafana, choose **Review pending changes**, inspect the complete proposal, enter a reason, confirm review and click **Approve this exact change**. A later worker pass checks freshness, applies it and verifies agreement.
+1. Create an owned fictional Zendesk ticket as **Open**. Add `support_bridge_escalate`.
+2. Wait for the worker to create and link its GitHub issue, including the initial description.
+3. Add a GitHub question, then answer with a **new internal Zendesk note** after reverse initialization. Public replies do not sync.
+4. Open [Grafana](http://127.0.0.1:1990/d/supportbridge-overview?refresh=5s) to see the pair, clickable source links and message counts.
+5. Use its workflow link to compare conflicts with **Use Zendesk / Use GitHub**, or review a close/reopen with **Approve this exact change**. Source selection and state approval are separate.
 
-One-sided summary edits propagate automatically. Divergent edits to the same field stop for an operator source decision: open its workflow link in Grafana, compare both versions, confirm and click **Use Zendesk** or **Use GitHub**. The choice uses that source’s title and canonical state; closing/reopening still needs separate approval. The worker normally waits 60 seconds after each pass; provider calls, review and retries add delay.
+[The walkthrough and case catalogue](docs/SCENARIO.md) explain the examples. The worker waits 60 seconds after each pass; vendor calls, pagination and review add delay.
 
-| Surface | Local address | Access |
+| Surface | Address | Access |
 | --- | --- | --- |
-| Grafana | [127.0.0.1:1990](http://127.0.0.1:1990/d/supportbridge-overview?refresh=5s) | Persisted Grafana account |
-| Browser review | [127.0.0.1:1988/review](http://127.0.0.1:1988/review) | Explicitly enabled Grafana administrator |
-| Swagger | [127.0.0.1:1988/docs](http://127.0.0.1:1988/docs) | Public reference; submission disabled |
-| Prometheus | [127.0.0.1:1989](http://127.0.0.1:1989/) | No additional login on loopback |
+| Grafana | [1990](http://127.0.0.1:1990/) | Persisted Grafana account |
+| Review | [1988/review](http://127.0.0.1:1988/review) | Enabled Grafana administrator |
+| Swagger | [1988/docs](http://127.0.0.1:1988/docs) | Read-only endpoint reference |
+| Prometheus | [1989](http://127.0.0.1:1989/) | Loopback, no additional login |
 
-See [the CSV walkthrough and case catalogue](docs/SCENARIO.md) and [operation instructions](docs/OPERATIONS.md).
-
-## Run
-
-Use Ubuntu WSL at `/home/aflorescu/adobe` and Linux tools. Retain the existing `support-bridge-live-demo` project, both Compose files, private settings and volumes:
-
-~~~bash
-docker compose --env-file /absolute/private/live-demo.env \
-  -p support-bridge-live-demo -f compose.yaml -f compose.live-demo.yaml \
-  up --build -d --wait
-~~~
-
-New configurations leave effectful scheduling and browser review disabled. [Operations](docs/OPERATIONS.md) owns opt-ins, credentials, renewal, ports and verification. Restarting containers preserves accounts and state.
-
-For isolated development checks:
-
-~~~bash
-composer install --no-interaction --no-plugins --no-scripts
-composer autoload:check
-composer style
-php bin/check.php
-~~~
-
-The [CI guide](docs/CI.md) lists the complete local and GitHub Actions checks.
+Use Ubuntu WSL and the existing Compose project. [Operations](docs/OPERATIONS.md) owns startup, credentials and checks.
 
 ## Architecture overview
 
 ~~~mermaid
 flowchart TB
-    ZD["Zendesk"] <--> Workflow["Intake, reconciliation and conversation delivery"]
-    Workflow <--> GH["GitHub"]
-    Workflow <--> Store[("Business state and audit")]
-    Store --> Read["Read-only monitoring API"]
-    Read -->|"Current subjects and links"| Grafana["Grafana"]
-    Read -->|"Numeric samples"| Prometheus["Prometheus"]
+    Zendesk <--> Bridge["Intake, fields and conversations"]
+    Bridge <--> GitHub
+    Bridge <--> State[("SQLite state and audit")]
+    State --> Read["Monitoring queries"]
+    Read -->|"Current table"| Grafana
+    Read -->|"Numeric samples"| Prometheus
     Prometheus --> Grafana
-    Grafana -->|"Open review"| Review["Operator review page"]
-    Review -->|"Explicit source choice or exact-plan approval"| Workflow
+    Grafana -->|"Open review"| Review
+    Review -->|"Explicit source choice or approval"| Bridge
 ~~~
 
-Plain PHP, constructor dependencies, PSR-4 and PSR-12 keep adapters and policies explicit. CLI, HTTP, browser review and the worker share typed commands and queries. One SQLite store and canonical lock coordinate business work; telemetry uses separate storage. There is no framework, queue, runtime LLM or process-global database Singleton.
+Framework-free PHP uses PSR-4/PSR-12, injected dependencies and typed synchronous commands/queries. One scoped business connection and canonical lock coordinate recovery. Monitoring queries construct no providers. See [architecture](docs/ARCHITECTURE.md) and the optional [C4/state pack](docs/c4/README.md).
 
-[Architecture](docs/ARCHITECTURE.md) explains durable plans, unknown outcomes, conversation ledgers and the authentication boundaries. The optional [C4 pack](docs/c4/README.md) adds four zoom levels and complete state lifecycles.
+## Trade-offs
 
-## Assumptions and trade-offs
-
-- We support one repository, one Zendesk tenant, one host and a small explicitly opted-in link set.
-- Summaries and binary open/closed state are shared. Zendesk Pending/Hold remain distinct native states when no status patch is needed.
-- Every outbound resolution or reopening requires exact-plan approval. This is our chosen business rule: engineering completion can precede customer verification. A different agreed ownership model could permit automatic resolution.
-- Two conversation directions reduce copying but transfer potentially sensitive text. Approved destination audiences and retention rules are deployment responsibilities.
-- A synchronous worker and SQLite simplify recovery at the cost of serial work and unmeasured scale.
-- Grafana's current table reads stored context directly; Prometheus supplies numeric history. Refreshing either initiates no vendor effect.
-
-[Assumptions](docs/ASSUMPTIONS.md) records the operating limits. [Governance](docs/GOVERNANCE.md) defines authority.
+One host, SQLite and a serial worker simplify durable recovery at the cost of unmeasured scale. Binary resolution loses native workflow detail. Conservative whole-plan approval can delay titles and messages; it lets support confirm resolution independently of engineering.
 
 ## Known limitations
 
-GitHub has a read/PATCH race; no distributed exactly-once guarantee is claimed. Description transfer is creation-only. Public Zendesk replies, attachment bytes, assignees, priority and later comment edits/deletions do not synchronize. Unknown creation/append outcomes can require investigation rather than a resend.
+Description transfer is creation-only. Attachments, public replies, assignees, priority and later message edits/deletions do not synchronize. Unknown creates/appends can require investigation. GitHub retains a read/PATCH race.
 
-The operator principal is shared. Browser allowlisting does not establish an independent human reviewer or per-pair RBAC. Approval expiry/revocation, tamper-evident audit, tested disaster recovery and production ingress/capacity are absent. Monitoring shows stored observations, not continuously fresh vendor truth.
+The operator identity is shared; there is no per-pair RBAC, independent approver, tested disaster recovery or production ingress. [Assumptions and authority](docs/ASSUMPTIONS.md) records the complete limits; [security maintenance](SECURITY.md) covers dependencies.
 
 ## AI use
 
-AI assisted design exploration, implementation, test cases, review, documentation and fictional demo dialogue. We validate generated work against source, tests and observed behavior and retain responsibility for it.
+AI assisted design, implementation, tests, review, documentation and fictional dialogue. We validate the work against code, tests and observations and retain responsibility.
 
-The service calls no LLM. We deliberately use deterministic policies and explicit operator decisions for eligibility, merge, conflict selection, retry and approval. **Never rely on AI in compliance:** accountable people own obligations, data permissions and control acceptance.
-
-[Documentation index](docs/README.md) · [Security maintenance](SECURITY.md)
+There is no runtime LLM. Eligibility, merge and recovery use deterministic code; conflict choices and state approval remain explicit operator decisions. **Never rely on AI in compliance:** accountable owners decide obligations, disclosure and control acceptance.

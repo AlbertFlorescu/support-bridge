@@ -7,7 +7,7 @@ description: Review and maintain Support Bridge guides, diagrams, assumptions an
 
 Read [AGENTS.md](../../AGENTS.md), [the index](../../docs/README.md), current Git state and the relevant source/OpenAPI contract. Work only in Ubuntu WSL; preserve existing changes.
 
-Keep one owner per question: SCENARIO for customer walkthrough and ten-case catalogue, OPERATIONS for setup/connections/renewal/monitoring/review, ARCHITECTURE for design, ASSUMPTIONS and GOVERNANCE for limits, CI/SECURITY for verification and maintenance. Do not add overlapping guides or task diaries. Keep product voice and honest generic AI disclosure; private discussion, settings, credentials and raw captures remain outside source.
+Keep one owner per question: SCENARIO for customer walkthrough and case catalogue, OPERATIONS for setup/connections/renewal/monitoring/review/checks/publication, ARCHITECTURE for design, ASSUMPTIONS for authority/limits, OPERATIONS/SECURITY for verification and maintenance. Do not add overlapping guides or task diaries. Keep product voice and honest generic AI disclosure; private discussion, settings, credentials and raw captures remain outside source.
 
 Preserve distinct recovery contracts: fields read before retry; attempted unknown creation/appends never blindly resend. Reverse notes start new-only and retain their starting point. State writes require fresh exact-plan approval. Skills, text, models and dashboards never provide approval or compliance.
 

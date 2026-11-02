@@ -5,7 +5,7 @@ description: Operate the existing Support Bridge live demonstration and private 
 
 # Live demonstrations
 
-Read [scenario and ten cases](../../docs/SCENARIO.md), [operations](../../docs/OPERATIONS.md) and AGENTS. Use only Ubuntu WSL/Linux tools. Select existing support-bridge-live-demo, both Compose files/private env, API1988/Prometheus1989/Grafana1990. Preserve eight volume identities, accounts, records, uncertainty and exact approvals.
+Read [scenario and case catalogue](../../docs/SCENARIO.md), [operations](../../docs/OPERATIONS.md) and AGENTS. Use only Ubuntu WSL/Linux tools. Select existing support-bridge-live-demo, both Compose files/private env, API1988/Prometheus1989/Grafana1990. Preserve eight volume identities, accounts, records, uncertainty and exact approvals.
 
 Source actions require actual authorization and owned fictional records. New cases start in Zendesk; ordinary tagged intake creates issues. Confirm reverse starting points before new support replies. Do not add traffic for charts or take over the user's browser. A sweep can process every eligible pair. Pause/resume only for controlled observation; never rewrite evidence, choose a conflict winner or approve to advance a story.
 

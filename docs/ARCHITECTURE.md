@@ -1,97 +1,80 @@
 # Architecture
 
-Support starts in Zendesk. The explicit escalation tag authorizes issue creation and an exact one-to-one mapping. The bridge then reconciles summary/state and separately delivers enabled conversations.
-
-For the four C4 zoom levels, persistent state ownership and complete workflow lifecycles, see the separate [C4 architecture pack](c4/README.md).
+Support starts in Zendesk. An explicit escalation tag creates one GitHub issue and an exact one-to-one mapping. Shared fields and separately enabled conversations then reconcile that handoff.
 
 ## Components
 
 ~~~mermaid
 flowchart TB
-    Adapters["CLI, HTTP, browser review and worker"] --> Commands["Typed commands and handlers"]
-    Adapters --> Queries["Typed queries and handlers"]
-    Commands --> Intake["Tagged intake"]
-    Commands --> Engine["Reconciliation engine"]
-    Commands --> Conversation["Shared append workflow"]
-    Intake --> Ports["Narrow provider capabilities"]
-    Engine --> Ports
-    Conversation --> Ports
-    Ports --> Vendors["GitHub and Zendesk"]
-    Intake --> Store[("Scoped business SQLite connection")]
-    Engine --> Store
-    Conversation --> Store
+    Adapters["Worker, CLI, HTTP and browser review"] --> Commands["Typed commands"]
+    Adapters --> Queries["Typed queries"]
+    Commands --> Workflows["Intake, field engine and append workflow"]
+    Workflows --> Policies["Pure merge, governance and retry policies"]
+    Workflows --> Providers["Narrow provider capabilities"]
+    Providers --> Vendors["GitHub and Zendesk"]
+    Workflows --> Store[("Scoped SQLite connection, repositories and lock")]
     Queries --> Store
-    Engine --> Policies["Pure merge, retry and governance policies"]
 ~~~
 
-| Boundary | Ownership |
+| Boundary | Responsibility |
 | --- | --- |
-| `Application/Context` | Composes constructor dependencies and dispatches shared use cases |
-| `Application/Command` and `Application/Query` | Synchronous CQRS; queries construct no vendor providers and run no workflows |
-| `Domain` | Pure merge, retry and approval decisions |
-| `Engine` | Read, decide, persist intent, authorize, patch and verify |
-| `Intake` and `Comments` | Separate creation/append recovery contracts |
-| `Infrastructure/Persistence` | Connection lifetime, additive schema upgrades, transactions and canonical locking |
-| `Http`, `Console` and `Runtime` | Transport authentication, representation and process lifecycle |
-| `Observability` | Provider-free metrics and current-table projection |
+| Application | Compose dependencies; dispatch synchronous commands/queries |
+| Domain | Pure merge, retry, approval and conflict-evidence identity |
+| Engine | Read, plan, authorize, patch and verify fields |
+| Intake / Comments | Distinct durable creation and append contracts |
+| Infrastructure | Scoped PDO connection, schema, transactions, locks, audit and OAuth |
+| HTTP / Console / Runtime | Authentication, representation and process lifecycle |
+| Observability | Provider-free current table and numeric history |
 
-PSR-4 maps `Bridge\` to `src/`; the checked-in PSR-12 gate enforces source style. A scoped injected business connection avoids hidden global state. Commands and queries share one database, without a queue, event sourcing or separate read store. Composer and browser tooling are development-only.
+PHP follows PSR-4/PSR-12 with focused injected dependencies. Queries create no providers/workflows. Commands and queries share one business database: no queue, event sourcing, separate read database or process-global Singleton.
 
-## Field contract and merge
+## Fields and reconciliation
 
 | Canonical field | GitHub | Zendesk |
 | --- | --- | --- |
-| `title` | Issue title | Subject |
-| `open` | Open | New, Open, Pending, Hold |
-| `closed` | Closed | Solved, Closed |
+| title | Title | Subject |
+| open | Open | New, Open, Pending, Hold |
+| closed | Closed | Solved, Closed |
 
-State writes use Zendesk Open or Solved. A title-only patch omits status, preserving Pending/Hold. An irreversibly Closed Zendesk ticket is immutable.
+A title-only patch preserves native status. State writes use Zendesk Open/Solved; irreversibly Closed tickets are immutable.
 
-Each field is compared with the last verified common baseline. Agreement needs no write. A one-sided change propagates; independent changes to different fields combine. First-seen disagreement or divergent edits to one field stop the whole pair. Timestamps guard evidence, not winner selection. Choosing a conflict source rechecks both records and selects the whole observed source record; it does not grant state approval.
+Compare each field against the last verified common baseline. Equal values require no write; one-sided edits propagate; independent fields combine. Initial disagreement or divergent same-field edits stop the whole pair. Timestamps guard freshness rather than choose winners.
 
 ~~~mermaid
-flowchart TD
-    Read["Lock and read current records"] --> Target["Merge fields or validate saved intent"]
-    Target -->|"Divergent or stale"| Stop["Retain conflict for source decision"]
-    Target -->|"Already at target"| Complete["Verify agreement and advance baseline"]
-    Target -->|"Writes remain"| Intent["Persist or retain exact plan"]
-    Intent --> Gate["Check writable and fresh authority"]
-    Gate -->|"Approval missing"| Hold["Await exact-plan approval"]
-    Gate -->|"Allowed"| Write["Audit, patch needed fields and read back"]
-    Write -->|"Target verified"| Complete
-    Write -->|"Mismatch"| Stop
-    Write -->|"Temporary or unknown outcome"| Retry["Keep intent and retry when due"]
+flowchart TB
+    Read["Read current sources"] --> Decide["Merge or validate durable target"]
+    Decide -->|"Divergent / stale"| Conflict["Conflict: explicit source choice"]
+    Decide -->|"Already agrees"| Verify["Verify and advance baseline"]
+    Decide -->|"Write needed"| Persist["Persist target, preimages and versions"]
+    Persist --> Gate["Writable and fresh authority?"]
+    Gate -->|"State approval missing"| Review["Await exact-plan approval"]
+    Gate -->|"Allowed"| Write["Audit, patch minimal fields and read back"]
+    Write -->|"Agrees"| Verify
+    Write -->|"Unknown / temporary"| Retry["Retain intent; read before retry"]
+    Write -->|"Different"| Conflict
 ~~~
 
-Later passes restart from current reads. A saved plan retains its exact target during recovery. A destination already at the complete target needs no resend. One still requiring a write must retain its recorded version and permitted preimage. Only verified convergence advances the baseline and clears the plan/approval. Five failed field attempts or permanent failures become dead work; retry resets a budget, never authority.
+Recovery retains the target. A destination already at the complete target needs no resend; one needing a write must retain its recorded version/preimage. Only verified agreement advances the baseline. Conflict source selection chooses the whole supported record and queues work; any resulting close/reopen still needs separate approval.
 
 ## Creation and conversations
 
-Intake checks a fresh open tagged ticket and initial description, then persists a random marker, immutable creation snapshot and audited attempt before POST. It remembers the observed issue ID before linking. After an unknown outcome it searches for that exact marker; absence does not authorize another POST. Removing a tag later does not unlink records.
+Intake freshly validates open/tag/description, then commits the immutable snapshot, marker and audited attempt before POST. It remembers the issue ID before linking. An attempted unknown create is searched by exact marker; absence never authorizes another POST.
 
-Two separately enabled append channels share `CommentWorkflow` but use independent durable ledgers:
+Two opt-in channels share the append engine and lock but have independent ledgers:
 
-- GitHub comments become internal Zendesk notes, including eligible existing original comments.
-- The first complete reverse scan records existing Zendesk IDs without posting history. Only subsequent original internal notes become GitHub comments.
+- GitHub comments become internal Zendesk notes.
+- Reverse initialization records existing Zendesk IDs without posting. Only subsequent original internal notes become GitHub comments.
 
-Both retain source attribution and immutable text. Opposite-ledger destination IDs and reserved markers suppress copied messages without filtering the integration account's genuine replies. A pending reverse note is re-read before a new append; changed/deleted/public content cannot replace its saved snapshot.
+Attribution and first-observed text are retained. Opposite-ledger IDs/markers suppress copies without excluding an integration account's genuine replies. Before a new reverse append, re-read source privacy/content. Changed/deleted/public notes cannot replace the snapshot.
 
-An attempted append is never blindly repeated. Recovery searches for a unique marked destination. New appends wait for fresh canonical field agreement without pending review. Observed public delivery sets a durable hold for both channels. Markers are correlation evidence, not signatures; delivered edits/redactions are not propagated.
+New appends wait for fresh field agreement without review work. Unknown attempted appends recover only by unique marked read-back. Observed public-copy evidence durably holds both channels.
 
 ## Authentication and monitoring
 
-JSON `/api` requests authenticate with the broad operator bearer before constructing business context. `/metrics` and `/monitoring/pairs` use a distinct monitoring credential. Health and Swagger contain no record data. No arbitrary source URLs or credentials are accepted in requests.
+The JSON API uses a broad operator bearer; monitoring has a separate read-only token. The browser adapter verifies only the selected project cookie against fixed internal Grafana and allows configured server administrators.
 
-The optional browser adapter verifies the selected project cookie against the fixed internal Grafana `/api/user`. Only explicitly allowed Grafana server administrators may inspect, choose a conflict source and submit exact-plan approval forms. The operator secret stays server-side. A POST requires the configured Host/Origin, explicit confirmation and an expiring HMAC bound to session, action, pair and reviewed evidence. Each source button also binds the selected side and complete conflict hash; the `ResolveConflict` command checks that hash under the canonical lock before its existing fresh vendor checks. Approval separately requires a reason and uses the unchanged `ApprovePlan` gate. Neither POST writes vendors; no browser GET selects, approves or reconciles.
+POST forms bind session, action, pair and reviewed evidence; source forms also bind the chosen side. The engine checks the conflict hash under its canonical lock and re-reads vendors. Approval separately requires an exact plan, reason and confirmation. Neither submission writes vendors. GET never selects, approves or reconciles. Exact Host/Origin, same-origin referrer policy and null-origin rejection protect native forms.
 
-Review pages use `Referrer-Policy: same-origin` so native forms preserve Origin. Opaque/null origins remain denied. Session rotation is returned to the browser. This is a local same-host adapter, not general SSO or independent reviewer identity.
+Grafana reads verified subjects, fixed links and direction counts from protected JSON. Prometheus supplies seven other panels and numeric history. Telemetry is best effort, separate from authoritative business audit.
 
-Grafana's current table reads protected JSON with last verified subjects, fixed links and each direction's counts. Prometheus scrapes numeric observations and supplies history and rules. Both read stored evidence without vendors or writes. Telemetry uses a separate SQLite registry; best-effort recording cannot decide business correctness.
-
-## Trade-offs and known limitations
-
-A canonical single-host lock coordinates commands but cannot lock vendor users or multiple hosts. Zendesk safe-update stamps help detect races; GitHub retains a GET/PATCH race and finite timestamp granularity. SQLite cannot transact across both services, so partial success and uncertain outcomes remain explicit.
-
-A small binary state model loses native workflow detail. Whole-plan approval and strict version checks can delay unrelated titles or messages. Complete history scans and nine metric series per mapping grow with volume; throughput, rate budgets and production availability are unmeasured.
-
-Account triggers, custom statuses, confidential-content policy, per-user roles, expiring/revocable approvals, encrypted storage and tested restore/rollback need further deployment work. [Assumptions](ASSUMPTIONS.md), [governance](GOVERNANCE.md) and [operations](OPERATIONS.md) define those limits.
+The [C4 pack](c4/README.md) owns visual zoom levels/storage/state lifecycles. [Assumptions](ASSUMPTIONS.md) owns trade-offs, authority and known limits; [operations](OPERATIONS.md) owns procedures.
