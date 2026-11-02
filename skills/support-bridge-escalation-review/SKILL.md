@@ -5,7 +5,7 @@ description: Inspect Support Bridge escalation evidence and explain conflicts or
 
 # Read-only escalation review
 
-Read [governance](../../docs/GOVERNANCE.md), [review operation](../../docs/OPERATIONS.md#inspect-and-review), assumptions and AGENTS. Work in Ubuntu WSL. This skill only inspects/explains evidence; it never approves, selects a source, retries or synchronizes.
+Read [governance](../../docs/ASSUMPTIONS.md#authority), [review operation](../../docs/OPERATIONS.md#inspect-and-review), assumptions and AGENTS. Work in Ubuntu WSL. This skill only inspects/explains evidence; it never approves, selects a source, retries or synchronizes.
 
 Use authenticated read queries for pair baseline, exact pending target/preimages/versions, conflict, retry and audit context. Do not construct providers or issue effectful commands as a shortcut. Monitoring is incomplete authority evidence; current source reads are separate observations.
 

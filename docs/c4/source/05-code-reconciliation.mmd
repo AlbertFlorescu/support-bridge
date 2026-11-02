@@ -38,6 +38,10 @@ classDiagram
     <<pure policy>>
     +afterFailure(attempts, retryable, retryAfter, now, jitter) RetryDecision
   }
+  class ConflictSnapshot {
+    <<pure evidence identity>>
+    +hash(array pair) string$
+  }
   class PairRepository {
     <<injected interface>>
     +withExclusiveLock(callable operation) mixed
@@ -63,6 +67,7 @@ classDiagram
   Engine *-- MergePolicy : constructs
   Engine *-- GovernancePolicy : constructs
   Engine *-- RetryPolicy : constructs
+  Engine ..> ConflictSnapshot : checks reviewed conflict identity
   Engine ..> PairRepository : injected business boundary
   Engine ..> Provider : two injected field providers
   Provider ..> Record : returns and checks

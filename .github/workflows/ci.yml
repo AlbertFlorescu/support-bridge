@@ -47,7 +47,7 @@ jobs:
         run: node --test tools/demo-viewer/viewer.test.cjs
       - name: Check documentation links and guide structure
         run: node --test tools/docs/check.test.cjs && node tools/docs/check.cjs
-      - name: Verify native browser approval submission
+      - name: Verify native browser review decisions
         run: node tools/browser/check.mjs
       - name: Validate OpenAPI and actual HTTP response fixtures
         working-directory: tools/api-docs
