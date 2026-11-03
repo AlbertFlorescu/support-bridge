@@ -42,7 +42,7 @@ Repair never approves, merges or deploys. If confirmation/dispatch fails, inspec
 
 ## Runtime data boundaries
 
-The npm CLI is build-only and absent from the resulting verification/runtime images. The pinned signed Infinity backend uses an API-only host allowlist and a monitoring-read token, without vendor/operator credentials. Their versions are Dockerfile CLI arguments, so Dependabot does not discover them as package manifests. Review their releases/advisories separately. Rerun backend/render/container checks before replacement; image scanning is not complete plugin coverage.
+The npm CLI is build-only and absent from the resulting verification/runtime images. The pinned signed Infinity backend uses an API-only host allowlist and a monitoring-read token, without vendor/operator credentials. Their versions are explicit build/workflow arguments, so Dependabot does not discover them as package manifests. Review their releases/advisories separately. Rerun backend/render/container checks before replacement; image scanning is not complete plugin coverage.
 
 Conversation channels transfer potentially confidential text to the configured repository audience. There is no visibility check, DLP/redaction, source-edit retraction or per-pair authorization. Internal-only payloads can still trigger tenant notifications. Pending reverse notes are checked again for privacy/content; public-copy evidence holds both directions.
 

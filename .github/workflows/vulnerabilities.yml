@@ -30,6 +30,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '26'
+      - name: Install selected npm CLI
+        run: npm install --global --ignore-scripts --no-audit --no-fund npm@12.2.1
       - name: Scan built images and all npm dependencies
         id: scan
         run: python3 tools/security/scan.py --output "$RUNNER_TEMP/vulnerability-evidence/input"
