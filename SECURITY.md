@@ -23,7 +23,7 @@ Dependabot security proposals and routine updates remain visible. Adoption needs
 
 ## Selected dependencies
 
-The deployment uses PHP 8.5 on Debian 13, Grafana 13.3 and Prometheus 3.15; verification uses Node 26 LTS, npm 12.2.1 and Composer 2.11. Swagger UI 5.34.1 ships as checked-in static assets. Image digests and lockfiles select exact inputs. Supported distro patches are applied during image builds, so APT/APK repository state also affects the result. PHP build tools are removed from the runtime.
+The deployment uses PHP 8.5 on Debian 13, Grafana 13.3 and Prometheus 3.15; verification uses Node 26 LTS and Composer 2.11, with npm 12.2.1 mounted only during its build. Swagger UI 5.34.1 ships as checked-in static assets. Image digests and lockfiles select exact inputs. Supported distro patches are applied during image builds, so APT/APK repository state also affects the result. PHP build tools are removed from the runtime.
 
 The November 2026 refresh adopts the six outstanding dependency proposals together, with regenerated Swagger assets. Debian 13 supplies a newer SQLite than Debian 12; available Brotli patches still require rebuilding. Review [PHP migration notes](https://www.php.net/manual/en/migration85.php), [Node support](https://nodejs.org/en/about/previous-releases), [Grafana releases](https://github.com/grafana/grafana/releases/tag/v13.3.0) and [Prometheus changes](https://github.com/prometheus/prometheus/releases/tag/v3.15.1). Infinity 4.1.5, Trivy 0.76.1, PHP_CodeSniffer 4.0.4 and pinned Actions were already current when reviewed.
 
@@ -42,7 +42,7 @@ Repair never approves, merges or deploys. If confirmation/dispatch fails, inspec
 
 ## Runtime data boundaries
 
-The npm CLI is verification-only. The pinned signed Infinity backend uses an API-only host allowlist and a monitoring-read token, without vendor/operator credentials. Their versions are Dockerfile CLI arguments, so Dependabot does not discover them as package manifests. Review their releases/advisories separately. Rerun backend/render/container checks before replacement; image scanning is not complete plugin coverage.
+The npm CLI is build-only and absent from the resulting verification/runtime images. The pinned signed Infinity backend uses an API-only host allowlist and a monitoring-read token, without vendor/operator credentials. Their versions are Dockerfile CLI arguments, so Dependabot does not discover them as package manifests. Review their releases/advisories separately. Rerun backend/render/container checks before replacement; image scanning is not complete plugin coverage.
 
 Conversation channels transfer potentially confidential text to the configured repository audience. There is no visibility check, DLP/redaction, source-edit retraction or per-pair authorization. Internal-only payloads can still trigger tenant notifications. Pending reverse notes are checked again for privacy/content; public-copy evidence holds both directions.
 

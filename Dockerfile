@@ -41,12 +41,13 @@ FROM runtime AS verification
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 libatomic1 unzip && rm -rf /var/lib/apt/lists/*
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
-COPY --from=node /usr/local/lib/node_modules/npm/ /opt/npm/
 COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 COPY composer.json composer.lock phpcs.xml.dist ./
 RUN composer install --no-interaction --no-progress --no-plugins --no-scripts --prefer-dist && composer autoload:check
 COPY tools/api-docs/package*.json tools/api-docs/
-RUN cd tools/api-docs && node /opt/npm/bin/npm-cli.js ci --ignore-scripts --no-audit --no-fund
+# npm installs locked test dependencies during the build; it is not shipped.
+RUN --mount=type=bind,from=node,source=/usr/local/lib/node_modules/npm,target=/opt/npm,readonly \
+    cd tools/api-docs && node /opt/npm/bin/npm-cli.js ci --ignore-scripts --no-audit --no-fund
 COPY tools/api-docs/*.cjs tools/api-docs/
 COPY tools/demo-viewer/ tools/demo-viewer/
 COPY tools/oauth/ tools/oauth/
