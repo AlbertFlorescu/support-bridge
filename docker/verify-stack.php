@@ -363,7 +363,7 @@ final class StackVerification
         }
         $body = curl_exec($handle);
         $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-        curl_close($handle);
+        unset($handle);
         $this->check(
             is_string($body) && strlen($body) <= 4_194_304,
             'An internal HTTP read failed or exceeded the verification limit.'

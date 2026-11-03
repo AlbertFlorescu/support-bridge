@@ -82,7 +82,7 @@ final readonly class ZendeskTokenIssuer
                 throw new RuntimeException('The OAuth HTTPS request failed.');
             }
         } finally {
-            curl_close($handle);
+            unset($handle);
         }
         $response = json_decode($body, true, 16, JSON_THROW_ON_ERROR);
         if (!is_array($response)) {

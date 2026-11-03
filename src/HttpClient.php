@@ -170,7 +170,7 @@ class HttpClient
             }
             $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
         } finally {
-            curl_close($handle);
+            unset($handle);
         }
 
         $decoded = [];
