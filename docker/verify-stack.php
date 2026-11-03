@@ -209,6 +209,13 @@ final class StackVerification
             $datasource['status'] === 200 && ($datasource['json']['url'] ?? null) === self::PROMETHEUS,
             'Grafana must query Prometheus through its Compose service address.'
         );
+        $plugins = $this->get(self::GRAFANA . '/api/plugins?type=datasource', $grafanaAuth);
+        $pluginIds = array_column($plugins['json'] ?? [], 'id');
+        sort($pluginIds);
+        $this->check(
+            $plugins['status'] === 200 && $pluginIds === ['prometheus', 'yesoreyeram-infinity-datasource'],
+            'Grafana must expose only the selected Prometheus and Infinity data sources.'
+        );
         $dashboard = $this->get(self::GRAFANA . '/api/dashboards/uid/supportbridge-overview', $grafanaAuth);
         $panels = $dashboard['json']['dashboard']['panels'] ?? null;
         $this->check(

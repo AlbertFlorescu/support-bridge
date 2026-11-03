@@ -2,6 +2,10 @@ FROM grafana/grafana:13.3.0@sha256:488984b716c0862639f91a698adbe2862677a5a07bad4
 
 USER root
 RUN apk upgrade --no-cache \
+    && for plugin in cloudwatch elasticsearch grafana-postgresql-datasource \
+        grafana-pyroscope-datasource influxdb jaeger loki mssql mysql opentsdb stackdriver tempo zipkin; do \
+        rm -rf -- "/usr/share/grafana/data/plugins-bundled/$plugin"; \
+    done \
     && grafana cli --pluginsDir /opt/grafana/plugins plugins install yesoreyeram-infinity-datasource 4.1.5 \
     && chown -R 472:472 /opt/grafana/plugins
 ENV GF_PATHS_PLUGINS=/opt/grafana/plugins
