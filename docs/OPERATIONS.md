@@ -123,7 +123,7 @@ node tools/browser/check.mjs
 python3 -m unittest discover -s tools/security -p 'test_*.py'
 ~~~
 
-Native form checks need Node 24/Linux Chromium (`BRIDGE_TEST_BROWSER` can select it). They use local providers and an injected Grafana verifier; lifecycle checks separately use real Grafana sessions. Neither approves live records. Render/inspect Mermaid separately from Markdown link/fence checks.
+Native form checks need Node 26/Linux Chromium (`BRIDGE_TEST_BROWSER` can select it). They use local providers and an injected Grafana verifier; lifecycle checks separately use real Grafana sessions. Neither approves live records. Render/inspect Mermaid separately from Markdown link/fence checks.
 
 For a **disposable** project, select separate `COMPOSE_PROJECT_NAME` and ports, then run the verification image, stack smoke, `docker/check-alerts.sh`, `check-lifecycle.sh`, `check-live-demo.sh` and `check-oauth-renewal.sh`. These own isolated fixtures. Remove only disposable volumes. Retained-stack checks must use current Grafana credentials without resetting accounts.
 

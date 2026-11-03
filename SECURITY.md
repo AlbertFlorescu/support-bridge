@@ -21,6 +21,14 @@ PR/main/daily/manual inventories retain reports for 14 days. Only a trusted defa
 
 Dependabot security proposals and routine updates remain visible. Adoption needs current-revision CI and migration review; do not suppress a newer runtime line solely because the current deployment uses another. A vendor's fixed package version does **not** prove an available parent image contains the fix. Remediation needs a reviewed image/rebuild and another scan. Built inventory is not proof of the currently running image.
 
+## Selected dependencies
+
+The deployment uses PHP 8.5 on Debian 13, Grafana 13.3 and Prometheus 3.15; verification uses Node 26 LTS and Composer 2.11. Swagger UI 5.34.1 ships as checked-in static assets. Image digests and lockfiles select exact inputs. Supported distro patches are applied during image builds, so APT/APK repository state also affects the result. PHP build tools are removed from the runtime.
+
+The November 2026 refresh adopts the six outstanding dependency proposals together, with regenerated Swagger assets. Debian 13 supplies a newer SQLite than Debian 12; available Brotli patches still require rebuilding. Review [PHP migration notes](https://www.php.net/manual/en/migration85.php), [Node support](https://nodejs.org/en/about/previous-releases), [Grafana releases](https://github.com/grafana/grafana/releases/tag/v13.3.0) and [Prometheus changes](https://github.com/prometheus/prometheus/releases/tag/v3.15.1). Infinity 4.1.5, Trivy 0.76.1, PHP_CodeSniffer 4.0.4 and pinned Actions were already current when reviewed.
+
+An upgrade is accepted only after the verification suite, disposable lifecycle/renewal checks and retained-volume monitoring checks. Scan the resulting images again; keep remaining upstream findings in the tracker rather than suppressing them.
+
 ## Swagger asset repair
 
 The [repair workflow](.github/workflows/dependency-assets.yml) complements eligible dependency PRs:
