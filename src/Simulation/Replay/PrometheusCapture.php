@@ -92,7 +92,7 @@ final readonly class PrometheusCapture
         ]);
         $success = curl_exec($handle);
         $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-        curl_close($handle);
+        unset($handle);
         if ($success === false || $status !== 200) {
             throw new \RuntimeException('The monitoring observation is unavailable.');
         }

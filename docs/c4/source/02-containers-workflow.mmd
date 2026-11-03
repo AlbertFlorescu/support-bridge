@@ -24,9 +24,9 @@ flowchart TB
   accDescr: The API, scheduled worker and explicit CLI compose the same PHP application. SQLite files are shared storage, not database servers. Every source effect uses the ordinary governance and recovery rules.
   Operator["Operator<br/>[Person]<br/>Browser review or explicit administration"]:::person
   subgraph Bridge["Support Bridge - workflow container view"]
-    API["Operator API and browser review<br/>[Container: PHP 8.3 HTTP process]<br/>Authenticates requests and dispatches shared use cases"]:::container
-    Worker["Scheduled worker<br/>[Container: PHP 8.3 process]<br/>Intake, fields, forward comments, then reverse notes"]:::container
-    CLI["Administrative CLI<br/>[Container: on-demand PHP 8.3 process]<br/>Explicit commands, queries and private capture"]:::container
+    API["Operator API and browser review<br/>[Container: PHP 8.5 HTTP process]<br/>Authenticates requests and dispatches shared use cases"]:::container
+    Worker["Scheduled worker<br/>[Container: PHP 8.5 process]<br/>Intake, fields, forward comments, then reverse notes"]:::container
+    CLI["Administrative CLI<br/>[Container: on-demand PHP 8.5 process]<br/>Explicit commands, queries and private capture"]:::container
     Business[("Business state and required audit<br/>[Data-store container: live.sqlite]<br/>Pairs, plans, approvals, intake and independent note ledgers")]:::store
     Telemetry[("Diagnostic registry<br/>[Data-store container: metrics.sqlite]<br/>Best-effort counters and histograms")]:::store
   end

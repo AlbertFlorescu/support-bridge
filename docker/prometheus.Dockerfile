@@ -1,4 +1,4 @@
-FROM prom/prometheus:v3.13.5@sha256:aafa9d694e6a883c02db516d9f6e5b84e14195f49a2a6456a4cca815edda72b9
+FROM prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2
 
 COPY --chown=65534:65534 docker/prometheus.yml /etc/prometheus/prometheus.yml
 COPY --chown=65534:65534 monitoring/alerts.yml /etc/prometheus/alerts.yml

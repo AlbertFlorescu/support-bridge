@@ -26,7 +26,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install PHP CLI extensions
-        run: sudo apt-get update -qq && sudo apt-get install -y php-cli php-sqlite3 php-curl php-xml composer unzip
+        run: sudo apt-get update -qq && sudo apt-get install -y php-cli php-sqlite3 php-curl php-xml composer unzip libatomic1
       - name: Install locked PHP development tools and check PSR-12
         run: |
           composer install --no-interaction --no-progress --no-plugins --no-scripts --prefer-dist
@@ -38,9 +38,11 @@ jobs:
         run: php bin/check.php
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version: '26'
           cache: npm
           cache-dependency-path: tools/api-docs/package-lock.json
+      - name: Install selected npm CLI
+        run: npm install --global --ignore-scripts --no-audit --no-fund npm@12.2.1
       - name: Test vulnerability reporting and safe asset repair
         run: python3 -m unittest discover -s tools/security -p 'test_*.py' -v
       - name: Verify read-only demo replay and portable evidence boundaries

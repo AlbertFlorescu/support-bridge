@@ -1,12 +1,15 @@
 # syntax=docker/dockerfile:1
-FROM php:8.3-cli-bookworm@sha256:cdb77e306d6bb99db40e513fbe036ecc6c53b575cbcb7e581387845fef26d755 AS extensions
+FROM php:8.5-cli-trixie@sha256:9236fd373d3bcda0659cf94838a744bd79791419292958963f8c6b34a0071554 AS extensions
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libcurl4-openssl-dev \
     && docker-php-ext-install -j2 curl pcntl
 
-FROM php:8.3-cli-bookworm@sha256:cdb77e306d6bb99db40e513fbe036ecc6c53b575cbcb7e581387845fef26d755 AS runtime
+FROM php:8.5-cli-trixie@sha256:9236fd373d3bcda0659cf94838a744bd79791419292958963f8c6b34a0071554 AS runtime
+# Apply the selected distribution's available patches; runtime needs no compiler.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libcurl4 ca-certificates \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends libcurl4t64 ca-certificates \
+    && apt-get purge -y --auto-remove $PHPIZE_DEPS \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 bridge \
     && useradd --uid 10001 --gid bridge --home-dir /tmp --no-create-home --shell /usr/sbin/nologin bridge
@@ -28,20 +31,23 @@ EXPOSE 8080
 ENTRYPOINT ["php", "/app/docker/entrypoint.php"]
 CMD ["api"]
 
-FROM node:24-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS node
+FROM node:26-trixie-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39 AS node
+# The Node image bundles an older npm CLI; review this pin separately.
+RUN npm install --global --ignore-scripts --no-audit --no-fund npm@12.2.1
 
-FROM composer:2.10.3@sha256:b6dcd72ca98fa19d0e5b8476de179859704891fad06dd9e0b96833d4c430a5fc AS composer
+FROM composer:2.11.1@sha256:5190d9b445add2fa26090108273cb1ef1e1af98175201c737b85b3c4f90fbf7c AS composer
 
 FROM runtime AS verification
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 unzip && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 libatomic1 unzip && rm -rf /var/lib/apt/lists/*
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
-COPY --from=node /usr/local/lib/node_modules/npm/ /opt/npm/
 COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 COPY composer.json composer.lock phpcs.xml.dist ./
 RUN composer install --no-interaction --no-progress --no-plugins --no-scripts --prefer-dist && composer autoload:check
 COPY tools/api-docs/package*.json tools/api-docs/
-RUN cd tools/api-docs && node /opt/npm/bin/npm-cli.js ci --ignore-scripts --no-audit --no-fund
+# npm installs locked test dependencies during the build; it is not shipped.
+RUN --mount=type=bind,from=node,source=/usr/local/lib/node_modules/npm,target=/opt/npm,readonly \
+    cd tools/api-docs && node /opt/npm/bin/npm-cli.js ci --ignore-scripts --no-audit --no-fund
 COPY tools/api-docs/*.cjs tools/api-docs/
 COPY tools/demo-viewer/ tools/demo-viewer/
 COPY tools/oauth/ tools/oauth/

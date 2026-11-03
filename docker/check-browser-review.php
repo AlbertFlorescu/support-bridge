@@ -43,7 +43,7 @@ $request = static function (
     }
     $response = curl_exec($curl);
     $status = curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
-    curl_close($curl);
+    unset($curl);
     if ($response === false) {
         throw new RuntimeException('Disposable browser HTTP request failed.');
     }

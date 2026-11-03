@@ -93,7 +93,7 @@ final class GrafanaSession
         ]);
         $ok = curl_exec($handle);
         $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-        curl_close($handle);
+        unset($handle);
         if ($ok === false) {
             throw new HttpFailure(503, 'grafana_unavailable', 'Grafana sign-in verification is unavailable.');
         }
