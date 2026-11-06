@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1
-FROM php:8.5-cli-trixie@sha256:9236fd373d3bcda0659cf94838a744bd79791419292958963f8c6b34a0071554 AS extensions
+FROM php:8.5-cli-trixie@sha256:50956f094e90a716d43bea28087d447555ad80510e386ab8c9c10d8c70d781a9 AS extensions
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libcurl4-openssl-dev \
     && docker-php-ext-install -j2 curl pcntl
 
-FROM php:8.5-cli-trixie@sha256:9236fd373d3bcda0659cf94838a744bd79791419292958963f8c6b34a0071554 AS runtime
+FROM php:8.5-cli-trixie@sha256:50956f094e90a716d43bea28087d447555ad80510e386ab8c9c10d8c70d781a9 AS runtime
 # Apply the selected distribution's available patches; runtime needs no compiler.
 RUN apt-get update \
     && apt-get upgrade -y \
