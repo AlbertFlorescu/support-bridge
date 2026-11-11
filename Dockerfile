@@ -35,7 +35,7 @@ FROM node:26-trixie-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a
 # The Node image bundles an older npm CLI; review this pin separately.
 RUN npm install --global --ignore-scripts --no-audit --no-fund npm@12.2.1
 
-FROM composer:2.11.1@sha256:5190d9b445add2fa26090108273cb1ef1e1af98175201c737b85b3c4f90fbf7c AS composer
+FROM composer:2.11.2@sha256:5bcb28b8d0edc4091125f8218f9d088f998bdfc843f8fbb9a4beb4dcd8625684 AS composer
 
 FROM runtime AS verification
 USER root
